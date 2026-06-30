@@ -243,5 +243,36 @@ Verifica:
   (2/8→1/8). Click-su-posto (modale) ancora funzionante. Zero errori JS.
 - DA FARE: conferma touch su iPhone reale (Safari).
 
-Non fatto (prossimo): B5 export/import nativo + rimozione iframe/blob TOOL_TABLEAU
-(chiude 8.2 e riduce drasticamente la dimensione del file). Poi C/D/E3.
+Non fatto (in questo giro): B5 export/import nativo + rimozione iframe/blob
+TOOL_TABLEAU (chiude 8.2 e riduce drasticamente la dimensione del file). Poi C/D/E3.
+
+## Giro 4 (Claude Code) — ricostruzione delle suite di test
+
+Difetto/rischio per primo: le 7 suite originali non sono recuperabili, quindi NON
+sono riproducibili verbatim (i conteggi storici 19/18/7/43/27/25/12 erano delle
+suite originali). Ho ricostruito la copertura funzionale per area, con asserzioni
+verificate sul codice (lezione del registro: l'asserzione dev'essere giusta, non
+solo verde — un mio errore tipico già corretto: simulateAperitivo ritorna un
+oggetto {nNav,GRID,arr,...,stations:[]}, non l'array; asserzione riallineata).
+
+Architettura test: harness condiviso `tests/_harness.js` estrae blocchi di
+funzioni pure da index.html tra ancore testuali e li esegue con new Function +
+stub (ev/meta/Store/$/...). Runner unico `tests/run_all.js`: node --check sullo
+<script> estratto + tutte le suite, con totale.
+
+Suite ricostruite e conteggi attuali (verdi):
+  b1_test.js          17   modello posti: forme, vicinati, footprint, validazione
+  b2_test.js          17   optimizer: costo (caso B2 -10), vincoli, affinità
+  import_test.js      28   parser CSV/TSV, delimitatori, mappatura, dedup, buildImportPlan
+  sim_engine_test.js  16   Erlang-C, p95 analitico, carico, server, primitive, Monte Carlo
+  a2_test.js          14   simStatusOf, simMakeStation, simSnapshot
+  a4_test.js           9   scenari: id, salva/carica/elimina, round-trip config
+  TOTALE             101   + node --check OK
+
+bisync (12, storica): NON ricostruita di proposito. Testava il sync hub↔iframe
+Tableau via postMessage; lo stadio B5 (prossimo) rimuove quell'iframe e il bridge,
+quindi una regressione su di esso testerebbe codice in via di eliminazione. Da
+ridefinire (se serve) come test del round-trip export/import nativo dopo B5.
+
+Lacuna nota: a2/a4 coprono la logica pura; le parti DOM (canvas A3, wiring,
+rendering) restano verificabili solo in browser/Playwright, non in Node.
