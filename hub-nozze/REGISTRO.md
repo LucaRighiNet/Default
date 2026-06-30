@@ -36,7 +36,7 @@ TABLEAU TAVOLI (nativo)
   B2 optimizer 2-opt + vincoli + affinità + undo          FATTO  25 test
   B3 planimetria SVG                                      DA FARE (solo browser)
   B4 drag-drop assegnazione posti (rischio alto)          DA FARE (solo browser)
-  B5 export/import + rimozione iframe Tableau             DA FARE
+  B5 rimozione iframe Tableau + blob TOOL_TABLEAU         FATTO   file 728→187 KB
 
 IMPORT GUIDATO OSPITI
   E1 motore parser CSV/TSV + mappatura + dedup            FATTO  43 test
@@ -76,7 +76,7 @@ rilevato per feature detection (window.storage | localStorage | RAM).
 - Drag-drop touch (B4), parte più fragile: gestire touch + mouse, evitare scroll durante il trascinamento, hit-testing sui posti SVG. Su Claude Code testabile con Playwright (pointer events); conferma finale sul dispositivo reale.
 - Resa grafica del redesign Adriatico, SVG (B3), canvas (A3), wizard import (E2): giudizio estetico umano, da validare in browser.
 - Iframe Tableau + blob base64 restano finché B5 non è completo. Se una CSP locale blocca l'iframe, la scheda Tavoli resta "apri strumento". Mitigato: B porta tutto nativo.
-- Dimensione hub ≈713 KB; cresce con SheetJS (E3) e dati utente.
+- Dimensione hub ≈187 KB dopo B5 (era ≈713 KB col blob Tableau); cresce con SheetJS (E3) e dati utente.
 
 ---
 
@@ -276,3 +276,38 @@ ridefinire (se serve) come test del round-trip export/import nativo dopo B5.
 
 Lacuna nota: a2/a4 coprono la logica pura; le parti DOM (canvas A3, wiring,
 rendering) restano verificabili solo in browser/Playwright, non in Node.
+
+## Giro 5 (Claude Code) — B5: rimozione iframe Tableau + blob (chiude anche 8.2 e C)
+
+Difetto/rischio per primo: la rimozione è irreversibile a livello di codice. Il
+vecchio Tableau aveva un proprio store (tableau_v3) MAI sincronizzato in modo
+compatibile col modello nativo: syncFromTableau mappava i tavoli come
+{id,name,capacity}, incompatibile col nativo {id,name,shape,seats,seatIds,x,y}.
+Quindi l'iframe non era una sorgente valida e la sua rimozione elimina un
+conflitto latente, non una funzione viva. Eventuali dati seduti SOLO nel vecchio
+Tableau (mai rientrati nell'hub) non sono recuperabili: accettato, perché non
+erano comunque nella sorgente unica.
+
+Rimosso (con verifica di zero riferimenti residui):
+- blob base64 TOOL_TABLEAU (~536 KB, la riga enorme).
+- openTool, hubGuestsForTool, syncFromTableau, renderToolSummary, var toolSummary.
+- listener window "message" (bridge postMessage hub↔iframe).
+- sezione "Editor tavoli (Tableau legacy)" in viewSeating + ramo data-act openTool.
+Collegato il tag tavolo della vista Ospiti al modello nativo: da g.table (settato
+solo dal sync rimosso) a seatTableOf(g.id). Sorgente unica preservata.
+
+Effetto: file da 727.923 a 186.881 byte (−74%). La scheda Tavoli è ora 100%
+nativa; niente più dipendenza da iframe/CSP/blob. Risolve alla radice 8.2
+(workspace schiacciato) e la pulizia C.
+
+Verifica:
+- Nessun riferimento residuo ai simboli rimossi (grep). node --check OK.
+- Suite: 101/101 verdi.
+- Playwright 430x932: 8 schede renderizzano; drag-drop posti ancora funzionante
+  (posto→posto, riserva→posto, posto→riserva); persistenza dopo reload; zero
+  errori JS.
+
+Stato Tableau: B1-B5 completi, port nativo concluso. Restano: D (guida/
+onboarding), E3 (.xlsx via SheetJS, opzionale), e l'eventuale ridefinizione di
+bisync come round-trip export/import nativo. Geometria seatPositions ancora da
+riallineare ad App_tavoli_ solo se i ref/ verranno forniti (non bloccante).
