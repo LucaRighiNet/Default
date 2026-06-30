@@ -206,7 +206,42 @@ Verifica:
   chiusura entro 250ms da una modifica perde l'ultima azione. Non introdotto da
   me; valutare un flush sincrono su visibilitychange/pagehide in un giro futuro.
 
-Non fatto (prossimi stadi, approvazione dedicata): B4 drag-drop (rischio alto,
-verifica su dispositivo), B5 export/import nativo + rimozione iframe (chiude 8.2),
-C/D/E3. Geometria seatPositions da riallineare ad App_tavoli_ se/quando i ref/
-vengono caricati.
+Non fatto (in questo giro): B4 drag-drop, B5 export/import nativo + rimozione
+iframe (chiude 8.2), C/D/E3. Geometria seatPositions da riallineare ad
+App_tavoli_ se/quando i ref/ vengono caricati.
+
+## Giro 3 (Claude Code) — B4 drag-drop posti (touch + mouse)
+
+Difetto/rischio per primo: la conferma finale del touch resta sul dispositivo
+reale. Verificato in Playwright con eventi pointer (mouse), NON ancora su iPhone
+Safari. Il drag usa Pointer Events unificati + touch-action:none sui trascinabili
+per non far partire lo scroll, ma il comportamento touch reale va provato.
+
+Scelta d'ordine: B4 prima di B5. Si porta la planimetria nativa alla parità col
+Tableau iframe (drag-drop incluso) PRIMA di rimuovere l'iframe in B5, così non
+c'è una finestra in cui si perde il trascinamento. Non si smonta il vecchio
+finché il nuovo non lo sostituisce.
+
+Implementazione (additiva in index.html):
+- Refactor: estratto seatAssignCore(table,idx,gid) (dedup + commit), riusato da
+  modale (click) e drag. Nuovo seatUnseat(gid).
+- "Riserva ospiti": tray di chip trascinabili (ospiti sedibili non assegnati)
+  sotto la planimetria, dentro #planiHost.
+- wireSeating(): un solo pointerdown su #planiHost (delega), ghost flottante,
+  soglia di 6px per distinguere drag da click, hit-test su pointerup con
+  document.elementFromPoint + closest('[data-seat-target]'/'#seatTray').
+  Drop su posto = assegna/sposta (seatAssignCore, con auto-dedup); drop su
+  riserva = libera (seatUnseat). Soppressione del click post-drag per non aprire
+  la modale. Ri-agganciato dopo ogni render() via hook accanto a wireAperitivo.
+- I posti SVG occupati portano data-drag-guest (sorgente) e tutti data-seat-target
+  (bersaglio), con touch-action:none.
+
+Verifica:
+- node --check OK; seat_native_test 9/9.
+- Playwright 430x932: drag posto→posto sposta l'ospite (1/8 invariato);
+  drag riserva→posto assegna (1/8→2/8, riserva 8→7); drag posto→riserva libera
+  (2/8→1/8). Click-su-posto (modale) ancora funzionante. Zero errori JS.
+- DA FARE: conferma touch su iPhone reale (Safari).
+
+Non fatto (prossimo): B5 export/import nativo + rimozione iframe/blob TOOL_TABLEAU
+(chiude 8.2 e riduce drasticamente la dimensione del file). Poi C/D/E3.

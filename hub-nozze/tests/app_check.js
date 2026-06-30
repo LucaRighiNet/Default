@@ -244,6 +244,7 @@ function render(){
   else if(active==="lists") v.innerHTML=viewLists();
   else v.innerHTML=viewPlaceholder(active);
   if(active==="aperitivo") wireAperitivo();
+  if(active==="seating") wireSeating();
 }
 
 /* ============ DASHBOARD ============ */
@@ -528,7 +529,7 @@ function renderPlanimetria(){
       const fill=g?(g.side==='A'?'#cfe3ee':'#f0ddd0'):'#ffffff';
       const stroke=g?'#5c8aa3':'#c2cdcf';
       const dash=g?'':' stroke-dasharray="0.12 0.12"';
-      seats+=`<g transform="translate(${p.x.toFixed(2)},${p.y.toFixed(2)})" data-act="assignSeat" data-table="${t.id}" data-idx="${i}" style="cursor:pointer">`
+      seats+=`<g transform="translate(${p.x.toFixed(2)},${p.y.toFixed(2)})" data-act="assignSeat" data-table="${t.id}" data-idx="${i}" data-seat-target="1"${g?` data-drag-guest="${gid}"`:""} style="cursor:pointer;touch-action:none">`
         +`<circle r="0.34" fill="${fill}" stroke="${stroke}" stroke-width="0.04"${dash}/>`
         +(g?`<text x="0" y="0.12" text-anchor="middle" font-size="0.34" fill="#23373b">${esc(seatInitials(g))}</text>`:"")
         +`</g>`;
@@ -575,6 +576,19 @@ function optimizeTable(id){
   t.seatIds=res.order.map(x=>x===undefined?null:x);
   commit(res.improved?("Ottimizzato: costo "+res.before.toFixed(1)+" → "+res.after.toFixed(1)):"Nessun miglioramento possibile");
 }
+// Core riusabile da modale (click) e drag-drop (B4): assegna/libera un posto con dedup.
+function seatAssignCore(tableId, idx, gid){
+  const e=ev(), t=(e.tables||[]).find(x=>x.id===tableId); if(!t) return;
+  idx=+idx; t.seatIds=t.seatIds||new Array(t.seats).fill(null);
+  if(gid){ (e.tables||[]).forEach(tt=>{ (tt.seatIds||[]).forEach((g,i)=>{ if(g===gid) tt.seatIds[i]=null; }); }); }
+  t.seatIds[idx]=gid||null;
+  commit(gid?"Posto assegnato":"Posto liberato");
+}
+function seatUnseat(gid){
+  if(!gid) return; const e=ev(); let changed=false;
+  (e.tables||[]).forEach(tt=>{ (tt.seatIds||[]).forEach((g,i)=>{ if(g===gid){ tt.seatIds[i]=null; changed=true; } }); });
+  if(changed) commit("Ospite rimosso dal tavolo");
+}
 function assignSeat(tableId, idx){
   const e=ev(), t=(e.tables||[]).find(x=>x.id===tableId); if(!t) return;
   idx=+idx; const occupied=(t.seatIds||[])[idx]||"";
@@ -583,27 +597,69 @@ function assignSeat(tableId, idx){
   const opts=cand.map(g=>`<option value="${g.id}"${g.id===occupied?" selected":""}>${esc(g.name)} (${g.side})</option>`).join("");
   modal("Posto "+(idx+1)+" — "+esc(t.name),
     `<div class="field"><label>Ospite</label><select class="inp" id="seat_g"><option value="">— vuoto —</option>${opts}</select></div>`,
-    [{label:"Annulla"},{label:"Assegna",cls:"",fn:()=>{
-       const gid=$("#seat_g").value||null;
-       t.seatIds=t.seatIds||new Array(t.seats).fill(null);
-       if(gid){ (e.tables||[]).forEach(tt=>{ (tt.seatIds||[]).forEach((g,i)=>{ if(g===gid) tt.seatIds[i]=null; }); }); }
-       t.seatIds[idx]=gid;
-       commit(gid?"Posto assegnato":"Posto liberato");
-     }}]);
+    [{label:"Annulla"},{label:"Assegna",cls:"",fn:()=>{ seatAssignCore(tableId, idx, $("#seat_g").value||null); }}]);
+}
+/* ---- drag-drop posti (B4): touch + mouse via Pointer Events ---- */
+// Ri-agganciato dopo ogni render() (listener non delegati, pattern wireAperitivo).
+function wireSeating(){
+  const host=document.getElementById("planiHost"); if(!host) return;
+  let st=null;
+  const opts={capture:true,passive:false};
+  const guestName=gid=>{ const g=seatGuestById(gid); return g?g.name:"ospite"; };
+  function onMove(e){
+    if(!st) return;
+    const dx=e.clientX-st.x0, dy=e.clientY-st.y0;
+    if(!st.dragging && Math.hypot(dx,dy)>6){ st.dragging=true; st.ghost.style.display=""; }
+    if(st.dragging){ e.preventDefault(); st.ghost.style.left=e.clientX+"px"; st.ghost.style.top=e.clientY+"px"; }
+  }
+  function onUp(e){
+    document.removeEventListener("pointermove",onMove,opts);
+    document.removeEventListener("pointerup",onUp,opts);
+    const s=st; st=null; if(!s) return;
+    if(s.ghost) s.ghost.remove();
+    if(!s.dragging) return; // nessun movimento: era un click, lascia partire la modale
+    // sopprimi il click che segue il pointerup (mouse/touch) per non aprire la modale
+    const sup=ce=>{ ce.stopPropagation(); ce.preventDefault(); document.removeEventListener("click",sup,true); };
+    document.addEventListener("click",sup,true);
+    const el=document.elementFromPoint(e.clientX,e.clientY); if(!el) return;
+    const seat=el.closest&&el.closest("[data-seat-target]");
+    if(seat){ seatAssignCore(seat.getAttribute("data-table"), seat.getAttribute("data-idx"), s.gid); return; }
+    if(el.closest&&el.closest("#seatTray")){ seatUnseat(s.gid); return; }
+  }
+  host.addEventListener("pointerdown", e=>{
+    const src=e.target.closest&&e.target.closest("[data-drag-guest]"); if(!src) return;
+    const gid=src.getAttribute("data-drag-guest"); if(!gid) return;
+    const ghost=document.createElement("div");
+    ghost.textContent=guestName(gid);
+    ghost.style.cssText="position:fixed;z-index:9999;transform:translate(-50%,-50%);pointer-events:none;background:#23373b;color:#fff;padding:4px 9px;border-radius:9px;font-size:12px;display:none;left:"+e.clientX+"px;top:"+e.clientY+"px";
+    document.body.appendChild(ghost);
+    st={gid,x0:e.clientX,y0:e.clientY,dragging:false,ghost};
+    document.addEventListener("pointermove",onMove,opts);
+    document.addEventListener("pointerup",onUp,opts);
+  });
 }
 function viewSeating(){
   const tables=ev().tables||[];
   const totSeats=tables.reduce((s,t)=>s+(t.seats||0),0);
   const seated=tables.reduce((s,t)=>s+seatHeadAt(t),0);
+  const seatedSet=new Set(); tables.forEach(t=>(t.seatIds||[]).forEach(g=>{ if(g) seatedSet.add(g); }));
+  const unseated=seatableGuests().filter(g=>!seatedSet.has(g.id));
+  const tray=`<div id="seatTray" data-tray="1" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;padding:8px;border:1px dashed var(--line);border-radius:10px;min-height:38px">`
+    +(unseated.length?unseated.map(g=>`<span class="tag" data-drag-guest="${g.id}" style="cursor:grab;touch-action:none">${esc(g.name)} (${g.side})</span>`).join("")
+      :`<span class="muted" style="font-size:13px">Tutti gli ospiti sedibili sono assegnati.</span>`)+`</div>`;
   return `
-  <div class="card"><span class="pill todo">come funziona</span> Planimetria nativa (B3, anteprima): crea i tavoli e assegna gli ospiti toccando un posto. L'editor Tableau legacy resta disponibile finché il port nativo non è completo (B5).</div>
+  <div class="card"><span class="pill todo">come funziona</span> Planimetria nativa (anteprima): crea i tavoli e assegna gli ospiti. Tocca un posto per scegliere dall'elenco, oppure trascina un ospite dalla riserva su un posto (e trascinalo sulla riserva per liberarlo). L'editor Tableau legacy resta finché il port nativo non è completo (B5).</div>
   <div class="grid cards">
     <div class="card kpi"><div class="v">${tables.length}</div><div class="l">Tavoli</div></div>
     <div class="card kpi"><div class="v">${seated}/${totSeats}</div><div class="l">Posti occupati</div></div>
-    <div class="card kpi"><div class="v">${seatableGuests().length}</div><div class="l">Ospiti da sedere</div></div>
+    <div class="card kpi"><div class="v">${unseated.length}</div><div class="l">Ospiti da sedere</div></div>
   </div>
   <div class="sec-title"><h2>Planimetria</h2><span><button class="btn sm" data-act="addTable">+ Tavolo</button></span></div>
-  <div class="card" style="padding:8px">${renderPlanimetria()}</div>
+  <div id="planiHost">
+    <div class="card" style="padding:8px">${renderPlanimetria()}</div>
+    <div class="sec-title" style="margin-top:6px"><h2 style="font-size:15px">Riserva ospiti</h2></div>
+    ${tray}
+  </div>
   ${tables.length?`<div class="scroll-x"><table class="tbl"><thead><tr><th>Tavolo</th><th>Forma</th><th class="num">Occupati</th><th></th></tr></thead><tbody>${tables.map(t=>`<tr><td>${esc(t.name)}</td><td>${SEAT_SHAPES[t.shape]||esc(t.shape)}</td><td class="num">${seatHeadAt(t)}/${t.seats}</td><td class="num"><button class="btn sm ghost" data-act="optimizeTable" data-id="${t.id}">Ottimizza</button> <button class="btn sm ghost" data-act="editTable" data-id="${t.id}">Modifica</button> <button class="btn sm danger" data-act="delTable" data-id="${t.id}">&times;</button></td></tr>`).join("")}</tbody></table></div>`:""}
   <div class="sec-title" style="margin-top:18px"><h2>Editor tavoli (Tableau legacy)</h2></div>
   <div class="card"><span class="pill todo">motore</span> Tableau iframe: optimizer 2-opt, planimetria, drag-drop. Resta finché B5 non rimuove l'iframe.<div class="btnbar"><button class="btn ghost" data-act="openTool" data-tool="tableau" data-mount="toolMount_seating">Apri editor tavoli (legacy)</button></div></div>
