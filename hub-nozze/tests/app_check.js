@@ -243,6 +243,7 @@ function render(){
   else if(active==="timeline") v.innerHTML=viewTimeline();
   else if(active==="lists") v.innerHTML=viewLists();
   else v.innerHTML=viewPlaceholder(active);
+  v.innerHTML=hintBanner(active)+v.innerHTML;
   if(active==="aperitivo") wireAperitivo();
   if(active==="seating") wireSeating();
 }
@@ -1540,8 +1541,57 @@ function openGear(){
     `<p class="muted" style="margin-bottom:10px">Motore generico: un evento attivo, riutilizzabile e portabile.</p>`,
     [{label:"Esporta",cls:"ghost",fn:()=>exportEvent(),close:false},
      {label:"Importa",cls:"ghost",fn:()=>{importEvent();},},
+     {label:"Guida",cls:"ghost",fn:()=>{openGuide(0);}},
      {label:"Nuovo evento vuoto",cls:"ghost",fn:()=>{newEvent();}},
      {label:"Reset al seed",cls:"danger",fn:()=>{resetEvent();}}]);
+}
+
+/* ============ GUIDA / ONBOARDING (D) ============ */
+// Tour guidato di tutte le schede: il modale resta aperto mentre sotto cambia la
+// scheda reale (il modale vive in #modalRoot e sopravvive a render()).
+const GUIDE=[
+  { tab:"dash", title:"Benvenuto", body:`<p>Questo è l'hub unico per organizzare le nozze: un solo file, funziona offline e si salva da solo sul dispositivo. Si condivide aprendolo in Safari e poi "Aggiungi a Home".</p><p>Ti accompagno per le 8 schede. Usa Avanti e Indietro; puoi riaprire questa guida quando vuoi dall'ingranaggio in alto a destra.</p>` },
+  { tab:"dash", title:"Dashboard", body:`<p>La panoramica: giorni mancanti, stato del budget, conferme degli ospiti, attività in scadenza. È il punto da cui controllare a colpo d'occhio se qualcosa è indietro.</p>` },
+  { tab:"budget", title:"Budget & Finanze", body:`<p>Le voci di spesa con stima, preventivo e pagamenti. Collega una voce a un fornitore: quando il fornitore è confermato, il preventivo aggiorna la voce.</p><p>Aggiungi voci con + e registra le rate per tenere i pagamenti sotto controllo.</p>` },
+  { tab:"guests", title:"Ospiti & RSVP", body:`<p>La sorgente unica degli invitati: nome, lato (sposo A / sposa B), nucleo, RSVP, pasto, intolleranze, accessibilità, navetta, +1.</p><p>Hai già una lista? Usa + Importa: incolli o carichi un CSV/TSV, l'app riconosce le colonne, toglie i doppioni e unisce. Il numero invitati alimenta anche il simulatore aperitivo.</p>` },
+  { tab:"vendors", title:"Fornitori", body:`<p>Il piccolo CRM dei fornitori con i loro stati (da valutazione a confermato) e i preventivi. Un fornitore "Confermato" spunta automaticamente il task collegato nella Timeline, e mostra lì il suo nome.</p>` },
+  { tab:"seating", title:"Tavoli", body:`<p>Planimetria nativa. Crea i tavoli con + Tavolo scegliendo forma e numero di posti.</p><p>Per sedere un ospite: tocca un posto e scegli dall'elenco, oppure trascina un nome dalla "Riserva ospiti" su un posto. Trascina un ospite sulla riserva per liberarlo. "Ottimizza" dispone il tavolo rispettando vicini e vincoli.</p>` },
+  { tab:"aperitivo", title:"Aperitivo", body:`<p>Il simulatore delle code dell'aperitivo: imposta stazioni, personale e tempi di arrivo, e vedi attese e code stimate. Salva più scenari e confrontali per decidere quanti camerieri servono.</p>` },
+  { tab:"timeline", title:"Timeline", body:`<p>La checklist a ritroso dalla data delle nozze e la scaletta del giorno (run-of-show). I task legati a una categoria di fornitore si spuntano da soli quando quel fornitore è confermato.</p>` },
+  { tab:"lists", title:"Note & Liste", body:`<p>Liste pronte: musica da suonare e da evitare, ordine della processione, foto di famiglia, packing. Aggiungi voci e nuove liste secondo necessità.</p>` },
+  { tab:null, title:"Pronto", body:`<p>Tutto qui. Il lavoro si salva da solo: non c'è un pulsante "salva". Ritrovi questa guida dall'ingranaggio in alto a destra, voce "Guida".</p><p>Buona organizzazione.</p>` }
+];
+let guideAt=0;
+function openGuide(i){
+  guideAt=Math.max(0,Math.min(GUIDE.length-1,i|0));
+  const step=GUIDE[guideAt];
+  if(step.tab && active!==step.tab){ active=step.tab; render(); }
+  const acts=[];
+  if(guideAt>0) acts.push({label:"Indietro",cls:"ghost",fn:()=>openGuide(guideAt-1),close:false});
+  if(guideAt<GUIDE.length-1) acts.push({label:"Avanti",cls:"",fn:()=>openGuide(guideAt+1),close:false});
+  else acts.push({label:"Fine",cls:"",fn:()=>finishGuide()});
+  acts.push({label:"Chiudi",cls:"ghost",fn:()=>finishGuide()});
+  modal("Guida · "+(guideAt+1)+"/"+GUIDE.length+" — "+step.title, step.body, acts);
+}
+function finishGuide(){ if(STATE && !STATE.onboarded){ STATE.onboarded=true; Store.save(STATE); } }
+
+// Suggerimento contestuale per scheda (riga compatta in cima alla vista).
+const TAB_TIP={
+  dash:"I numeri chiave a colpo d'occhio. Apri la Guida per il tour completo.",
+  budget:"Aggiungi voci e rate; collega i fornitori alle voci di budget.",
+  guests:"Sorgente unica degli ospiti. Hai una lista? Usa + Importa (CSV/TSV).",
+  vendors:"Censisci i fornitori. 'Confermato' spunta i task collegati in Timeline.",
+  seating:"Crea i tavoli, poi assegna: tocca un posto o trascina dalla riserva.",
+  aperitivo:"Simula le code dell'aperitivo e confronta scenari di personale.",
+  timeline:"Checklist a ritroso e scaletta; i task da fornitore si spuntano da soli.",
+  lists:"Liste pronte per musica, processione, foto e packing."
+};
+let tipHidden={};
+function hintBanner(tab){
+  if(tipHidden[tab]||!TAB_TIP[tab]) return "";
+  return `<div class="card" style="display:flex;gap:10px;align-items:center;justify-content:space-between;margin-bottom:12px;border-left:3px solid var(--sea)">`
+    +`<span style="font-size:13px">${esc(TAB_TIP[tab])}</span>`
+    +`<span style="white-space:nowrap"><button class="btn sm ghost" data-act="openGuide">Guida</button> <button class="btn sm ghost" data-act="hideTip" aria-label="Nascondi suggerimento">Nascondi</button></span></div>`;
 }
 
 /* ============ EVENTS ============ */
@@ -1580,6 +1630,8 @@ document.addEventListener("click",e=>{
   else if(act==="delTable") delTable(id);
   else if(act==="optimizeTable") optimizeTable(id);
   else if(act==="assignSeat") assignSeat(a.getAttribute("data-table"), a.getAttribute("data-idx"));
+  else if(act==="openGuide") openGuide(0);
+  else if(act==="hideTip"){ tipHidden[active]=true; render(); }
 });
 $("#gearBtn").addEventListener("click",openGear);
 document.addEventListener("change",function(e){ if(e.target&&e.target.id==="rs_filter"){ rsFilter=e.target.value; render(); } });
@@ -1588,5 +1640,6 @@ document.addEventListener("change",function(e){ if(e.target&&e.target.id==="rs_f
   STATE=await Store.load();
   if(!STATE||!STATE.events){ STATE=seedState(); Store.save(STATE); }
   recompute(); render();
+  if(!STATE.onboarded) openGuide(0);
 })();
 })();

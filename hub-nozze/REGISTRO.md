@@ -45,7 +45,7 @@ IMPORT GUIDATO OSPITI
 
 ALTRO
   bisync (regressione sync iframe Tableau)               12 test (NON verificabile: suite mancante)
-  D guida/onboarding + suggerimenti contestuali           DA FARE
+  D guida/onboarding + suggerimenti contestuali           FATTO
   C pulizia finale: blob+bridge del Tableau, dopo B5      DA FARE
   Design Adriatico (pietra calcarea, mare petrolio, ottone) DA VALIDARE in browser
 ```
@@ -311,3 +311,34 @@ Stato Tableau: B1-B5 completi, port nativo concluso. Restano: D (guida/
 onboarding), E3 (.xlsx via SheetJS, opzionale), e l'eventuale ridefinizione di
 bisync come round-trip export/import nativo. Geometria seatPositions ancora da
 riallineare ad App_tavoli_ solo se i ref/ verranno forniti (non bloccante).
+
+## Giro 6 (Claude Code) — D: guida / onboarding + suggerimenti contestuali
+
+Difetto/rischio per primo: l'onboarding "concluso" si salva via Store.save
+(debounce 250ms); chi finisce la guida e chiude la scheda entro 250ms la
+rivedrà al riavvio. Basso impatto (onboarding, non dati). Resta candidato il
+flush su pagehide/visibilitychange già annotato.
+
+Scelta: tour guidato via MODALE (non overlay con highlight posizionali, fragile
+su mobile). Il modale vive in #modalRoot e sopravvive a render(), quindi ad ogni
+passo commuto la scheda reale sotto e la mostro dietro la guida.
+
+Implementazione (additiva):
+- GUIDE[10]: intro + una tappa per ognuna delle 8 schede + chiusura. openGuide(i)
+  imposta active=step.tab, render(), e (ri)apre il modale con Indietro/Avanti/
+  Fine + Chiudi. finishGuide() segna STATE.onboarded e salva.
+- Auto-apertura al primo avvio: in INIT, if(!STATE.onboarded) openGuide(0).
+- Riapribile sempre: voce "Guida" nel menù ingranaggio + bottone nel banner.
+- Suggerimento contestuale: TAB_TIP per scheda, hintBanner() anteposto a #view in
+  render(); bottoni "Guida" e "Nascondi" (data-act openGuide/hideTip;
+  tipHidden per sessione). Delegato via data-act, nessun nuovo wiring.
+
+Verifica:
+- node --check OK; suite 101/101.
+- Playwright 430x932: guida si auto-apre al primo avvio; Avanti commuta scheda
+  (es. al passo 3 scheda budget); raggiunge 10/10; Fine chiude e persiste
+  onboarded; dopo reload NON si riapre; suggerimento presente e "Nascondi" lo
+  toglie; riapertura dal banner/ingranaggio ok. Zero errori JS.
+
+Restano: E3 (.xlsx via SheetJS, opzionale e sconsigliato per la dimensione) e
+l'eventuale test round-trip export/import nativo (ex-bisync).
