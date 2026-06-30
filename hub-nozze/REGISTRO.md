@@ -163,4 +163,50 @@ Verifica Playwright (Chromium headless, 430x932, is_mobile):
 - `hub_state_v1` scritto al boot e persistente dopo reload.
 - Unico errore console: 404 /favicon.ico (richiesta automatica del browser). Innocuo.
 
-Non fatto (fuori portata): B3, B4, B5, E3, fix 8.2 (dentro B5).
+Non fatto (in questo giro): B3, B4, B5, E3, fix 8.2 (dentro B5).
+
+## Giro 2 (Claude Code) — B3 planimetria SVG nativa + rete di regressione
+
+Difetto/rischio per primo: i sorgenti ref/ (App_tavoli_) non sono nel workspace,
+quindi la geometria seatPositions è scritta ex novo, NON portata dal Tableau: il
+layout nativo non coincide pixel-per-pixel con l'iframe. Accettabile, è un render
+nativo nuovo. L'iframe Tableau resta (rimozione = B5): coesistenza transitoria
+dichiarata, sezioni separate ed etichettate, store non sincronizzati (è B5).
+
+Stage 0 — rete di regressione parziale (solo test, rischio nullo):
+- `tests/seat_native_test.js`: estrae le funzioni posti native da index.html
+  (new Function + stub ev) e asserisce comportamenti noti. 9/9 verde, incluso il
+  caso B2 documentato (['A',,'C','D'] together{A|C} = −10) e seatPairs(4).
+- NON sostituisce le 7 suite originali (ancora da fornire).
+
+Stage 1 — B3 (tutto additivo in index.html, B1/B2 non toccati):
+- `seatPositions(t)`: geometria posti per forma. round su cerchio; square sul
+  perimetro; rect/imperial/serpentine sul modello 2-file di seatColRow (così il
+  disegno rispecchia le adiacenze face/side dell'optimizer).
+- CRUD nativo: addTable/editTable/delTable su ev().tables; id via seq in
+  ev().seating.seq; editor riusa modal(). editTable adatta seatIds alla nuova
+  capienza preservando le assegnazioni.
+- assignSeat(table,idx): click su un posto SVG → modale con ospiti non ancora
+  seduti (seatableGuests) → seatIds[idx]=gid; dedup (libera l'ospite da altri
+  posti). optimizeTable(id) riusa seatOptimizeTable.
+- viewSeating riscritta: KPI + planimetria SVG nativa + tabella tavoli sopra,
+  editor Tableau legacy sotto (etichettato). Posti pieni con iniziali, lato A/B
+  a colore diverso; vuoti tratteggiati.
+- Dispatch data-act: aggiunti addTable/editTable/delTable/optimizeTable/
+  assignSeat. I click SVG passano per la delega globale (closest("[data-act]")
+  funziona sugli elementi SVG): nessun hook wireSeating necessario.
+
+Verifica:
+- node --check OK; seat_native_test 9/9.
+- Playwright 430x932: creato tavolo round/8 → 8 posti SVG; dropdown 9 ospiti +
+  vuoto; assegnazione → 1/8 e iniziale disegnata; dopo reload tavolo e
+  assegnazione persistono (localStorage). Smoke 8 schede: tutte renderizzano,
+  zero errori JS (solo 404 /favicon.ico).
+- Nota: la persistenza ha il debounce di 250ms preesistente in Store.save; una
+  chiusura entro 250ms da una modifica perde l'ultima azione. Non introdotto da
+  me; valutare un flush sincrono su visibilitychange/pagehide in un giro futuro.
+
+Non fatto (prossimi stadi, approvazione dedicata): B4 drag-drop (rischio alto,
+verifica su dispositivo), B5 export/import nativo + rimozione iframe (chiude 8.2),
+C/D/E3. Geometria seatPositions da riallineare ad App_tavoli_ se/quando i ref/
+vengono caricati.

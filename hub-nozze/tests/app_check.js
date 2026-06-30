@@ -475,11 +475,138 @@ function seatAffinityFn(){ const by={}; ev().guests.forEach(g=>by[g.id]=g); retu
 function seatOptimizeTable(t){ return seatOptimize((t.seatIds||[]).slice(), t.seats, seatRulesIdx(), seatAffinityFn()); }
 
 
+/* ---- planimetria SVG nativa (B3) ---- */
+// Geometria dei posti in unità "mondo" (coerenti con seatFootprint), centro tavolo a (0,0).
+// Per serpentine/imperial/rect usa il modello 2-file di seatColRow, così il disegno
+// rispecchia le adiacenze face/side usate da seatPairs/optimizer.
+function seatPositions(t){
+  const n=Math.max(0,t.seats|0), f=seatFootprint(t), pos=[];
+  if(t.shape==='round'){
+    const r=Math.max(f.w,f.h)/2-0.4;
+    for(let i=0;i<n;i++){ const a=(2*Math.PI*i)/n - Math.PI/2; pos.push({x:r*Math.cos(a), y:r*Math.sin(a)}); }
+    return pos;
+  }
+  if(t.shape==='square'){
+    const per=Math.max(1,Math.ceil(n/4)), half=f.w/2-0.4;
+    for(let i=0;i<n;i++){
+      const side=Math.floor(i/per)%4, k=i%per, off=((k+0.5)/per*2-1)*half;
+      if(side===0) pos.push({x:off,y:-half});
+      else if(side===1) pos.push({x:half,y:off});
+      else if(side===2) pos.push({x:off,y:half});
+      else pos.push({x:-half,y:off});
+    }
+    return pos;
+  }
+  const cols=Math.max(1,Math.ceil(n/2)), colGap=(f.w-0.8)/cols, rowY=(f.h/2)-0.3;
+  for(let i=0;i<n;i++){ const cr=seatColRow(i);
+    pos.push({x:(cr.col-(cols-1)/2)*colGap, y:cr.row===0?-rowY:rowY});
+  }
+  return pos;
+}
+function seatGuestById(gid){ return (ev().guests||[]).find(g=>g.id===gid); }
+function seatInitials(g){ if(!g)return""; const p=(g.name||"").trim().split(/\s+/); return (((p[0]||"")[0]||"")+((p[1]||"")[0]||"")).toUpperCase(); }
+function renderPlanimetria(){
+  const tables=ev().tables||[];
+  if(!tables.length) return `<div class="placeholder"><div class="ic">&#9638;</div><p>Nessun tavolo. Usa "+ Tavolo" per disegnare la planimetria.</p></div>`;
+  let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+  tables.forEach(t=>{ const f=seatFootprint(t), x=t.x||0, y=t.y||0;
+    minX=Math.min(minX,x-f.w/2-0.7); maxX=Math.max(maxX,x+f.w/2+0.7);
+    minY=Math.min(minY,y-f.h/2-0.9); maxY=Math.max(maxY,y+f.h/2+0.9);
+  });
+  const W=Math.max(1,maxX-minX), H=Math.max(1,maxY-minY);
+  let body="";
+  tables.forEach(t=>{
+    const f=seatFootprint(t), x=t.x||0, y=t.y||0;
+    let shapeSvg;
+    if(t.shape==='round'){ shapeSvg=`<circle cx="0" cy="0" r="${(f.lin/2).toFixed(2)}" fill="#e9eef0" stroke="#9bb0b3" stroke-width="0.05"/>`; }
+    else if(t.shape==='square'){ const sd=f.lin; shapeSvg=`<rect x="${(-sd/2).toFixed(2)}" y="${(-sd/2).toFixed(2)}" width="${sd.toFixed(2)}" height="${sd.toFixed(2)}" rx="0.15" fill="#e9eef0" stroke="#9bb0b3" stroke-width="0.05"/>`; }
+    else { const bw=f.lin, bh=Math.max(0.6,f.h-1.8); shapeSvg=`<rect x="${(-bw/2).toFixed(2)}" y="${(-bh/2).toFixed(2)}" width="${bw.toFixed(2)}" height="${bh.toFixed(2)}" rx="0.15" fill="#e9eef0" stroke="#9bb0b3" stroke-width="0.05"/>`; }
+    const pos=seatPositions(t), ids=t.seatIds||[];
+    let seats="";
+    pos.forEach((p,i)=>{
+      const gid=ids[i], g=gid?seatGuestById(gid):null;
+      const fill=g?(g.side==='A'?'#cfe3ee':'#f0ddd0'):'#ffffff';
+      const stroke=g?'#5c8aa3':'#c2cdcf';
+      const dash=g?'':' stroke-dasharray="0.12 0.12"';
+      seats+=`<g transform="translate(${p.x.toFixed(2)},${p.y.toFixed(2)})" data-act="assignSeat" data-table="${t.id}" data-idx="${i}" style="cursor:pointer">`
+        +`<circle r="0.34" fill="${fill}" stroke="${stroke}" stroke-width="0.04"${dash}/>`
+        +(g?`<text x="0" y="0.12" text-anchor="middle" font-size="0.34" fill="#23373b">${esc(seatInitials(g))}</text>`:"")
+        +`</g>`;
+    });
+    const label=esc(t.name)+" · "+seatHeadAt(t)+"/"+t.seats;
+    body+=`<g transform="translate(${x.toFixed(2)},${y.toFixed(2)})">${shapeSvg}${seats}`
+      +`<text x="0" y="${(f.h/2+0.55).toFixed(2)}" text-anchor="middle" font-size="0.42" fill="#5b6b6e">${label}</text></g>`;
+  });
+  return `<svg viewBox="${minX.toFixed(2)} ${minY.toFixed(2)} ${W.toFixed(2)} ${H.toFixed(2)}" style="width:100%;height:auto;max-height:60vh;background:#fbfcfc;border-radius:10px" role="img" aria-label="Planimetria tavoli">${body}</svg>`;
+}
+/* ---- CRUD tavoli nativo (B3) ---- */
+function seatNextSeq(){ const e=ev(); e.seating=e.seating||{rules:[]}; e.seating.seq=(e.seating.seq||0)+1; return e.seating.seq; }
+function addTable(){ tableEditor(null); }
+function editTable(id){ tableEditor(id); }
+function tableEditor(id){
+  const e=ev(); e.tables=e.tables||[];
+  const t=id?e.tables.find(x=>x.id===id):null, isNew=!t;
+  const cur=t||{name:"Tavolo "+(e.tables.length+1),shape:"round",seats:8};
+  modal(isNew?"Nuovo tavolo":"Modifica tavolo",
+    `<div class="field"><label>Nome</label><input class="inp" id="tb_name" value="${esc(cur.name)}"></div>
+     <div class="two">
+       <div class="field"><label>Forma</label><select class="inp" id="tb_shape">${Object.keys(SEAT_SHAPES).map(k=>`<option value="${k}"${k===cur.shape?" selected":""}>${SEAT_SHAPES[k]}</option>`).join("")}</select></div>
+       <div class="field"><label>Posti</label><input class="inp" type="number" min="1" max="40" id="tb_seats" value="${cur.seats}"></div>
+     </div>`,
+    [{label:"Annulla"},{label:isNew?"Crea":"Salva",cls:"",fn:()=>{
+       const name=($("#tb_name").value||"").trim()||"Tavolo";
+       const shape=$("#tb_shape").value, seats=Math.max(1,Math.min(40,+$("#tb_seats").value||8));
+       if(isNew){
+         const idx=e.tables.length, cols=4;
+         e.tables.push({id:"tb"+seatNextSeq(),name,shape,seats,seatIds:new Array(seats).fill(null),x:(idx%cols)*7,y:Math.floor(idx/cols)*6});
+       } else {
+         const old=t.seatIds||[], ns=new Array(seats).fill(null);
+         for(let i=0;i<Math.min(seats,old.length);i++) ns[i]=old[i];
+         t.name=name; t.shape=shape; t.seats=seats; t.seatIds=ns;
+       }
+       commit(isNew?"Tavolo creato":"Tavolo aggiornato");
+     }}]);
+}
+function delTable(id){ const e=ev(); e.tables=(e.tables||[]).filter(t=>t.id!==id); commit("Tavolo eliminato"); }
+function optimizeTable(id){
+  const e=ev(), t=(e.tables||[]).find(x=>x.id===id); if(!t) return;
+  if(seatHeadAt(t)<2){ toast("Servono almeno 2 ospiti seduti"); return; }
+  const res=seatOptimizeTable(t);
+  t.seatIds=res.order.map(x=>x===undefined?null:x);
+  commit(res.improved?("Ottimizzato: costo "+res.before.toFixed(1)+" → "+res.after.toFixed(1)):"Nessun miglioramento possibile");
+}
+function assignSeat(tableId, idx){
+  const e=ev(), t=(e.tables||[]).find(x=>x.id===tableId); if(!t) return;
+  idx=+idx; const occupied=(t.seatIds||[])[idx]||"";
+  const seated=new Set(); (e.tables||[]).forEach(tt=>(tt.seatIds||[]).forEach(g=>{ if(g) seated.add(g); }));
+  const cand=seatableGuests().filter(g=>!seated.has(g.id)||g.id===occupied);
+  const opts=cand.map(g=>`<option value="${g.id}"${g.id===occupied?" selected":""}>${esc(g.name)} (${g.side})</option>`).join("");
+  modal("Posto "+(idx+1)+" — "+esc(t.name),
+    `<div class="field"><label>Ospite</label><select class="inp" id="seat_g"><option value="">— vuoto —</option>${opts}</select></div>`,
+    [{label:"Annulla"},{label:"Assegna",cls:"",fn:()=>{
+       const gid=$("#seat_g").value||null;
+       t.seatIds=t.seatIds||new Array(t.seats).fill(null);
+       if(gid){ (e.tables||[]).forEach(tt=>{ (tt.seatIds||[]).forEach((g,i)=>{ if(g===gid) tt.seatIds[i]=null; }); }); }
+       t.seatIds[idx]=gid;
+       commit(gid?"Posto assegnato":"Posto liberato");
+     }}]);
+}
 function viewSeating(){
+  const tables=ev().tables||[];
+  const totSeats=tables.reduce((s,t)=>s+(t.seats||0),0);
+  const seated=tables.reduce((s,t)=>s+seatHeadAt(t),0);
   return `
-  <div class="card"><span class="pill todo">come funziona</span> L'assegnazione dei posti si fa nel Tableau qui sotto, che riceve la lista ospiti dell'hub e rimanda qui la disposizione. Lavori sui tavoli nel Tableau; il riepilogo compare sotto e finisce anche nella scheda Ospiti.</div>
-  <div class="sec-title"><h2>Editor tavoli</h2></div>
-  <div class="card"><span class="pill todo">motore</span> Tableau: optimizer 2-opt, planimetria, drag-drop. Anagrafica bidirezionale con la sorgente unica: assegnazioni, modifiche e nuovi ospiti rientrano nell'hub.<div class="btnbar"><button class="btn" data-act="openTool" data-tool="tableau" data-mount="toolMount_seating">Apri editor tavoli</button></div></div>
+  <div class="card"><span class="pill todo">come funziona</span> Planimetria nativa (B3, anteprima): crea i tavoli e assegna gli ospiti toccando un posto. L'editor Tableau legacy resta disponibile finché il port nativo non è completo (B5).</div>
+  <div class="grid cards">
+    <div class="card kpi"><div class="v">${tables.length}</div><div class="l">Tavoli</div></div>
+    <div class="card kpi"><div class="v">${seated}/${totSeats}</div><div class="l">Posti occupati</div></div>
+    <div class="card kpi"><div class="v">${seatableGuests().length}</div><div class="l">Ospiti da sedere</div></div>
+  </div>
+  <div class="sec-title"><h2>Planimetria</h2><span><button class="btn sm" data-act="addTable">+ Tavolo</button></span></div>
+  <div class="card" style="padding:8px">${renderPlanimetria()}</div>
+  ${tables.length?`<div class="scroll-x"><table class="tbl"><thead><tr><th>Tavolo</th><th>Forma</th><th class="num">Occupati</th><th></th></tr></thead><tbody>${tables.map(t=>`<tr><td>${esc(t.name)}</td><td>${SEAT_SHAPES[t.shape]||esc(t.shape)}</td><td class="num">${seatHeadAt(t)}/${t.seats}</td><td class="num"><button class="btn sm ghost" data-act="optimizeTable" data-id="${t.id}">Ottimizza</button> <button class="btn sm ghost" data-act="editTable" data-id="${t.id}">Modifica</button> <button class="btn sm danger" data-act="delTable" data-id="${t.id}">&times;</button></td></tr>`).join("")}</tbody></table></div>`:""}
+  <div class="sec-title" style="margin-top:18px"><h2>Editor tavoli (Tableau legacy)</h2></div>
+  <div class="card"><span class="pill todo">motore</span> Tableau iframe: optimizer 2-opt, planimetria, drag-drop. Resta finché B5 non rimuove l'iframe.<div class="btnbar"><button class="btn ghost" data-act="openTool" data-tool="tableau" data-mount="toolMount_seating">Apri editor tavoli (legacy)</button></div></div>
   <div id="toolMount_seating" style="margin-top:12px"></div>
   <div id="toolSummary_seating" style="margin-top:12px">${toolSummary.tableau?renderToolSummary(toolSummary.tableau):""}</div>
   `;
@@ -1469,6 +1596,11 @@ document.addEventListener("click",e=>{
   else if(act==="simLoadScen") simLoadScenario(+id);
   else if(act==="simDelScen") simDelScenario(+id);
   else if(act==="openTool") openTool(a.getAttribute("data-tool"), a.getAttribute("data-mount"));
+  else if(act==="addTable") addTable();
+  else if(act==="editTable") editTable(id);
+  else if(act==="delTable") delTable(id);
+  else if(act==="optimizeTable") optimizeTable(id);
+  else if(act==="assignSeat") assignSeat(a.getAttribute("data-table"), a.getAttribute("data-idx"));
 });
 $("#gearBtn").addEventListener("click",openGear);
 document.addEventListener("change",function(e){ if(e.target&&e.target.id==="rs_filter"){ rsFilter=e.target.value; render(); } });
