@@ -203,8 +203,21 @@ const Store={
     memState=state;
     clearTimeout(saveTimer);
     saveTimer=setTimeout(async()=>{ try{ await Backend.set(JSON.stringify(state)); }catch(e){} },250);
+  },
+  // Scrittura immediata di una save in sospeso: chiude la finestra di 250ms in cui
+  // una chiusura/reload perderebbe l'ultima modifica. Con localStorage la set è
+  // sincrona, quindi persiste anche durante l'unload.
+  flush(){
+    if(saveTimer){ clearTimeout(saveTimer); saveTimer=null; }
+    if(memState!=null){ try{ Backend.set(JSON.stringify(memState)); }catch(e){} }
   }
 };
+// Flush quando la pagina passa in background o viene chiusa (iOS: pagehide/
+// visibilitychange sono gli eventi affidabili; 'unload' non è garantito su Safari).
+if(typeof window!=="undefined"){
+  window.addEventListener("pagehide", function(){ Store.flush(); });
+  document.addEventListener("visibilitychange", function(){ if(document.visibilityState==="hidden") Store.flush(); });
+}
 
 /* ============ SEED (motore generico: questi dati sono SEED, non codice) ============ */
 function seedState(){
@@ -699,7 +712,10 @@ function renderPlanimetria(){
     body+=`<g transform="translate(${x.toFixed(2)},${y.toFixed(2)})">${shapeSvg}${seats}`
       +`<text x="0" y="${(f.h/2+0.55).toFixed(2)}" text-anchor="middle" font-size="0.42" fill="#5b6b6e">${label}</text></g>`;
   });
-  return `<svg viewBox="${minX.toFixed(2)} ${minY.toFixed(2)} ${W.toFixed(2)} ${H.toFixed(2)}" style="width:100%;height:auto;max-height:60vh;background:#fbfcfc;border-radius:10px" role="img" aria-label="Planimetria tavoli">${body}</svg>`;
+  // touch-action:none sull'SVG: su touch il browser altrimenti reclama il gesto
+  // per lo scroll e annulla il drag (pointercancel). Il resto della pagina resta
+  // scrollabile (cards, KPI, aree fuori dall'SVG).
+  return `<svg viewBox="${minX.toFixed(2)} ${minY.toFixed(2)} ${W.toFixed(2)} ${H.toFixed(2)}" style="width:100%;height:auto;max-height:60vh;background:#fbfcfc;border-radius:10px;touch-action:none" role="img" aria-label="Planimetria tavoli">${body}</svg>`;
 }
 /* ---- CRUD tavoli nativo (B3) ---- */
 function seatNextSeq(){ const e=ev(); e.seating=e.seating||{rules:[]}; e.seating.seq=(e.seating.seq||0)+1; return e.seating.seq; }
@@ -766,37 +782,50 @@ function wireSeating(){
   const host=document.getElementById("planiHost"); if(!host) return;
   let st=null;
   const opts={capture:true,passive:false};
-  const guestName=gid=>{ const g=seatGuestById(gid); return g?g.name:"ospite"; };
-  function onMove(e){
-    if(!st) return;
-    const dx=e.clientX-st.x0, dy=e.clientY-st.y0;
-    if(!st.dragging && Math.hypot(dx,dy)>6){ st.dragging=true; st.ghost.style.display=""; }
-    if(st.dragging){ e.preventDefault(); st.ghost.style.left=e.clientX+"px"; st.ghost.style.top=e.clientY+"px"; }
-  }
-  function onUp(e){
+  const nameOf=gid=>{ const g=seatGuestById(gid); return g?g.name:"ospite"; };
+  function cleanup(){
     document.removeEventListener("pointermove",onMove,opts);
     document.removeEventListener("pointerup",onUp,opts);
-    const s=st; st=null; if(!s) return;
-    if(s.ghost) s.ghost.remove();
-    if(!s.dragging) return; // nessun movimento: era un click, lascia partire la modale
-    // sopprimi il click che segue il pointerup (mouse/touch) per non aprire la modale
+    document.removeEventListener("pointercancel",onCancel,opts);
+    if(st && st.ghost) st.ghost.remove();
+  }
+  function onMove(e){
+    if(!st || e.pointerId!==st.pointerId) return;
+    const dx=e.clientX-st.x0, dy=e.clientY-st.y0;
+    if(!st.dragging && Math.hypot(dx,dy)>6){ st.dragging=true; st.ghost.style.display=""; }
+    // NB: niente setPointerCapture — i listener su document in cattura ricevono già
+    // tutti i pointer event, e la cattura interferisce con la consegna del pointerup su touch.
+    if(st.dragging){ e.preventDefault(); st.ghost.style.left=e.clientX+"px"; st.ghost.style.top=e.clientY+"px"; }
+  }
+  function onCancel(e){ if(!st || e.pointerId!==st.pointerId) return; cleanup(); st=null; }
+  function onUp(e){
+    if(!st || e.pointerId!==st.pointerId) return;
+    const s=st, dragging=st.dragging; cleanup(); st=null;
+    if(!dragging) return; // nessun movimento: era un tap, lascia partire il click (modale)
+    // sopprimi il click che segue il pointerup per non aprire la modale dopo un drag
     const sup=ce=>{ ce.stopPropagation(); ce.preventDefault(); document.removeEventListener("click",sup,true); };
     document.addEventListener("click",sup,true);
-    const el=document.elementFromPoint(e.clientX,e.clientY); if(!el) return;
-    const seat=el.closest&&el.closest("[data-seat-target]");
+    const el=document.elementFromPoint(e.clientX,e.clientY); if(!el||!el.closest) return;
+    const seat=el.closest("[data-seat-target]");
     if(seat){ seatAssignCore(seat.getAttribute("data-table"), seat.getAttribute("data-idx"), s.gid); return; }
-    if(el.closest&&el.closest("#seatTray")){ seatUnseat(s.gid); return; }
+    if(el.closest("#seatTray")){ seatUnseat(s.gid); return; }
   }
   host.addEventListener("pointerdown", e=>{
+    if(st) return; // trascinamento già in corso: ignora un secondo dito (multi-touch)
     const src=e.target.closest&&e.target.closest("[data-drag-guest]"); if(!src) return;
     const gid=src.getAttribute("data-drag-guest"); if(!gid) return;
+    // Su touch il browser assegna cattura implicita del pointer all'elemento
+    // sorgente (in SVG trattiene pointermove/up): la rilascio così gli eventi
+    // arrivano ai listener su document e il drop viene rilevato ovunque.
+    try{ if(e.target.hasPointerCapture && e.target.hasPointerCapture(e.pointerId)) e.target.releasePointerCapture(e.pointerId); }catch(_){}
     const ghost=document.createElement("div");
-    ghost.textContent=guestName(gid);
+    ghost.textContent=nameOf(gid);
     ghost.style.cssText="position:fixed;z-index:9999;transform:translate(-50%,-50%);pointer-events:none;background:#23373b;color:#fff;padding:4px 9px;border-radius:9px;font-size:12px;display:none;left:"+e.clientX+"px;top:"+e.clientY+"px";
     document.body.appendChild(ghost);
-    st={gid,x0:e.clientX,y0:e.clientY,dragging:false,ghost};
+    st={gid,pointerId:e.pointerId,x0:e.clientX,y0:e.clientY,dragging:false,ghost};
     document.addEventListener("pointermove",onMove,opts);
     document.addEventListener("pointerup",onUp,opts);
+    document.addEventListener("pointercancel",onCancel,opts);
   });
 }
 function viewSeating(){

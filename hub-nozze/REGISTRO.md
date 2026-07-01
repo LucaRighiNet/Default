@@ -342,3 +342,35 @@ Verifica:
 
 Restano: E3 (.xlsx via SheetJS, opzionale e sconsigliato per la dimensione) e
 l'eventuale test round-trip export/import nativo (ex-bisync).
+
+## Giro 7 (Claude Code) — robustezza salvataggio + touch drag-drop
+
+Due interventi richiesti.
+
+1. Flush del salvataggio (chiude la fragilità del debounce 250ms):
+   Store.flush() scrive subito una save in sospeso; registrato su 'pagehide' e su
+   'visibilitychange' (hidden). Su iOS sono gli eventi affidabili ('unload' no).
+   Con localStorage la set è sincrona, quindi persiste anche durante l'unload.
+   Verifica Playwright: modifica + pagehide immediato (entro il debounce) →
+   localStorage già aggiornato.
+
+2. Touch drag-drop irrobustito e verificato con eventi touch REALI (CDP
+   Input.dispatchTouchEvent, non più solo mouse). Tre bug di touch trovati e
+   risolti in sequenza (diagnosi via strumentazione pointer):
+   a. setPointerCapture interferiva con la consegna del pointerup su touch →
+      RIMOSSA (i listener su document in cattura ricevono già tutti gli eventi).
+   b. cattura implicita del pointer sull'elemento SVG sorgente → rilasciata in
+      pointerdown (releasePointerCapture) così gli eventi fluiscono a document.
+   c. causa principale: touch-action:none sul <g> SVG non è onorato → il browser
+      reclamava il gesto per lo scroll e annullava il drag (pointercancel).
+      Messo touch-action:none sull'<svg> radice; il resto della pagina resta
+      scrollabile.
+   Aggiunti anche: tracciamento del solo pointerId che ha iniziato (niente
+   confusione multi-dito) e gestione pointercancel (cleanup).
+   Verifica Playwright touch: riserva→posto assegna, posto→riserva libera,
+   posto→posto sposta. Click-su-posto (tap) ancora apre la modale.
+
+Limite non colmabile qui: la conferma finale del touch su iPhone/Safari reale
+non è automatizzabile in questo ambiente (Playwright usa Chromium). Checklist per
+il dispositivo consegnata all'utente (deploy via Safari + Aggiungi a Home; drag
+con un dito; verifica che la pagina non scrolli durante il trascinamento).
