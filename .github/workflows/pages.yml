@@ -1,8 +1,10 @@
 name: Deploy hub-nozze to GitHub Pages
 # Deploy automatico: a ogni push sul branch che tocca hub-nozze/ (o questo
-# workflow), l'app viene ripubblicata su GitHub Pages. Il workflow abilita Pages
-# da solo (enablement: true) e usa il proprio GITHUB_TOKEN con permessi pages:write,
-# quindi non serve alcun intervento manuale. Resta anche il "Run workflow" a mano.
+# workflow), l'app viene ripubblicata su GitHub Pages. Usa il proprio GITHUB_TOKEN
+# (pages:write, id-token:write). Resta anche il "Run workflow" a mano.
+# PREREQUISITO (una volta sola): Settings -> Pages -> Source: "GitHub Actions".
+# L'abilitazione via API (enablement) qui è vietata al token, quindi va fatta a
+# mano una volta; dopo, ogni push pubblica da solo.
 on:
   workflow_dispatch:
   push:
@@ -27,8 +29,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/configure-pages@v5
-        with:
-          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: hub-nozze
