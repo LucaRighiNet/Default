@@ -545,3 +545,25 @@ regressione); (B) viewer via fake cloud → chip "☁ Sincronizzato · sola lett
 Limite v1: il viewer è bloccato anche dall'aprire gli editor in sola visione
 (no "view details"); refinement futuro. Ruolo reale = query memberships lato
 backend (spike). Prossimi P2: inviti/token collaboratori + pagina RSVP pubblica.
+
+## Giro 15 (Claude Code) — P3 CI+PWA, P2 inviti + RSVP pubblico
+
+Proseguo il piano in autonomia.
+
+- CI: .github/workflows/ci.yml esegue le suite su push/PR.
+- PWA installabile: manifest.json (icone 192/512 + maskable, theme), apple-touch-icon
+  + meta iOS, service worker (app shell cache-first + fallback offline),
+  registrazione guardata. Verificato: manifest linkato/fetchabile, SW registrato.
+- P2 inviti collaboratori: makeInviteToken/inviteURL, UI "Invita collaboratore"
+  (ruolo editor/viewer, lista, revoca) nell'Account; l'hint di ruolo dal link
+  ?invite&role alimenta Session al login. Dormiente finché cloud non configurato.
+- P2 RSVP pubblico: apertura con ?rsvp=<token> mostra una pagina ospite dedicata
+  (niente app né onboarding); form -> buildRsvpPayload; invio conferma (in
+  produzione POST al backend). "Link RSVP ospiti" nell'Account.
+
+Verifica: node --check OK; suite 152/152 (nuova share_test 7: token/URL/payload).
+Playwright: RSVP page (form, tabs nascoste, conferma "Grazie …"); PWA e app
+normale invariate; zero errori JS.
+
+Nota: redenzione invito e submit RSVP verso il backend restano da collegare
+(spike Supabase); qui payload e flusso client sono pronti e testati.

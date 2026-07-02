@@ -365,7 +365,7 @@ const Cloud=(function(){
       if(!this.configured()) throw new Error("cloud non configurato");
       user=await auth.signIn(email);
       // ruolo dalla membership (owner/editor/viewer); default owner finché il backend non lo fornisce
-      if(typeof Session!=="undefined") Session.setRole((user&&user.role) || (auth.getRole&&auth.getRole()) || "owner");
+      if(typeof Session!=="undefined") Session.setRole((user&&user.role) || (auth.getRole&&auth.getRole()) || inviteRoleParam() || "owner");
       Sync.enable(remote, {
         onStatus:function(){ if(typeof updateSyncChip==="function") updateSyncChip(); },
         onConflict:function(){ if(typeof toast==="function") toast("Modifica concorrente: ho applicato la tua versione"); }
@@ -2063,7 +2063,9 @@ function openAccount(){
   if(u){
     const stLabel={synced:"sincronizzato",syncing:"sincronizzazione in corso",offline:"offline (riprovo al ritorno della rete)",conflict:"conflitto risolto (ha vinto la tua versione)",local:"locale"};
     modal("Account", `<p>Connesso come <b>${esc(u.email||u.id)}</b>.</p><p class="muted" style="font-size:13px">Stato sync: ${esc(stLabel[Sync.getStatus()]||Sync.getStatus())}. Le modifiche si sincronizzano tra i tuoi dispositivi.</p>`,
-      [{label:"Esci",cls:"danger",fn:()=>{ Cloud.logout().then(()=>{ toast("Disconnesso"); }); }},{label:"Chiudi"}]);
+      [{label:"Invita collaboratore",cls:"ghost",fn:()=>{ openInvite(); },close:false},
+       {label:"Link RSVP ospiti",cls:"ghost",fn:()=>{ const t=eventRsvpToken(); commit("Link RSVP pronto"); showShareLink("Link RSVP per gli ospiti", rsvpURL(location.origin, location.pathname, t)); },close:false},
+       {label:"Esci",cls:"danger",fn:()=>{ Cloud.logout().then(()=>{ toast("Disconnesso"); }); }},{label:"Chiudi"}]);
     return;
   }
   modal("Accedi",
@@ -2111,6 +2113,57 @@ function actIsMutating(act){ return !READONLY_ACTS[act]; }
 function permBlocks(act){ return !Session.canEdit() && actIsMutating(act); }
 /* ==== fine blocco permessi ==== */
 
+/* ============ CONDIVISIONE (P2): inviti collaboratori + RSVP pubblico ============ */
+function makeInviteToken(){ return "inv_"+Math.random().toString(36).slice(2,10)+Date.now().toString(36); }
+function inviteURL(origin, path, token, role){ return origin+path+"?invite="+encodeURIComponent(token)+"&role="+encodeURIComponent(role==="viewer"?"viewer":"editor"); }
+function rsvpURL(origin, path, token){ return origin+path+"?rsvp="+encodeURIComponent(token); }
+// Payload RSVP normalizzato (dalla pagina pubblica verso il backend).
+function buildRsvpPayload(token, form){
+  form=form||{};
+  const rsvp=(form.rsvp==="no")?"no":((form.rsvp==="conf")?"conf":"attesa");
+  return { token:String(token||""), name:String(form.name||"").trim(),
+    rsvp:rsvp, meal:form.meal||"adulto", plusOne:Math.max(0,parseInt(form.plusOne,10)||0),
+    intolerances:String(form.intolerances||"").trim(), ts:new Date().toISOString() };
+}
+function rsvpParam(){ try{ const m=(location.search||"").match(/[?&]rsvp=([^&]+)/); return m?decodeURIComponent(m[1]):null; }catch(e){ return null; } }
+function inviteRoleParam(){ try{ const m=(location.search||"").match(/[?&]role=([^&]+)/); return m?decodeURIComponent(m[1]):null; }catch(e){ return null; } }
+/* ==== fine blocco condivisione ==== */
+// --- UI condivisione (usa DOM/ev/modal; dormiente per gli inviti finché il cloud non è configurato) ---
+function eventInvites(){ const e=ev(); e.invites=e.invites||[]; return e.invites; }
+function eventRsvpToken(){ const e=ev(); if(!e.rsvpToken) e.rsvpToken="rsvp_"+Math.random().toString(36).slice(2,10); return e.rsvpToken; }
+function showShareLink(title, url){ modal(title, '<p class="muted" style="font-size:13px">Copia e invia questo link:</p><textarea class="inp" rows="3" readonly style="font-size:12px">'+esc(url)+'</textarea>', [{label:"Chiudi"}]); }
+function openInvite(){
+  if(!Cloud.configured()){ toast("Configura prima il cloud (Account e sync)"); return; }
+  const inv=eventInvites();
+  const list=inv.length? inv.map(function(i){ return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--line)"><span style="font-size:12px">'+(i.role==="viewer"?"sola lettura":"editor")+' · '+esc(i.token.slice(0,16))+'…</span><button class="btn sm danger" data-act="revokeInvite" data-id="'+i.id+'">&times;</button></div>'; }).join("") : '<span class="muted" style="font-size:13px">Nessun invito attivo.</span>';
+  modal("Invita collaboratore",
+    '<p class="muted" style="font-size:13px">Genera un link da inviare. Chi lo apre e accede entra come collaboratore con il ruolo scelto.</p><div class="field"><label>Ruolo</label><select class="inp" id="inv_role"><option value="editor">Editor (può modificare)</option><option value="viewer">Solo lettura</option></select></div><div style="margin-top:8px">'+list+'</div>',
+    [{label:"Chiudi"},{label:"Genera link",cls:"",fn:function(){ const role=$("#inv_role").value; const t=makeInviteToken(); eventInvites().push({id:"iv"+Date.now(),token:t,role:role,ts:new Date().toISOString()}); commit("Invito creato"); showShareLink("Link invito ("+(role==="viewer"?"sola lettura":"editor")+")", inviteURL(location.origin, location.pathname, t, role)); }}]);
+}
+function revokeInvite(id){ const e=ev(); e.invites=(e.invites||[]).filter(function(x){return x.id!==id;}); commit("Invito revocato"); }
+function renderPublicRSVP(token){
+  try{ const tb=document.getElementById("tabs"); if(tb) tb.style.display="none"; }catch(e){}
+  const meals=(typeof MEALS!=="undefined")?MEALS:["adulto","bambino","vegetariano","celiaco","vegano"];
+  const v=document.getElementById("view"); if(!v) return;
+  v.innerHTML='<div class="card" style="max-width:520px;margin:16px auto">'
+    +'<div class="sec-title"><h2>Conferma la tua presenza</h2></div>'
+    +'<div class="field"><label>Nome e cognome</label><input class="inp" id="rs_name" placeholder="Mario Rossi"></div>'
+    +'<div class="field"><label>Parteciperai?</label><select class="inp" id="rs_go"><option value="conf">Sì, ci sarò</option><option value="no">No, non posso</option><option value="attesa">Forse</option></select></div>'
+    +'<div class="field"><label>Menù</label><select class="inp" id="rs_meal">'+meals.map(function(m){return '<option value="'+m+'">'+m+'</option>';}).join("")+'</select></div>'
+    +'<div class="field"><label>Accompagnatori (+)</label><input class="inp" type="number" min="0" id="rs_plus" value="0"></div>'
+    +'<div class="field"><label>Intolleranze / allergie</label><input class="inp" id="rs_int" placeholder="(facoltativo)"></div>'
+    +'<div class="btnbar"><button class="btn" id="rs_send">Invia risposta</button></div>'
+    +'<div id="rs_msg" class="muted" style="font-size:13px;margin-top:8px"></div></div>';
+  const send=document.getElementById("rs_send");
+  if(send) send.addEventListener("click", function(){
+    const payload=buildRsvpPayload(token, { name:document.getElementById("rs_name").value, rsvp:document.getElementById("rs_go").value, meal:document.getElementById("rs_meal").value, plusOne:document.getElementById("rs_plus").value, intolerances:document.getElementById("rs_int").value });
+    if(!payload.name){ document.getElementById("rs_msg").textContent="Inserisci il tuo nome."; return; }
+    // In produzione: POST del payload al backend (endpoint RSVP legato al token).
+    if(typeof Diag!=="undefined") Diag.log("rsvp","risposta (demo)", JSON.stringify(payload).slice(0,200));
+    v.innerHTML='<div class="card" style="max-width:520px;margin:16px auto"><div class="sec-title"><h2>Grazie, '+esc(payload.name)+'!</h2></div><p>La tua risposta è stata registrata'+(payload.rsvp==="conf"?": ci vediamo alle nozze.":(payload.rsvp==="no"?": ci dispiace che tu non possa esserci.":"."))+'</p></div>';
+  });
+}
+
 /* ============ EVENTS ============ */
 document.addEventListener("click",e=>{ try{
   const tab=e.target.closest("[data-tab]"); if(tab){ active=tab.getAttribute("data-tab"); render(); return; }
@@ -2154,6 +2207,7 @@ document.addEventListener("click",e=>{ try{
   else if(act==="assignSeat") assignSeat(a.getAttribute("data-table"), a.getAttribute("data-idx"));
   else if(act==="openGuide") openGuide(0);
   else if(act==="openAccount") openAccount();
+  else if(act==="revokeInvite") revokeInvite(id);
   else if(act==="hideTip"){ tipHidden[active]=true; render(); }
   }catch(err){ Diag.log("action","azione fallita",(err&&err.stack)||(err&&err.message)); toast("Si è verificato un errore"); }
 });
@@ -2161,6 +2215,8 @@ $("#gearBtn").addEventListener("click",openGear);
 document.addEventListener("change",function(e){ if(e.target&&e.target.id==="rs_filter"){ rsFilter=e.target.value; render(); } });
 /* ============ INIT ============ */
 (async function(){
+  // Pagina pubblica RSVP per gli ospiti: schermata dedicata, non l'app intera.
+  if(rsvpParam()){ renderPublicRSVP(rsvpParam()); return; }
   STATE=await Store.load();
   if(!STATE||!STATE.events){ STATE=seedState(); Store.save(STATE); }
   recompute(); render();
