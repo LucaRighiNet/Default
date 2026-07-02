@@ -426,3 +426,24 @@ contano quando i due ospiti sono già allo stesso tavolo); non assegna gli ospit
 ai tavoli in automatico. Assegnazione globale ottimizzata = possibile stadio futuro.
 
 Suite 111/111; node --check OK; zero errori JS.
+
+## Giro 10 (Claude Code) — assegnazione globale ospiti→tavoli (feature b nel piano)
+
+Inserita nel piano prodotto (5.1) e implementata. Colma il passo mancante: prima
+l'optimizer riordinava solo DENTRO un tavolo; ora l'app assegna anche gli ospiti
+ai tavoli.
+
+- seatPlanAssignment(tables, guests, together, separate) — PURA, testabile:
+  union-find per raggruppare chi sta "insieme" + stesso nucleo; bin-packing dei
+  gruppi nei tavoli rispettando capienza e vincoli "lontano"; ritorna
+  {assign, unseated, warnings}. Euristica greedy, non solutore esatto (dichiarato).
+- seatAutoAssign(): applica il piano ai seatIds, poi seatOptimizeTable per tavolo;
+  autoAssignConfirm() con modale (azione distruttiva: sostituisce la disposizione).
+- UI: "Assegna automaticamente" nella scheda Tavoli (accanto a Ottimizza tutti).
+
+Verifica: b2_test +5 (22/22, totale 116). Playwright: 9/9 ospiti assegnati,
+coppia "insieme" stesso tavolo, coppia "lontano" tavoli diversi, zero errori JS.
+
+Limite: gruppo più grande della capienza del tavolo viene diviso (warning);
+capienza totale insufficiente → alcuni restano senza posto (riportato nel toast).
+Margini futuri: solutore migliore, blocco posti, spiegazione "perché qui".

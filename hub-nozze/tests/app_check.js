@@ -520,6 +520,38 @@ function seatOptimize(gids,seats,rulesIdx,affinityFn){
 function seatRulesIdx(){ const together=new Set(),separate=new Set(); ((ev().seating&&ev().seating.rules)||[]).forEach(r=>{ const k=r.a<r.b?r.a+'|'+r.b:r.b+'|'+r.a; if(r.kind==='together')together.add(k); else separate.add(k); }); return {together:together,separate:separate}; }
 function seatAffinityFn(){ const by={}; ev().guests.forEach(g=>by[g.id]=g); return function(ga,gb){ const a=by[ga],b=by[gb]; if(!a||!b)return false; const sameHH=a.household&&a.household!=='Senza nucleo'&&a.household===b.household; const kids=a.meal==='bambino'&&b.meal==='bambino'; return !!(sameHH||kids); }; }
 function seatOptimizeTable(t){ return seatOptimize((t.seatIds||[]).slice(), t.seats, seatRulesIdx(), seatAffinityFn()); }
+// Pianificazione assegnazione globale ospiti->tavoli (pura, testabile).
+// Euristica: raggruppa per vincoli "insieme" + stesso nucleo (union-find), poi
+// bin-packing dei gruppi nei tavoli rispettando capienza e vincoli "lontano".
+// together/separate = Set di chiavi "min|max" (come da seatRulesIdx).
+function seatPlanAssignment(tables, guests, together, separate){
+  const byId={}; guests.forEach(g=>byId[g.id]=g);
+  const parent={}; guests.forEach(g=>parent[g.id]=g.id);
+  function find(x){ while(parent[x]!==x){ parent[x]=parent[parent[x]]; x=parent[x]; } return x; }
+  function union(a,b){ if(byId[a]&&byId[b]) parent[find(a)]=find(b); }
+  (together||new Set()).forEach(k=>{ const p=k.split("|"); union(p[0],p[1]); });
+  const hh={}; guests.forEach(g=>{ const h=g.household; if(h&&h!=="Senza nucleo"){ if(hh[h]) union(hh[h],g.id); else hh[h]=g.id; } });
+  const groups={}; guests.forEach(g=>{ const r=find(g.id); (groups[r]=groups[r]||[]).push(g.id); });
+  const groupList=Object.keys(groups).map(k=>groups[k]).sort((a,b)=>b.length-a.length);
+  const sepKey=(a,b)=> a<b?a+"|"+b:b+"|"+a;
+  const sep=separate||new Set();
+  function conflicts(members, placed){ for(const m of members) for(const p of placed){ if(sep.has(sepKey(m,p))) return true; } return false; }
+  const assign={}, cap={}; tables.forEach(t=>{ assign[t.id]=[]; cap[t.id]=t.seats||0; });
+  const unseated=[], warnings=[];
+  for(const grp of groupList){
+    let remaining=grp.slice();
+    while(remaining.length){
+      let best=null, bestFree=0;
+      for(const t of tables){ const free=cap[t.id]-assign[t.id].length; if(free<=0) continue; if(conflicts(remaining, assign[t.id])) continue; if(free>bestFree){ best=t; bestFree=free; } }
+      if(!best){ unseated.push.apply(unseated, remaining); break; }
+      const take=remaining.slice(0, Math.min(bestFree, remaining.length));
+      if(take.length<remaining.length) warnings.push("Gruppo diviso ("+take.length+"/"+remaining.length+")");
+      assign[best.id]=assign[best.id].concat(take);
+      remaining=remaining.slice(take.length);
+    }
+  }
+  return {assign:assign, unseated:unseated, warnings:warnings};
+}
 
 
 /* ---- planimetria SVG nativa (B3) ---- */
@@ -643,6 +675,24 @@ function optimizeAllTables(){
   if(!done){ toast("Nessun tavolo con almeno 2 ospiti"); return; }
   commit(improved?("Ottimizzati "+done+" tavoli"):"Nessun miglioramento possibile");
 }
+function autoAssignConfirm(){
+  const e=ev();
+  if(!(e.tables||[]).length){ toast("Crea prima i tavoli"); return; }
+  modal("Assegnazione automatica",
+    `<p>Riassegna automaticamente tutti gli ospiti ai tavoli in base a vicinanze, nucleo familiare e capienza, poi ottimizza i posti. Sostituisce la disposizione attuale.</p>`,
+    [{label:"Annulla"},{label:"Assegna",cls:"",fn:()=>seatAutoAssign()}]);
+}
+function seatAutoAssign(){
+  const e=ev(), tables=e.tables||[]; if(!tables.length){ toast("Crea prima i tavoli"); return; }
+  const guests=seatableGuests(); if(!guests.length){ toast("Nessun ospite da sedere"); return; }
+  const idx=seatRulesIdx();
+  const plan=seatPlanAssignment(tables, guests, idx.together, idx.separate);
+  tables.forEach(t=>{ const gs=(plan.assign[t.id]||[]).slice(0,t.seats); const arr=new Array(t.seats).fill(null); gs.forEach((g,i)=>arr[i]=g); t.seatIds=arr; });
+  tables.forEach(t=>{ if(seatHeadAt(t)>=2){ const r=seatOptimizeTable(t); t.seatIds=r.order.map(x=>x===undefined?null:x); } });
+  let msg="Assegnati "+(guests.length-plan.unseated.length)+"/"+guests.length+" ospiti";
+  if(plan.unseated.length) msg+=" · "+plan.unseated.length+" senza posto (capienza insufficiente)";
+  commit(msg);
+}
 /* ---- Categorizzazione: vicinanze insieme/lontano (alimentano l'ottimizzatore) ---- */
 function seatGuestName(gid){ const g=seatGuestById(gid); return g?g.name:"(ospite rimosso)"; }
 function seatRuleEditor(){
@@ -761,7 +811,7 @@ function viewSeating(){
     <div class="card kpi"><div class="v">${seated}/${totSeats}</div><div class="l">Posti occupati</div></div>
     <div class="card kpi"><div class="v">${unseated.length}</div><div class="l">Ospiti da sedere</div></div>
   </div>
-  <div class="sec-title"><h2>Planimetria</h2><span>${tables.length?'<button class="btn sm ghost" data-act="optimizeAll">Ottimizza tutti</button> ':''}<button class="btn sm" data-act="addTable">+ Tavolo</button></span></div>
+  <div class="sec-title"><h2>Planimetria</h2><span>${tables.length?'<button class="btn sm ghost" data-act="autoAssign">Assegna automaticamente</button> <button class="btn sm ghost" data-act="optimizeAll">Ottimizza tutti</button> ':''}<button class="btn sm" data-act="addTable">+ Tavolo</button></span></div>
   <div id="planiHost">
     <div class="card" style="padding:8px">${renderPlanimetria()}</div>
     <div class="sec-title" style="margin-top:6px"><h2 style="font-size:15px">Riserva ospiti</h2></div>
@@ -1748,6 +1798,7 @@ document.addEventListener("click",e=>{ try{
   else if(act==="delTable") delTable(id);
   else if(act==="optimizeTable") optimizeTable(id);
   else if(act==="optimizeAll") optimizeAllTables();
+  else if(act==="autoAssign") autoAssignConfirm();
   else if(act==="addRule") seatRuleEditor();
   else if(act==="delRule") delSeatRule(id);
   else if(act==="assignSeat") assignSeat(a.getAttribute("data-table"), a.getAttribute("data-idx"));

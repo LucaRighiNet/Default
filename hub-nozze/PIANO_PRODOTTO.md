@@ -148,6 +148,14 @@ Supporto          canale di supporto, changelog, stato del servizio
 - Notifiche (email/push) per scadenze, RSVP ricevuti, saldi fornitori.
 - Template e duplicazione evento; import/export completo; storia/undo.
 - Aiuto contestuale, changelog, richiesta recensione al momento giusto.
+- Assegnazione automatica ospiti→tavoli (differenziatore di dominio): a partire
+  da vicinanze (insieme/lontano), nucleo familiare e capienza, l'app propone una
+  disposizione completa e poi ottimizza i posti dentro ogni tavolo. Oggi
+  l'ottimizzatore riordina solo DENTRO un tavolo; questa feature aggiunge il
+  passo mancante — l'assegnazione globale ai tavoli. Implementata come euristica
+  (raggruppamento + bin-packing con vincoli), non solutore esatto. [primo taglio
+  in questa sessione; margini di miglioramento: solutore migliore, blocco posti,
+  suggerimenti "perché qui"]
 
 ### 5.2 Monetizzazione
 - Modello consigliato: freemium + abbonamento (o acquisto una-tantum per singolo

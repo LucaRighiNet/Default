@@ -5,7 +5,7 @@ const { sandbox, runner } = require("./_harness");
 
 const SEAT_START = "const SEAT_SHAPES=";
 const SEAT_END = "/* ---- planimetria SVG nativa (B3) ---- */";
-const EXPORTS = ["seatCost","seatOptimize","seatRulesIdx","seatAffinityFn","seatOptimizeTable","SEAT_CFG"];
+const EXPORTS = ["seatCost","seatOptimize","seatRulesIdx","seatAffinityFn","seatOptimizeTable","seatPlanAssignment","SEAT_CFG"];
 
 let evState = { guests: [], tables: [], seating: { rules: [] } };
 const S = sandbox(SEAT_START, SEAT_END, EXPORTS, { ev: () => evState });
@@ -92,6 +92,41 @@ r.ok("seatOptimizeTable: usa seatIds e seats del tavolo", () => {
   evState = { guests:[], seating:{ rules:["x"].length?[{a:"A",b:"C",kind:"together"}]:[] } };
   const res = S.seatOptimizeTable({ seats:6, seatIds:["A","B","C","D","E","F"] });
   assert(res.order.length === 6 && res.after <= res.before + 1e-9);
+});
+
+// --- assegnazione globale ospiti->tavoli (seatPlanAssignment) ---
+const tableOf = (plan, gid) => Object.keys(plan.assign).find(k => plan.assign[k].includes(gid));
+r.ok("seatPlanAssignment: coppia 'insieme' finisce sullo stesso tavolo", () => {
+  const tables=[{id:"t1",seats:4},{id:"t2",seats:4}];
+  const guests=[{id:"a"},{id:"b"},{id:"c"},{id:"d"}];
+  const plan=S.seatPlanAssignment(tables, guests, new Set(["a|b"]), new Set());
+  assert.strictEqual(tableOf(plan,"a"), tableOf(plan,"b"));
+});
+r.ok("seatPlanAssignment: coppia 'lontano' su tavoli diversi", () => {
+  const tables=[{id:"t1",seats:4},{id:"t2",seats:4}];
+  const guests=[{id:"a"},{id:"b"}];
+  const plan=S.seatPlanAssignment(tables, guests, new Set(), new Set(["a|b"]));
+  assert.notStrictEqual(tableOf(plan,"a"), tableOf(plan,"b"));
+});
+r.ok("seatPlanAssignment: stesso nucleo raggruppato", () => {
+  const tables=[{id:"t1",seats:2},{id:"t2",seats:2}];
+  const guests=[{id:"a",household:"Rossi"},{id:"b",household:"Rossi"},{id:"c",household:"Verdi"},{id:"d",household:"Verdi"}];
+  const plan=S.seatPlanAssignment(tables, guests, new Set(), new Set());
+  assert.strictEqual(tableOf(plan,"a"), tableOf(plan,"b"));
+  assert.strictEqual(tableOf(plan,"c"), tableOf(plan,"d"));
+});
+r.ok("seatPlanAssignment: capienza insufficiente -> unseated", () => {
+  const tables=[{id:"t1",seats:2}];
+  const guests=[{id:"a"},{id:"b"},{id:"c"}];
+  const plan=S.seatPlanAssignment(tables, guests, new Set(), new Set());
+  assert.strictEqual(plan.unseated.length, 1);
+});
+r.ok("seatPlanAssignment: 'Senza nucleo' non raggruppa", () => {
+  const tables=[{id:"t1",seats:2},{id:"t2",seats:2}];
+  const guests=[{id:"a",household:"Senza nucleo"},{id:"b",household:"Senza nucleo"},{id:"c",household:"Senza nucleo"},{id:"d",household:"Senza nucleo"}];
+  const plan=S.seatPlanAssignment(tables, guests, new Set(), new Set());
+  const total=Object.keys(plan.assign).reduce((n,k)=>n+plan.assign[k].length,0);
+  assert.strictEqual(total, 4); // tutti assegnati, nessun raggruppamento forzato
 });
 
 r.done();
