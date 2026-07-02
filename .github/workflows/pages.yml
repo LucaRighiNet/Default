@@ -1,7 +1,9 @@
 name: Deploy hub-nozze to GitHub Pages
+# Manuale di proposito: pubblicare l'app sul web è una scelta dell'utente.
+# Prima abilita Pages (Settings -> Pages -> Source: GitHub Actions), poi lancia
+# questo workflow dalla tab Actions ("Run workflow"). Cosi' non ci sono check
+# rossi automatici sul PR.
 on:
-  push:
-    branches: [ "claude/hub-nozze-handoff-47lbmo", "main" ]
   workflow_dispatch:
 permissions:
   contents: read
@@ -19,6 +21,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/configure-pages@v5
+        with:
+          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: hub-nozze

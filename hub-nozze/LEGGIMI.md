@@ -22,8 +22,9 @@ indirizzo web e poi "Aggiungi a Home".
 
 Modo consigliato (gratis): GitHub Pages.
 1. Su GitHub: Settings -> Pages -> Source = "GitHub Actions".
-2. Il workflow `.github/workflows/pages.yml` pubblica la cartella `hub-nozze/`.
-   Otterrai un URL tipo `https://<utente>.github.io/<repo>/`.
+2. Tab Actions -> workflow "Deploy hub-nozze to GitHub Pages" -> "Run workflow".
+   (È manuale di proposito: la pubblicazione web è una tua scelta. Pubblica la
+   cartella `hub-nozze/` e ti dà un URL tipo `https://<utente>.github.io/<repo>/`.)
 3. Su iPhone: apri quell'URL in Safari -> Condividi -> "Aggiungi a Home".
    Ora hai l'icona, funziona offline (service worker) e i dati restano sul telefono.
 
