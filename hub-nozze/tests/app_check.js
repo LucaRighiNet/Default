@@ -135,6 +135,66 @@ function makeMemoryRemote(){
     }
   };
 }
+/* ---- Adapter Supabase (P1): STESSO contratto del mock. Scritto contro le API di
+   supabase-js; da collegare quando il backend esiste (vedi BACKEND_P1.md). ---- */
+function makeSupabaseRemote(supabase, eventId){
+  const T="event_state", asStr=v=> typeof v==="string"?v:JSON.stringify(v);
+  return {
+    name:"supabase",
+    async pull(){
+      const r=await supabase.from(T).select("version,data").eq("event_id",eventId).maybeSingle();
+      if(r.error) throw new Error(r.error.message||"pull");
+      if(!r.data) return null;
+      return { version:Number(r.data.version), data:asStr(r.data.data) };
+    },
+    async push(baseVersion, data){
+      // update ottimistico con guardia di versione
+      const up=await supabase.from(T).update({data:data, version:baseVersion+1, updated_at:new Date().toISOString()})
+        .eq("event_id",eventId).eq("version",baseVersion).select("version").maybeSingle();
+      if(up.error) throw new Error(up.error.message||"push");
+      if(up.data) return { ok:true, version:Number(up.data.version) };
+      // nessuna riga aggiornata: o non esiste ancora, o la versione è avanzata
+      const cur=await supabase.from(T).select("version,data").eq("event_id",eventId).maybeSingle();
+      if(cur.error) throw new Error(cur.error.message||"reread");
+      if(!cur.data){
+        const ins=await supabase.from(T).insert({event_id:eventId, data:data, version:1, updated_at:new Date().toISOString()}).select("version").maybeSingle();
+        if(ins.error){ const c2=await supabase.from(T).select("version,data").eq("event_id",eventId).maybeSingle(); if(c2.data) return {conflict:true, version:Number(c2.data.version), data:asStr(c2.data.data)}; throw new Error(ins.error.message||"insert"); }
+        return { ok:true, version:Number(ins.data.version) };
+      }
+      return { conflict:true, version:Number(cur.data.version), data:asStr(cur.data.data) };
+    }
+  };
+}
+/* ---- Auth (P1): mock per dry-run + adapter Supabase ---- */
+function makeMockAuth(){ let user=null; return {
+  name:"mock",
+  async signIn(email){ user={id:"u_"+((email||"anon").split("@")[0]), email:email||"anon@example.com"}; return user; },
+  async signOut(){ user=null; },
+  getUser(){ return user; }
+}; }
+function makeSupabaseAuth(supabase){ return {
+  name:"supabase",
+  async signIn(email){ const r=await supabase.auth.signInWithOtp({email:email}); if(r.error) throw new Error(r.error.message); return r.data; },
+  async signOut(){ await supabase.auth.signOut(); },
+  getUser(){ return supabase.auth.getUser?supabase.auth.getUser():null; }
+}; }
+/* ---- Cloud controller: lega auth + remote + Sync. Dormiente finché non configurato. ---- */
+const Cloud=(function(){
+  let auth=null, remote=null, user=null;
+  return {
+    configure(a, r){ auth=a; remote=r; },
+    configured(){ return !!(auth && remote); },
+    currentUser(){ return user; },
+    async login(email){
+      if(!this.configured()) throw new Error("cloud non configurato");
+      user=await auth.signIn(email);
+      Sync.enable(remote);
+      const cloudState=await Sync.pull();   // stato dal cloud (o null se primo accesso)
+      return { user:user, cloudState:cloudState };
+    },
+    async logout(){ if(auth){ try{ await auth.signOut(); }catch(e){} } user=null; Sync.disable(); }
+  };
+})();
 // Flush quando la pagina passa in background o viene chiusa (iOS: pagehide/
 // visibilitychange sono gli eventi affidabili; 'unload' non è garantito su Safari).
 if(typeof window!=="undefined"){
@@ -1751,6 +1811,7 @@ function openGear(){
     [{label:"Esporta",cls:"ghost",fn:()=>exportEvent(),close:false},
      {label:"Importa",cls:"ghost",fn:()=>{importEvent();},},
      {label:"Guida",cls:"ghost",fn:()=>{openGuide(0);},close:false},
+     {label:"Account e sync",cls:"ghost",fn:()=>{openAccount();},close:false},
      {label:"Diagnostica",cls:"ghost",fn:()=>{openDiag();},close:false},
      {label:"Nuovo evento vuoto",cls:"ghost",fn:()=>{newEvent();},close:false},
      {label:"Reset al seed",cls:"danger",fn:()=>{resetEvent();},close:false}]);
@@ -1792,6 +1853,33 @@ function openDiag(){
   const body=`<p class="muted" style="font-size:13px;margin-bottom:8px">Backend dati: ${esc(Store.backend)} · errori registrati: ${items.length}. Se qualcosa non va, copia questo testo e invialo al supporto.</p>`
     +`<textarea class="inp" rows="8" readonly style="font-size:12px;font-family:monospace;white-space:pre">${esc(txt)}</textarea>`;
   modal("Diagnostica", body, [{label:"Svuota",cls:"ghost",fn:()=>{ Diag.clear(); toast("Diagnostica svuotata"); }},{label:"Chiudi"}]);
+}
+
+// Account e sync cloud (P1). Dormiente finché il backend non è configurato
+// (window.HUB_CLOUD + supabase-js). Lo strato client è già pronto e testato.
+function openAccount(){
+  if(!Cloud.configured()){
+    modal("Account e sync",
+      `<p>Il backend cloud non è ancora configurato in questa build. Quando il progetto Supabase sarà pronto (vedi BACKEND_P1.md), account e sincronizzazione multi-dispositivo si attivano qui.</p><p class="muted" style="font-size:12px">Lo strato client — adapter Supabase, auth e sync — è già presente e testato: manca solo collegare le chiavi del backend.</p>`,
+      [{label:"Chiudi"}]);
+    return;
+  }
+  const u=Cloud.currentUser();
+  if(u){
+    modal("Account", `<p>Connesso come <b>${esc(u.email||u.id)}</b>. Le modifiche si sincronizzano tra i tuoi dispositivi.</p>`,
+      [{label:"Esci",cls:"danger",fn:()=>{ Cloud.logout().then(()=>{ toast("Disconnesso"); }); }},{label:"Chiudi"}]);
+    return;
+  }
+  modal("Accedi",
+    `<div class="field"><label>Email</label><input class="inp" id="cl_email" type="email" placeholder="tu@esempio.it"></div>
+     <p class="muted" style="font-size:12px">Ti invieremo un accesso via email. Dopo l'accesso i dati si sincronizzano nel cloud.</p>`,
+    [{label:"Annulla"},{label:"Accedi",cls:"",fn:()=>{
+       const email=($("#cl_email").value||"").trim();
+       Cloud.login(email).then(function(res){
+         if(res.cloudState){ STATE=res.cloudState; recompute(); render(); toast("Accesso ok · dati dal cloud"); }
+         else { Sync.notify(STATE); toast("Accesso ok"); }
+       }).catch(function(e){ toast("Accesso non riuscito"); Diag.log("cloud","login fallito", e&&e.message); });
+     }}]);
 }
 
 // Suggerimento contestuale per scheda (riga compatta in cima alla vista).
@@ -1864,6 +1952,14 @@ document.addEventListener("change",function(e){ if(e.target&&e.target.id==="rs_f
   STATE=await Store.load();
   if(!STATE||!STATE.events){ STATE=seedState(); Store.save(STATE); }
   recompute(); render();
+  // Bootstrap cloud: attivo solo se la build fornisce config + supabase-js.
+  // Assente per ora -> Cloud resta dormiente e l'app è puramente locale.
+  try{
+    if(typeof window!=="undefined" && window.HUB_CLOUD && window.supabase && window.supabase.createClient){
+      const sc=window.supabase.createClient(window.HUB_CLOUD.url, window.HUB_CLOUD.anonKey);
+      Cloud.configure(makeSupabaseAuth(sc), makeSupabaseRemote(sc, STATE.activeEventId||"rb27"));
+    }
+  }catch(e){ Diag.log("cloud","bootstrap fallito", e&&e.message); }
   if(!STATE.onboarded) openGuide(0);
 })();
 })();

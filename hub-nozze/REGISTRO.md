@@ -472,3 +472,30 @@ ok, zero errori JS) col sync dormiente.
 
 Cosa resta all'utente per andare live: provisionare Supabase (UE) + schema/RLS,
 dare le chiavi; poi makeSupabaseRemote (piccolo) e Sync.enable dopo il login.
+
+## Giro 12 (Claude Code) — P1 "a secco": adapter Supabase + auth + login (pronti da collegare)
+
+Scelta utente (b): scrivere e testare makeSupabaseRemote + flusso di login contro
+mock/fake, pronti da collegare, senza backend live.
+
+- makeSupabaseRemote(supabase, eventId): implementa il contratto RemoteAdapter
+  (pull/push) contro le API di supabase-js — update ottimistico con guardia di
+  versione, insert al primo salvataggio, conflict con rilettura. Testato contro un
+  fake client (query builder simulato): pull vuoto, insert v1, update, conflict,
+  isolamento fra eventi.
+- Auth: makeMockAuth (dry-run) + makeSupabaseAuth (signInWithOtp/signOut/getUser).
+- Cloud controller: configure/login/logout; login abilita Sync, fa pull, ritorna
+  {user, cloudState}. Dormiente finché non configurato.
+- UI: voce "Account e sync" nel menù. Se cloud non configurato mostra lo stato e
+  rimanda a BACKEND_P1.md; altrimenti login via email e sync. openAccount applica
+  cloudState a STATE (o pubblica lo stato locale al primo accesso).
+- Bootstrap in INIT: se window.HUB_CLOUD + supabase-js presenti, costruisce il
+  client e Cloud.configure(makeSupabaseAuth, makeSupabaseRemote). Assenti ora ->
+  Cloud dormiente, app puramente locale.
+
+Verifica: node --check OK; suite 133/133 (nuova cloud_test 9). Playwright: app
+invariata; "Account e sync" mostra "non configurato"; zero errori JS.
+
+Per andare live manca solo (lato utente): progetto Supabase (UE) + schema/RLS di
+BACKEND_P1.md + chiavi in window.HUB_CLOUD e inclusione di supabase-js. Allora il
+flusso già scritto si attiva senza altre modifiche.
