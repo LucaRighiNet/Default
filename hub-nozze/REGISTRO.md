@@ -680,3 +680,28 @@ Variabili ottimizzatore ora: lato, nucleo, gruppo, bambini (affinità) + vicinan
 insieme/lontano (regole esplicite). Verifica: node --check; suite 162/162
 (b2 +2 su affinità gruppo). Playwright: nucleo/gruppo = SELECT, "+ Nuovo" funziona,
 salvataggio corretto. dist/Hub_Nozze.html rigenerato.
+
+## Giro 22 (Claude Code) — clic minimi/guidati + gap analysis app tavoli
+
+Richieste utente: (1) modifica liste a doppio clic senza tasto Modifica; (2) in
+generale clic minimi e guidati, verifica su tutta l'app; (3) gap analysis vs
+l'app tavoli originale (Tableau_Matrimonio.html, caricata).
+
+- Liste: doppio clic su voce o titolo -> editing in-linea (contenteditable),
+  Invio salva, Esc annulla, blur salva; svuotare una voce la rimuove. Invio nel
+  campo "aggiungi voce" aggiunge senza cliccare "+". Permessi rispettati
+  (sola lettura -> toast). Niente più tasto "Modifica" nelle liste.
+- Ospiti: pill RSVP cliccabile che cicla conf -> attesa -> no in un clic (prima
+  4 clic via modale). Passaggio a "no" libera il posto (seatPurgeGuest).
+- Modali: Invio da un INPUT conferma l'azione primaria; bottone di conferma
+  (convenzione cls:"") ora ha classe/stile "primary" oro, distinto dai secondari.
+  Corretto un difetto latente: cls:"" era falsy e rendeva il primario come ghost.
+- Doc: GAP_ANALYSIS.md — l'algoritmo nativo eguaglia l'originale; il gap vero è
+  il sistema di variabili configurabili (pesi, modo unisci/separa, tendine,
+  variabili custom, attributi per ospite) + wizard, filtri RSVP, gruppi colorati,
+  temi nomi tavoli, planimetria drag/zoom, export CSV. Priorità P1 = variabili
+  (richiede conferma di scopo: è un sotto-progetto, non un ritocco).
+
+Verifica: node --check ok; suite 162/162 verde; Playwright (430x932): doppio clic
+voce+titolo con save/persistenza dopo reload, RSVP 1-clic, Invio-conferma modale,
+smoke su tutte le 8 schede senza errori JS. dist/Hub_Nozze.html rigenerato.

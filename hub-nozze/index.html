@@ -100,6 +100,7 @@ main{flex:1; padding:18px calc(var(--sar) + 14px) calc(var(--sab) + 80px) calc(v
 .btn:hover{background:var(--sea-deep); border-color:var(--sea-deep)}
 .btn:active{transform:translateY(1px)}
 .btn.ghost{background:var(--card); color:var(--ink); border-color:var(--line); box-shadow:none}
+.btn.primary{background:var(--gold); border-color:var(--gold); color:var(--ivory)}
 .btn.ghost:hover{background:var(--card2)}
 .btn.sm{padding:7px 12px; min-height:36px; font-size:13px}
 .btn.danger{background:var(--card); color:var(--no); border-color:#e6c2bd; box-shadow:none}
@@ -552,13 +553,20 @@ function modal(title, bodyHtml, actions){
   const act=$("#mact");
   (actions||[{label:"Chiudi",close:true}]).forEach(a=>{
     const b=document.createElement("button");
-    b.className="btn "+(a.cls||"ghost"); b.textContent=a.label;
+    // Convenzione app: cls:"" = azione primaria/conferma -> stile "primary" + Invio.
+    const primary=(a.cls===""); b.className="btn "+(primary?"primary":(a.cls||"ghost")); b.textContent=a.label;
+    if(primary) b.setAttribute("data-primary","1");
     b.onclick=()=>{ if(a.fn) a.fn(); if(a.close!==false) close(); };
     act.appendChild(b);
   });
   function focusables(){ return Array.prototype.slice.call(dialog.querySelectorAll('a[href],button,select,textarea,input,[tabindex]:not([tabindex="-1"])')).filter(function(el){ return !el.disabled && el.offsetParent!==null; }); }
   function onKey(e){
     if(e.key==="Escape"){ e.preventDefault(); close(); return; }
+    if(e.key==="Enter" && document.activeElement && document.activeElement.tagName==="INPUT"){
+      // Invio da un campo di testo = conferma azione primaria (meno clic).
+      const prim=act.querySelector('[data-primary]');
+      if(prim){ e.preventDefault(); prim.click(); return; }
+    }
     if(e.key==="Tab"){ const f=focusables(); if(!f.length){ e.preventDefault(); dialog.focus(); return; }
       const first=f[0], last=f[f.length-1];
       if(e.shiftKey && document.activeElement===first){ e.preventDefault(); last.focus(); }
@@ -743,7 +751,7 @@ function viewGuests(){
       const r=RSVP[g.rsvp]||["todo","?"];
       blocks+=`<tr>
         <td>${esc(g.name)}${g.plusOne?` <span class="tag">+${g.plusOne}</span>`:""}${g.shuttle?' <span class="tag">navetta</span>':""}${g.accessibility?` <span class="tag">${esc(g.accessibility)}</span>`:""}${(function(){var _t=seatTableOf(g.id);return _t?` <span class="tag">${esc(_t.name)}</span>`:"";})()}</td>
-        <td><span class="pill ${r[0]}">${r[1]}</span></td>
+        <td><button class="pill ${r[0]}" data-act="cycleRsvp" data-id="${g.id}" title="Clic per cambiare stato RSVP" style="cursor:pointer;border:none;font:inherit">${r[1]}</button></td>
         <td>${esc(g.meal)}${g.intolerances?` <span class="muted">· ${esc(g.intolerances)}</span>`:""}</td>
         <td class="num"><button class="btn sm ghost" data-act="editGuest" data-id="${g.id}">Modifica</button></td>
         <td class="num"><button class="btn sm danger" data-act="delGuest" data-id="${g.id}">×</button></td>
@@ -1745,8 +1753,8 @@ function delRs(id){ ev().runshow=ev().runshow.filter(x=>x.id!==id); commit("Mome
 function viewLists(){
   const e=ev();
   const cards=e.lists.map(l=>`<div class="card" style="margin-bottom:12px">
-    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><h3>${esc(l.title)}</h3><button class="btn sm danger" data-act="delList" data-id="${l.id}">Elimina</button></div>
-    <div style="margin:8px 0">${l.items.length?l.items.map((it,i)=>`<div style="padding:4px 0;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:8px"><span>${esc(it)}</span><button class="btn sm danger" data-act="delItem" data-id="${l.id}" data-i="${i}">×</button></div>`).join(""):'<span class="muted">Vuota.</span>'}</div>
+    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><h3 data-inline="title" data-id="${l.id}" title="Doppio clic per rinominare" style="cursor:text">${esc(l.title)}</h3><button class="btn sm danger" data-act="delList" data-id="${l.id}">Elimina</button></div>
+    <div style="margin:8px 0">${l.items.length?l.items.map((it,i)=>`<div style="padding:4px 0;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:8px"><span data-inline="item" data-id="${l.id}" data-i="${i}" title="Doppio clic per modificare" style="cursor:text;flex:1">${esc(it)}</span><button class="btn sm danger" data-act="delItem" data-id="${l.id}" data-i="${i}" aria-label="Rimuovi">×</button></div>`).join(""):'<span class="muted">Vuota. Scrivi qui sotto e premi Invio per aggiungere.</span>'}</div>
     <div class="two" style="grid-template-columns:1fr auto"><input class="inp" id="li_${l.id}" placeholder="Aggiungi voce…"><button class="btn sm" data-act="addItem" data-id="${l.id}">+</button></div>
   </div>`).join("");
   return `
@@ -2255,6 +2263,7 @@ document.addEventListener("click",e=>{ try{
   else if(act==="importGuests") importWizard();
   else if(act==="addGuest") editGuest(null);
   else if(act==="editGuest") editGuest(id);
+  else if(act==="cycleRsvp"){ const e=ev(), g=e.guests.find(x=>x.id===id); if(g){ const seq=["conf","attesa","no"]; g.rsvp=seq[(seq.indexOf(g.rsvp)+1)%seq.length]; if(g.rsvp==="no"){ e.seating=e.seating||{rules:[]}; e.seating.rules=seatPurgeGuest(e.tables, e.seating.rules||[], g.id); } commit("RSVP: "+(RSVP[g.rsvp]?RSVP[g.rsvp][1]:g.rsvp)); } }
   else if(act==="delGuest") delGuest(id);
   else if(act==="addVendor") editVendor(null);
   else if(act==="editVendor") editVendor(id);
@@ -2296,6 +2305,34 @@ document.addEventListener("change",function(e){
     const inp=document.getElementById(e.target.id+"_new");
     if(inp){ if(e.target.value==="__new__"){ inp.style.display=""; inp.focus(); } else { inp.style.display="none"; inp.value=""; } }
   }
+});
+// Doppio clic per modificare inline (voci e titoli delle liste): niente tasto "Modifica".
+document.addEventListener("dblclick", function(e){
+  const el=e.target.closest && e.target.closest('[data-inline]'); if(!el) return;
+  if(typeof Session!=="undefined" && !Session.canEdit()){ toast("Sola lettura"); return; }
+  const kind=el.getAttribute("data-inline"), id=el.getAttribute("data-id");
+  startInlineEdit(el, function(txt){
+    const l=ev().lists.find(x=>x.id===id); if(!l) return;
+    if(kind==="title"){ if(txt){ l.title=txt; commit("Lista rinominata"); } else render(); }
+    else { const i=+el.getAttribute("data-i"); if(txt){ l.items[i]=txt; commit("Voce modificata"); } else { l.items.splice(i,1); commit("Voce rimossa"); } }
+  });
+});
+function startInlineEdit(el, onSave){
+  const orig=el.textContent; let done=false;
+  el.setAttribute("contenteditable","true"); el.classList.add("editing"); el.focus();
+  try{ const rng=document.createRange(); rng.selectNodeContents(el); const sel=window.getSelection(); sel.removeAllRanges(); sel.addRange(rng); }catch(err){}
+  function finish(save){ if(done) return; done=true; el.removeAttribute("contenteditable"); el.removeEventListener("keydown",onKey); el.removeEventListener("blur",onBlur);
+    const txt=(el.textContent||"").trim();
+    if(save && txt!==(orig||"").trim()) onSave(txt); else el.textContent=orig; }
+  function onKey(ev){ if(ev.key==="Enter"){ ev.preventDefault(); el.blur(); } else if(ev.key==="Escape"){ ev.preventDefault(); finish(false); } }
+  function onBlur(){ finish(true); }
+  el.addEventListener("keydown",onKey); el.addEventListener("blur",onBlur);
+}
+// Invio per aggiungere una voce lista senza cliccare "+".
+document.addEventListener("keydown", function(e){
+  if(e.key!=="Enter") return;
+  const t=e.target;
+  if(t && t.id && t.id.indexOf("li_")===0){ e.preventDefault(); addItem(t.id.slice(3)); }
 });
 /* ============ INIT ============ */
 (async function(){
