@@ -596,3 +596,29 @@ lingua schede IT<->EN, nessuna regressione, zero errori JS.
 STATO PIANO: completato per quanto fattibile in questo ambiente. Resta ciò che
 richiede provisioning/decisioni esterne (Supabase, Stripe, Sentry, store, legale,
 conferma device) + le passate dedicate i18n completa e WCAG.
+
+## Giro 18 (Claude Code) — passata di accessibilità (WCAG)
+
+Misurata con axe-core 4.12.1 (Playwright).
+
+- Baseline: violazioni landmark-one-main + region (moderate).
+- Fix: rimosso role="region" (e aria-live) dal <main> → landmark main ripristinato
+  (landmark-one-main risolto) e niente più ri-annuncio dell'intera vista a ogni
+  render. Resta 1 sola "region" (best-practice) sul tablist #tabs: accettata come
+  tradeoff (semantica tab completa role=tablist/tab/aria-selected vs wrapping
+  landmark; fixarla rischiava il layout schede).
+- Modale accessibile (grande guadagno tastiera/screen reader): focus spostato nel
+  dialog all'apertura (primo campo o bottone), trap del Tab, Escape per chiudere,
+  ripristino del focus all'elemento precedente alla chiusura; pulizia del listener
+  su modali annidati.
+- document.documentElement.lang aggiornato al cambio lingua.
+- ariaEnhance(): etichette accessibili automatiche sui pulsanti-icona ("×"→Rimuovi)
+  in vista e modali.
+- Confermato già presente: focus-visible, toast role=status + live region #aria.
+
+Verifica: node --check OK; suite 158/158. axe: da 2 a 1 violazione (best-practice).
+Playwright: focus entra nel modale + Escape chiude; guida e flussi modali invariati.
+
+Passata i18n completa (estrazione di tutte le stringhe) resta l'unica voce di
+qualità non ancora fatta e fattibile qui (grande, dedicata). Tutto il resto del
+piano è FATTO/SCAFFOLD/UTENTE (vedi PIANO_PRODOTTO sez.11).

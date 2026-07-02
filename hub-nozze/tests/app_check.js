@@ -375,9 +375,13 @@ function announce(t){ $("#aria").textContent=t; }
 function toast(t){ const el=$("#toast"); el.textContent=t; el.classList.add("show"); announce(t); setTimeout(()=>el.classList.remove("show"),1800); }
 function commit(msg){ recompute(); Store.save(STATE); render(); if(msg) toast(msg); }
 
+let _modalKey=null; // keydown handler del modale corrente (per pulizia su annidamento)
 function modal(title, bodyHtml, actions){
   const root=$("#modalRoot");
-  root.innerHTML='<div class="modal-bg" id="mbg"><div class="modal" role="dialog" aria-modal="true" aria-label="'+esc(title)+'"><h3>'+esc(title)+'</h3><div id="mbody">'+bodyHtml+'</div><div class="btnbar" id="mact"></div></div></div>';
+  const prevFocus=document.activeElement;
+  if(_modalKey){ document.removeEventListener("keydown",_modalKey,true); _modalKey=null; }
+  root.innerHTML='<div class="modal-bg" id="mbg"><div class="modal" role="dialog" aria-modal="true" aria-label="'+esc(title)+'" tabindex="-1"><h3>'+esc(title)+'</h3><div id="mbody">'+bodyHtml+'</div><div class="btnbar" id="mact"></div></div></div>';
+  const dialog=root.querySelector(".modal");
   const act=$("#mact");
   (actions||[{label:"Chiudi",close:true}]).forEach(a=>{
     const b=document.createElement("button");
@@ -385,8 +389,21 @@ function modal(title, bodyHtml, actions){
     b.onclick=()=>{ if(a.fn) a.fn(); if(a.close!==false) close(); };
     act.appendChild(b);
   });
+  function focusables(){ return Array.prototype.slice.call(dialog.querySelectorAll('a[href],button,select,textarea,input,[tabindex]:not([tabindex="-1"])')).filter(function(el){ return !el.disabled && el.offsetParent!==null; }); }
+  function onKey(e){
+    if(e.key==="Escape"){ e.preventDefault(); close(); return; }
+    if(e.key==="Tab"){ const f=focusables(); if(!f.length){ e.preventDefault(); dialog.focus(); return; }
+      const first=f[0], last=f[f.length-1];
+      if(e.shiftKey && document.activeElement===first){ e.preventDefault(); last.focus(); }
+      else if(!e.shiftKey && document.activeElement===last){ e.preventDefault(); first.focus(); }
+    }
+  }
+  _modalKey=onKey; document.addEventListener("keydown", onKey, true);
+  ariaEnhance(dialog);
   $("#mbg").addEventListener("click",e=>{ if(e.target.id==="mbg") close(); });
-  function close(){ root.innerHTML=""; }
+  // focus iniziale: primo campo di input, altrimenti primo bottone, altrimenti il dialog
+  const f=focusables(); (f.filter(function(el){ return /^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName); })[0] || f[0] || dialog).focus();
+  function close(){ if(_modalKey===onKey){ document.removeEventListener("keydown",onKey,true); _modalKey=null; } root.innerHTML=""; try{ if(prevFocus && prevFocus.focus) prevFocus.focus(); }catch(e){} }
   return {close};
 }
 
@@ -424,9 +441,18 @@ function render(){
   else if(active==="lists") v.innerHTML=viewLists();
   else v.innerHTML=viewPlaceholder(active);
   v.innerHTML=hintBanner(active)+v.innerHTML;
+  try{ document.documentElement.lang=appLang(); }catch(e){}
+  ariaEnhance(v);
   if(active==="aperitivo") wireAperitivo();
   if(active==="seating") wireSeating();
   updateSyncChip();
+}
+// Etichette accessibili per i pulsanti icona senza testo (es. "×", "⚙").
+function ariaEnhance(root){
+  if(!root) return;
+  try{ const bs=root.querySelectorAll('button:not([aria-label]):not([aria-labelledby])');
+    for(let i=0;i<bs.length;i++){ const tx=(bs[i].textContent||"").trim(); if(tx==="×"||tx==="✕"||tx==="&times;") bs[i].setAttribute("aria-label","Rimuovi"); }
+  }catch(e){}
 }
 // Indicatore di stato sync in header: visibile solo se il cloud è configurato.
 function updateSyncChip(){
