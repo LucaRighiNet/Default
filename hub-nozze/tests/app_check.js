@@ -1314,7 +1314,14 @@ function viewSeating(){
     <div class="card kpi"><div class="v">${seated}/${totSeats}</div><div class="l">Posti occupati</div></div>
     <div class="card kpi"><div class="v">${unseated.length}</div><div class="l">Ospiti da sedere</div></div>
   </div>
-  <div class="sec-title"><h2>Planimetria</h2><span>${tables.length?'<button class="btn sm primary" data-act="seatWizard">Genera (guidato)</button> <button class="btn sm ghost" data-act="autoAssign">Assegna auto</button> <button class="btn sm ghost" data-act="optimizeAll">Ottimizza</button> <button class="btn sm ghost" data-act="themeTables">Nomi tema</button> <button class="btn sm ghost" data-act="printTables">Stampa</button> ':''}<button class="btn sm" data-act="addTable">+ Tavolo</button></span></div>
+  <div class="sec-title"><h2>Planimetria</h2><span><button class="btn sm" data-act="addTable">+ Tavolo</button></span></div>
+  ${tables.length?`<div class="tbar">
+    <button class="btn sm primary" data-act="seatWizard">Genera (guidato)</button>
+    <button class="btn sm ghost" data-act="autoAssign">Assegna auto</button>
+    <button class="btn sm ghost" data-act="optimizeAll">Ottimizza</button>
+    <button class="btn sm ghost" data-act="themeTables">Nomi tema</button>
+    <button class="btn sm ghost" data-act="printTables">Stampa</button>
+  </div>`:''}
   <div id="planiHost">
     <div class="card" style="padding:8px">${renderPlanimetria()}</div>
     <div class="sec-title" style="margin-top:6px"><h2 style="font-size:15px">Riserva ospiti</h2></div>
