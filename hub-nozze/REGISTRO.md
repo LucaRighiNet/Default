@@ -646,3 +646,15 @@ Risultati:
 
 Suite 160/160. Stima aggiornata: lo strato UI raggiungibile è ora in gran parte
 verificato; gli ignoti residui sono soprattutto iPhone reale e backend reale.
+
+## Giro 20 (Claude Code) — pacchetto lanciabile (desktop + iPhone)
+
+- dist/Hub_Nozze.html: UN file autosufficiente (240 KB, apple-touch-icon inline,
+  nessun riferimento esterno). Verificato da file:// : boot, 8 schede, crea tavolo,
+  persiste dopo reload, zero errori. Doppio clic su desktop = funziona.
+- tools/build_singlefile.js: rigenera il file singolo da index.html.
+- LEGGIMI.md: istruzioni desktop (doppio clic / "Installa app") e iPhone (limite
+  iOS: serve URL -> GitHub Pages o server locale -> Safari -> Aggiungi a Home) +
+  nota persistenza/backup.
+- .github/workflows/pages.yml: deploy della cartella hub-nozze su GitHub Pages
+  (l'utente attiva Settings->Pages->GitHub Actions) -> URL per iPhone.
