@@ -622,3 +622,27 @@ Playwright: focus entra nel modale + Escape chiude; guida e flussi modali invari
 Passata i18n completa (estrazione di tutte le stringhe) resta l'unica voce di
 qualità non ancora fatta e fattibile qui (grande, dedicata). Tutto il resto del
 piano è FATTO/SCAFFOLD/UTENTE (vedi PIANO_PRODOTTO sez.11).
+
+## Giro 19 (Claude Code) — caccia sistematica ai bug
+
+Su richiesta: sweep E2E su tutti gli editor + audit integrità + review flussi.
+
+Risultati:
+- BUG TROVATO E CORRETTO (integrità, severità media): delGuest cancellava
+  l'ospite ma NON lo rimuoveva dai posti (seatIds) né dalle vicinanze
+  (seating.rules) -> posto "fantasma" occupato da un id morto, non rimovibile
+  dall'utente, conteggi errati, regole orfane. Riprodotto in Playwright (dopo
+  delete: 1/6 fantasma, 1 regola orfana). Fix: helper puro seatPurgeGuest(tables,
+  rules, gid) usato da delGuest; +2 test in b1_test. Riverifica E2E: 0/6, 0
+  regole orfane.
+- Sweep E2E su ~15 editor/flussi (budget/guests/vendors/timeline/lists/aperitivo
+  + sotto-modali ingranaggio): ZERO errori JS non gestiti, nessun crash.
+- Flussi "diretti" verificati funzionanti: wizard import (E2, +2 ospiti),
+  genChecklist (+13 task), simAdd stazione (+1), addItem (input inline).
+- Altri scenari di integrità controllati e OK: delTable (posti spariscono col
+  tavolo, nessun orfano), delVendor (nessun riferimento inverso), editTable con
+  riduzione posti (ospiti in eccesso tornano in riserva), ospite reso 'no' mentre
+  seduto (resta liberabile).
+
+Suite 160/160. Stima aggiornata: lo strato UI raggiungibile è ora in gran parte
+verificato; gli ignoti residui sono soprattutto iPhone reale e backend reale.

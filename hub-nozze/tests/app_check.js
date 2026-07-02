@@ -651,6 +651,12 @@ function seatValidateSerpentine(t,guestExists){
 function seatableGuests(){ return ev().guests.filter(g=>g.rsvp==='conf'||g.rsvp==='attesa'); }
 function seatTableOf(gid){ return (ev().tables||[]).find(t=>(t.seatIds||[]).indexOf(gid)>=0); }
 function seatHeadAt(t){ return (t.seatIds||[]).filter(id=>id!=null).length; }
+// Integrità: rimuove ogni riferimento a un ospite (posti a tavola + regole).
+// Ritorna le regole ripulite; azzera i posti in-place. Usato da delGuest.
+function seatPurgeGuest(tables, rules, gid){
+  (tables||[]).forEach(t=>{ if(t.seatIds) t.seatIds=t.seatIds.map(x=>x===gid?null:x); });
+  return (rules||[]).filter(r=>r.a!==gid && r.b!==gid);
+}
 
 /* ---- optimizer posti 2-opt con vincoli e affinità (nativo, B2) ---- */
 function seatRng(seed){ let a=seed>>>0; return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
@@ -1824,7 +1830,12 @@ function delGuest(id){
   const g=ev().guests.find(x=>x.id===id); if(!g) return;
   modal("Eliminare l'ospite?",`<p>Stai per rimuovere <b>${esc(g.name)}</b>. L'azione non è reversibile.</p>`,
     [{label:"Annulla"},{label:"Elimina",cls:"danger",fn:()=>{
-      ev().guests=ev().guests.filter(x=>x.id!==id); commit("Ospite eliminato");
+      const e=ev();
+      // Integrità: rimuovi ogni riferimento all'ospite (posti a tavola + vicinanze),
+      // altrimenti resta un posto "fantasma" occupato da un id morto e regole orfane.
+      e.seating=e.seating||{rules:[]};
+      e.seating.rules=seatPurgeGuest(e.tables, e.seating.rules||[], id);
+      e.guests=e.guests.filter(x=>x.id!==id); commit("Ospite eliminato");
     }}]);
 }
 

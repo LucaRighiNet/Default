@@ -6,7 +6,7 @@ const { sandbox, runner } = require("./_harness");
 const SEAT_START = "const SEAT_SHAPES=";
 const SEAT_END = "/* ---- planimetria SVG nativa (B3) ---- */";
 const EXPORTS = ["seatColRow","seatAdjacency","seatPairs","seatFootprint","seatValidateSerpentine",
-  "seatHeadAt","seatableGuests","seatTableOf","SEAT_SHAPES","SEAT_CFG"];
+  "seatHeadAt","seatableGuests","seatTableOf","seatPurgeGuest","SEAT_SHAPES","SEAT_CFG"];
 
 let evState = { guests: [], tables: [], seating: { rules: [] } };
 const S = sandbox(SEAT_START, SEAT_END, EXPORTS, { ev: () => evState });
@@ -105,6 +105,29 @@ r.ok("seatableGuests: solo conf/attesa", () => {
   ], tables:[], seating:{rules:[]} };
   const list = S.seatableGuests().map(g => g.id).sort();
   assert.deepStrictEqual(list, ["a","b","d"]);
+});
+
+r.ok("seatPurgeGuest: azzera i posti dell'ospite e rimuove le sue regole", () => {
+  const tables = [
+    { id:"t1", seatIds:["gA","gDEAD",null] },
+    { id:"t2", seatIds:[null,"gDEAD"] }
+  ];
+  const rules = [
+    { id:"r1", a:"gDEAD", b:"gA", kind:"together" },
+    { id:"r2", a:"gB", b:"gC", kind:"separate" },
+    { id:"r3", a:"gX", b:"gDEAD", kind:"separate" }
+  ];
+  const out = S.seatPurgeGuest(tables, rules, "gDEAD");
+  assert.deepStrictEqual(tables[0].seatIds, ["gA", null, null], "posto t1 non azzerato");
+  assert.deepStrictEqual(tables[1].seatIds, [null, null], "posto t2 non azzerato");
+  assert.deepStrictEqual(out.map(r => r.id), ["r2"], "regole orfane non rimosse");
+});
+r.ok("seatPurgeGuest: ospite non presente -> nessun effetto", () => {
+  const tables = [{ id:"t1", seatIds:["gA", null] }];
+  const rules = [{ id:"r1", a:"gA", b:"gB", kind:"together" }];
+  const out = S.seatPurgeGuest(tables, rules, "gZZZ");
+  assert.deepStrictEqual(tables[0].seatIds, ["gA", null]);
+  assert.strictEqual(out.length, 1);
 });
 
 r.done();
