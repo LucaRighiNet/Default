@@ -452,7 +452,63 @@ function render(){
   ariaEnhance(v);
   if(active==="aperitivo") wireAperitivo();
   if(active==="seating") wireSeating();
+  if(active==="guests") wireGuests();
   updateSyncChip();
+}
+// Filtri (chip RSVP) + ricerca ospiti (G7), lato client per non perdere il focus.
+let GUESTVIEW={filter:'all', q:''};
+function wireGuests(){
+  const host=document.getElementById('view'); if(!host) return;
+  const search=host.querySelector('#guestSearch');
+  if(search){ search.value=GUESTVIEW.q; search.oninput=()=>{ GUESTVIEW.q=search.value; guestApplyFilter(); }; }
+  host.querySelectorAll('[data-gfilter]').forEach(b=>{
+    b.classList.toggle('primary', b.getAttribute('data-gfilter')===GUESTVIEW.filter);
+    b.onclick=()=>{ GUESTVIEW.filter=b.getAttribute('data-gfilter');
+      host.querySelectorAll('[data-gfilter]').forEach(x=>x.classList.toggle('primary', x===b)); guestApplyFilter(); };
+  });
+  guestApplyFilter();
+}
+function guestApplyFilter(){
+  const q=(GUESTVIEW.q||'').trim().toLowerCase(), f=GUESTVIEW.filter||'all';
+  let shown=0;
+  document.querySelectorAll('tr[data-grow]').forEach(tr=>{
+    const okF=(f==='all'||f===tr.getAttribute('data-rsvp'));
+    const okQ=(!q||(tr.getAttribute('data-name')||'').indexOf(q)>=0);
+    const vis=okF&&okQ; tr.style.display=vis?'':'none'; if(vis) shown++;
+  });
+  document.querySelectorAll('tr[data-hh]').forEach(h=>{
+    let n=h.nextElementSibling, any=false;
+    while(n && n.getAttribute('data-grow')!==null && n.hasAttribute('data-grow')){ if(n.style.display!=='none') any=true; n=n.nextElementSibling; }
+    h.style.display=any?'':'none';
+  });
+  const empty=document.getElementById('guestEmpty'); if(empty) empty.style.display=shown?'none':'';
+}
+// Export CSV della lista ospiti (G8).
+function exportGuestsCsv(){
+  const vars=seatActiveVars();
+  const head=["Nome","Lato","Nucleo","Gruppo","RSVP","Menu","Intolleranze","Accessibilita","Navetta","Accompagnatori"].concat(vars.map(v=>v.name));
+  const q=s=>{ s=(s==null?"":String(s)); return /[",\n;]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s; };
+  const rows=(ev().guests||[]).map(g=>{
+    const base=[g.name, g.side==="A"?meta().coupleA:meta().coupleB, g.household||"", g.group||"", (RSVP[g.rsvp]&&RSVP[g.rsvp][1])||g.rsvp, g.meal||"", g.intolerances||"", g.accessibility||"", g.shuttle?"Sì":"No", g.plusOne||0];
+    return base.concat(vars.map(v=>(g.attr&&g.attr[v.id])||"")).map(q).join(",");
+  });
+  const csv="﻿"+head.map(q).join(",")+"\n"+rows.join("\n");
+  const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+  a.download="ospiti_"+meta().coupleA+"_"+meta().coupleB+".csv"; a.click();
+  toast("CSV esportato ("+rows.length+" ospiti)");
+}
+// Tableau stampabile (G8): apre una finestra con i tavoli e i loro ospiti.
+function printTables(){
+  const tables=ev().tables||[]; if(!tables.length){ toast("Nessun tavolo"); return; }
+  const cards=tables.map(t=>{
+    const names=(t.seatIds||[]).filter(Boolean).map(id=>esc(seatGuestName(id)));
+    return `<div class="pt-card"><h3>${esc(t.name)}</h3><div class="pt-sub">${names.length}/${t.seats} posti</div><ol>${names.map(n=>`<li>${n}</li>`).join("")||'<li class="pt-empty">—</li>'}</ol></div>`;
+  }).join("");
+  const w=window.open("","_blank");
+  if(!w){ toast("Consenti i popup per stampare"); return; }
+  w.document.write('<!doctype html><html lang="it"><head><meta charset="utf-8"><title>Tableau — '+esc(meta().coupleA)+' & '+esc(meta().coupleB)+'</title><style>body{font-family:system-ui,-apple-system,Arial,sans-serif;margin:20px;color:#1E2A30}h1{text-align:center;font-weight:600;font-size:20px}.pt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px}.pt-card{border:1px solid #ccc;border-radius:10px;padding:10px;break-inside:avoid}.pt-card h3{margin:0 0 2px;font-size:15px}.pt-sub{font-size:12px;color:#666;margin-bottom:6px}ol{margin:0;padding-left:18px}li{font-size:13px;margin:2px 0}.pt-empty{list-style:none;margin-left:-18px;color:#aaa}@media print{.noprint{display:none}}</style></head><body><h1>Tableau — '+esc(meta().coupleA)+' &amp; '+esc(meta().coupleB)+'</h1><div class="noprint" style="text-align:center;margin-bottom:12px"><button onclick="window.print()">Stampa</button></div><div class="pt-grid">'+cards+'</div></body></html>');
+  w.document.close();
 }
 // Etichette accessibili per i pulsanti icona senza testo (es. "×", "⚙").
 function ariaEnhance(root){
@@ -578,11 +634,12 @@ function viewGuests(){
   const hh={}; e.guests.forEach(g=>{ (hh[g.household]=hh[g.household]||[]).push(g); });
   let blocks="";
   Object.keys(hh).sort().forEach(name=>{
-    blocks+=`<tr class="row-group"><td colspan="5">${esc(name)} <span class="muted" style="font-weight:400">· lato ${hh[name][0].side==="A"?meta().coupleA:meta().coupleB}</span></td></tr>`;
+    blocks+=`<tr class="row-group" data-hh="${esc(name)}"><td colspan="5">${esc(name)} <span class="muted" style="font-weight:400">· lato ${hh[name][0].side==="A"?meta().coupleA:meta().coupleB}</span></td></tr>`;
     hh[name].forEach(g=>{
       const r=RSVP[g.rsvp]||["todo","?"];
-      blocks+=`<tr>
-        <td>${esc(g.name)}${g.plusOne?` <span class="tag">+${g.plusOne}</span>`:""}${g.shuttle?' <span class="tag">navetta</span>':""}${g.accessibility?` <span class="tag">${esc(g.accessibility)}</span>`:""}${(function(){var _t=seatTableOf(g.id);return _t?` <span class="tag">${esc(_t.name)}</span>`:"";})()}</td>
+      const dot=`<span class="gdot" style="background:${seatGroupColor(g.group)};margin-right:6px;vertical-align:middle" title="${esc(g.group||'nessun gruppo')}"></span>`;
+      blocks+=`<tr data-grow="1" data-rsvp="${g.rsvp}" data-name="${esc((g.name||'').toLowerCase())}">
+        <td>${dot}${esc(g.name)}${g.plusOne?` <span class="tag">+${g.plusOne}</span>`:""}${g.shuttle?' <span class="tag">navetta</span>':""}${g.accessibility?` <span class="tag">${esc(g.accessibility)}</span>`:""}${(function(){var _t=seatTableOf(g.id);return _t?` <span class="tag">${esc(_t.name)}</span>`:"";})()}</td>
         <td><button class="pill ${r[0]}" data-act="cycleRsvp" data-id="${g.id}" title="Clic per cambiare stato RSVP" style="cursor:pointer;border:none;font:inherit">${r[1]}</button></td>
         <td>${esc(g.meal)}${g.intolerances?` <span class="muted">· ${esc(g.intolerances)}</span>`:""}</td>
         <td class="num"><button class="btn sm ghost" data-act="editGuest" data-id="${g.id}">Modifica</button></td>
@@ -601,11 +658,19 @@ function viewGuests(){
 
   <div class="card" style="margin-top:14px"><span class="pill todo">sorgente unica</span> ${ev().guests.length} ospiti in lista. Con Importa aggiungi in blocco da Excel, Google Sheets o CSV: incolli o carichi il file, mappi le colonne e confermi. Da qui i dati alimentano catering e tavoli.</div>
 
-  <div class="sec-title"><h2>Ospiti per nucleo</h2><span><button class="btn sm ghost" data-act="importGuests">Importa</button> <button class="btn sm" data-act="addGuest">+ Ospite</button></span></div>
+  <div class="sec-title"><h2>Ospiti per nucleo</h2><span><button class="btn sm ghost" data-act="exportGuestsCsv">Esporta CSV</button> <button class="btn sm ghost" data-act="importGuests">Importa</button> <button class="btn sm" data-act="addGuest">+ Ospite</button></span></div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+    <input class="inp" id="guestSearch" placeholder="Cerca ospite…" style="flex:1;min-width:150px" aria-label="Cerca ospite">
+    <button class="btn sm ghost" data-gfilter="all">Tutti</button>
+    <button class="btn sm ghost" data-gfilter="conf">Confermati</button>
+    <button class="btn sm ghost" data-gfilter="attesa">In attesa</button>
+    <button class="btn sm ghost" data-gfilter="no">Non viene</button>
+  </div>
   <div class="scroll-x"><table class="tbl">
     <thead><tr><th>Nome</th><th>RSVP</th><th>Menù</th><th></th><th></th></tr></thead>
     <tbody>${blocks}</tbody>
   </table></div>
+  <div id="guestEmpty" class="muted" style="display:none;padding:10px;font-size:13px">Nessun ospite corrisponde al filtro.</div>
 
   <div class="sec-title"><h2>Report catering</h2><span class="pill ok">pronto</span></div>
   <div class="grid" style="grid-template-columns:1fr 1fr;gap:14px">
@@ -704,13 +769,34 @@ function seatOptimize(gids,seats,rulesIdx,affinityFn){
   return {order:bestOrder,before:before,after:bestCost,improved:bestCost<before-1e-9};
 }
 function seatRulesIdx(){ const together=new Set(),separate=new Set(); ((ev().seating&&ev().seating.rules)||[]).forEach(r=>{ const k=r.a<r.b?r.a+'|'+r.b:r.b+'|'+r.a; if(r.kind==='together')together.add(k); else separate.add(k); }); return {together:together,separate:separate}; }
-function seatAffinityFn(){ const by={}; ev().guests.forEach(g=>by[g.id]=g); return function(ga,gb){ const a=by[ga],b=by[gb]; if(!a||!b)return false; const sameHH=a.household&&a.household!=='Senza nucleo'&&a.household===b.household; const sameGroup=a.group&&b.group&&a.group===b.group; const kids=a.meal==='bambino'&&b.meal==='bambino'; return !!(sameHH||sameGroup||kids); }; }
+// Variabili configurabili dell'ottimizzatore (G1): peso + modo unisci/separa +
+// tendina di valori. Le prime 4 attive; le altre pronte ma spente. L'utente può
+// aggiungerne di sue (custom). Vivono in ev().seating.vars; g.attr{varId:valore}.
+const SEAT_VARS_DEF=[
+  {id:'nucleo',   name:'Nucleo / Famiglia', on:true,  weight:10, mode:'cluster', values:['','Sposa','Sposo','Famiglia sposa','Famiglia sposo','Amici sposa','Amici sposo','Colleghi','Vicini']},
+  {id:'lato',     name:'Lato',              on:true,  weight:5,  mode:'cluster', values:['','Sposa','Sposo','Entrambi']},
+  {id:'eta',      name:"Fascia d'età",      on:true,  weight:4,  mode:'cluster', values:['','Bambino','Giovane','Adulto','Anziano']},
+  {id:'ambiente', name:'Ambiente',          on:true,  weight:6,  mode:'cluster', values:['','Parenti','Amici','Colleghi','Vicini','Scuola','Sport']},
+  {id:'lingua',   name:'Lingua',            on:false, weight:7,  mode:'cluster', values:['','Italiano','Inglese','Spagnolo','Francese','Tedesco']},
+  {id:'uscita',   name:"Vicino all'uscita", on:false, weight:3,  mode:'cluster', values:['','Sì','No']},
+  {id:'fumatori', name:'Fumatori',          on:false, weight:2,  mode:'separate', values:['','Sì','No']},
+  {id:'sposi',    name:'Vicino agli sposi', on:false, weight:8,  mode:'cluster', values:['','Sì','No']}
+];
+function seatVars(){ const e=ev(); e.seating=e.seating||{rules:[]}; if(!e.seating.vars) e.seating.vars=JSON.parse(JSON.stringify(SEAT_VARS_DEF)); return e.seating.vars; }
+function seatActiveVars(){ return seatVars().filter(v=>v.on); }
+function seatVarById(id){ return seatVars().find(v=>v.id===id); }
+// Similarità pesata con segno (G2): stesso valore -> +peso (unisci) o -peso (separa).
+function seatSimilarity(a,b){ let s=0; if(!a||!b) return 0; seatActiveVars().forEach(v=>{ const av=a.attr&&a.attr[v.id], bv=b.attr&&b.attr[v.id]; if(!av||!bv) return; if(av===bv){ s+= v.mode==='separate'? -v.weight : v.weight; } }); return s; }
+function seatSimilarityFn(){ const by={}; ev().guests.forEach(g=>by[g.id]=g); return function(ga,gb){ return seatSimilarity(by[ga],by[gb]); }; }
+function seatAffinityFn(){ const by={}; ev().guests.forEach(g=>by[g.id]=g); return function(ga,gb){ const a=by[ga],b=by[gb]; if(!a||!b)return false; const sameHH=a.household&&a.household!=='Senza nucleo'&&a.household===b.household; const sameGroup=a.group&&b.group&&a.group===b.group; const kids=a.meal==='bambino'&&b.meal==='bambino'; return !!(sameHH||sameGroup||kids|| seatSimilarity(a,b)>0); }; }
 function seatOptimizeTable(t){ return seatOptimize((t.seatIds||[]).slice(), t.seats, seatRulesIdx(), seatAffinityFn()); }
 // Pianificazione assegnazione globale ospiti->tavoli (pura, testabile).
 // Euristica: raggruppa per vincoli "insieme" + stesso nucleo (union-find), poi
 // bin-packing dei gruppi nei tavoli rispettando capienza e vincoli "lontano".
 // together/separate = Set di chiavi "min|max" (come da seatRulesIdx).
-function seatPlanAssignment(tables, guests, together, separate){
+// simFn(gidA,gidB)->numero (opzionale): se dato, il tavolo si sceglie per affinità
+// pesata (variabili) con chi è già seduto, non solo per posti liberi.
+function seatPlanAssignment(tables, guests, together, separate, simFn){
   const byId={}; guests.forEach(g=>byId[g.id]=g);
   const parent={}; guests.forEach(g=>parent[g.id]=g.id);
   function find(x){ while(parent[x]!==x){ parent[x]=parent[parent[x]]; x=parent[x]; } return x; }
@@ -727,8 +813,13 @@ function seatPlanAssignment(tables, guests, together, separate){
   for(const grp of groupList){
     let remaining=grp.slice();
     while(remaining.length){
-      let best=null, bestFree=0;
-      for(const t of tables){ const free=cap[t.id]-assign[t.id].length; if(free<=0) continue; if(conflicts(remaining, assign[t.id])) continue; if(free>bestFree){ best=t; bestFree=free; } }
+      let best=null, bestFree=0, bestScore=-Infinity, bestFits=false;
+      for(const t of tables){ const free=cap[t.id]-assign[t.id].length; if(free<=0) continue; if(conflicts(remaining, assign[t.id])) continue;
+        if(simFn){ let aff=0; for(const m of remaining) for(const p of assign[t.id]) aff+=simFn(m,p);
+          const fits=free>=remaining.length, score=aff + free*1e-3;
+          // preferisci i tavoli che contengono tutto il gruppo; a parità, per affinità
+          if((fits&&!bestFits) || (fits===bestFits && score>bestScore)){ best=t; bestScore=score; bestFree=free; bestFits=fits; } }
+        else if(free>bestFree){ best=t; bestFree=free; } }
       if(!best){ unseated.push.apply(unseated, remaining); break; }
       const take=remaining.slice(0, Math.min(bestFree, remaining.length));
       if(take.length<remaining.length) warnings.push("Gruppo diviso ("+take.length+"/"+remaining.length+")");
@@ -778,7 +869,10 @@ function seatLayout(tables){
   cw+=1.8; ch+=2.2; // margine tra tavoli + spazio per l'etichetta sotto
   const cols=Math.max(1,Math.ceil(Math.sqrt(tables.length)));
   const pos={};
-  tables.forEach((t,i)=>{ const c=i%cols, r=Math.floor(i/cols); pos[t.id]={x:c*cw+cw/2, y:r*ch+ch/2}; });
+  // Posizione manuale (drag, G6) se x,y numerici; altrimenti griglia automatica.
+  tables.forEach((t,i)=>{ const c=i%cols, r=Math.floor(i/cols);
+    if(typeof t.x==="number"&&isFinite(t.x)&&typeof t.y==="number"&&isFinite(t.y)) pos[t.id]={x:t.x, y:t.y};
+    else pos[t.id]={x:c*cw+cw/2, y:r*ch+ch/2}; });
   return pos;
 }
 function renderPlanimetria(){
@@ -811,13 +905,15 @@ function renderPlanimetria(){
         +`</g>`;
     });
     const label=esc(t.name)+" · "+seatHeadAt(t)+"/"+t.seats;
-    body+=`<g transform="translate(${x.toFixed(2)},${y.toFixed(2)})">${shapeSvg}${seats}`
-      +`<text x="0" y="${(f.h/2+0.55).toFixed(2)}" text-anchor="middle" font-size="0.42" fill="#5b6b6e">${label}</text></g>`;
+    body+=`<g transform="translate(${x.toFixed(2)},${y.toFixed(2)})" data-drag-table="${t.id}" style="cursor:move">${shapeSvg}${seats}`
+      +`<text x="0" y="${(f.h/2+0.55).toFixed(2)}" text-anchor="middle" font-size="0.42" fill="#5b6b6e" style="pointer-events:none">${label}</text></g>`;
   });
   // touch-action:none sull'SVG: su touch il browser altrimenti reclama il gesto
   // per lo scroll e annulla il drag (pointercancel). Il resto della pagina resta
   // scrollabile (cards, KPI, aree fuori dall'SVG).
-  return `<svg viewBox="${minX.toFixed(2)} ${minY.toFixed(2)} ${W.toFixed(2)} ${H.toFixed(2)}" style="width:100%;height:auto;max-height:60vh;background:#fbfcfc;border-radius:10px;touch-action:none" role="img" aria-label="Planimetria tavoli">${body}</svg>`;
+  const zoom=(typeof SEATZOOM==="number"&&SEATZOOM>0)?SEATZOOM:1;
+  const zbar=`<div style="display:flex;gap:6px;align-items:center;justify-content:flex-end;margin-bottom:4px"><span class="muted" style="font-size:12px">Zoom</span><button class="btn sm ghost" data-act="seatZoomOut" aria-label="Riduci">−</button><button class="btn sm ghost" data-act="seatZoomReset">${Math.round(zoom*100)}%</button><button class="btn sm ghost" data-act="seatZoomIn" aria-label="Ingrandisci">+</button></div>`;
+  return zbar+`<div style="overflow:auto;max-height:64vh"><svg id="planiSvg" viewBox="${minX.toFixed(2)} ${minY.toFixed(2)} ${W.toFixed(2)} ${H.toFixed(2)}" style="width:${(100*zoom).toFixed(0)}%;height:auto;background:#fbfcfc;border-radius:10px;touch-action:none" role="img" aria-label="Planimetria tavoli">${body}</svg></div>`;
 }
 /* ---- CRUD tavoli nativo (B3) ---- */
 function seatNextSeq(){ const e=ev(); e.seating=e.seating||{rules:[]}; e.seating.seq=(e.seating.seq||0)+1; return e.seating.seq; }
@@ -826,7 +922,7 @@ function editTable(id){ tableEditor(id); }
 function tableEditor(id){
   const e=ev(); e.tables=e.tables||[];
   const t=id?e.tables.find(x=>x.id===id):null, isNew=!t;
-  const cur=t||{name:"Tavolo "+(e.tables.length+1),shape:"round",seats:8};
+  const cur=t||{name:seatThemeName(e.tables.length),shape:"round",seats:8};
   modal(isNew?"Nuovo tavolo":"Modifica tavolo",
     `<div class="field"><label>Nome</label><input class="inp" id="tb_name" value="${esc(cur.name)}"></div>
      <div class="two">
@@ -838,7 +934,7 @@ function tableEditor(id){
        const shape=$("#tb_shape").value, seats=Math.max(1,Math.min(40,+$("#tb_seats").value||8));
        if(isNew){
          const idx=e.tables.length, cols=4;
-         e.tables.push({id:"tb"+seatNextSeq(),name,shape,seats,seatIds:new Array(seats).fill(null),x:(idx%cols)*7,y:Math.floor(idx/cols)*6});
+         e.tables.push({id:"tb"+seatNextSeq(),name,shape,seats,seatIds:new Array(seats).fill(null),x:null,y:null});
        } else {
          const old=t.seatIds||[], ns=new Array(seats).fill(null);
          for(let i=0;i<Math.min(seats,old.length);i++) ns[i]=old[i];
@@ -868,15 +964,22 @@ function autoAssignConfirm(){
     `<p>Riassegna automaticamente tutti gli ospiti ai tavoli in base a vicinanze, nucleo familiare e capienza, poi ottimizza i posti. Sostituisce la disposizione attuale.</p>`,
     [{label:"Annulla"},{label:"Assegna",cls:"",fn:()=>seatAutoAssign()}]);
 }
-function seatAutoAssign(){
-  const e=ev(), tables=e.tables||[]; if(!tables.length){ toast("Crea prima i tavoli"); return; }
-  const guests=seatableGuests(); if(!guests.length){ toast("Nessun ospite da sedere"); return; }
+// Core: assegna + ottimizza senza commit/render (riusabile dal wizard con undo).
+function seatAutoAssignRun(){
+  const e=ev(), tables=e.tables||[]; if(!tables.length) return null;
+  const guests=seatableGuests(); if(!guests.length) return {empty:true};
   const idx=seatRulesIdx();
-  const plan=seatPlanAssignment(tables, guests, idx.together, idx.separate);
+  const plan=seatPlanAssignment(tables, guests, idx.together, idx.separate, seatSimilarityFn());
   tables.forEach(t=>{ const gs=(plan.assign[t.id]||[]).slice(0,t.seats); const arr=new Array(t.seats).fill(null); gs.forEach((g,i)=>arr[i]=g); t.seatIds=arr; });
   tables.forEach(t=>{ if(seatHeadAt(t)>=2){ const r=seatOptimizeTable(t); t.seatIds=r.order.map(x=>x===undefined?null:x); } });
-  let msg="Assegnati "+(guests.length-plan.unseated.length)+"/"+guests.length+" ospiti";
-  if(plan.unseated.length) msg+=" · "+plan.unseated.length+" senza posto (capienza insufficiente)";
+  return {assigned:guests.length-plan.unseated.length, total:guests.length, unseated:plan.unseated.length};
+}
+function seatAutoAssign(){
+  const r=seatAutoAssignRun();
+  if(r===null){ toast("Crea prima i tavoli"); return; }
+  if(r.empty){ toast("Nessun ospite da sedere"); return; }
+  let msg="Assegnati "+r.assigned+"/"+r.total+" ospiti";
+  if(r.unseated) msg+=" · "+r.unseated+" senza posto (capienza insufficiente)";
   commit(msg);
 }
 /* ---- Categorizzazione: vicinanze insieme/lontano (alimentano l'ottimizzatore) ---- */
@@ -945,16 +1048,29 @@ function wireSeating(){
   function onMove(e){
     if(!st || e.pointerId!==st.pointerId) return;
     const dx=e.clientX-st.x0, dy=e.clientY-st.y0;
-    if(!st.dragging && Math.hypot(dx,dy)>6){ st.dragging=true; st.ghost.style.display=""; }
+    if(!st.dragging && Math.hypot(dx,dy)>6){ st.dragging=true; if(st.ghost) st.ghost.style.display=""; }
+    if(!st.dragging) return;
+    e.preventDefault();
+    if(st.mode==="table"){
+      // converte lo spostamento schermo in unità SVG (scala uniforme = CTM.a)
+      const sc=st.scale||1; st.nx=st.baseX+dx/sc; st.ny=st.baseY+dy/sc;
+      if(st.node) st.node.setAttribute("transform","translate("+st.nx.toFixed(2)+","+st.ny.toFixed(2)+")");
+      return;
+    }
     // NB: niente setPointerCapture — i listener su document in cattura ricevono già
     // tutti i pointer event, e la cattura interferisce con la consegna del pointerup su touch.
-    if(st.dragging){ e.preventDefault(); st.ghost.style.left=e.clientX+"px"; st.ghost.style.top=e.clientY+"px"; }
+    st.ghost.style.left=e.clientX+"px"; st.ghost.style.top=e.clientY+"px";
   }
   function onCancel(e){ if(!st || e.pointerId!==st.pointerId) return; cleanup(); st=null; }
   function onUp(e){
     if(!st || e.pointerId!==st.pointerId) return;
     const s=st, dragging=st.dragging; cleanup(); st=null;
     if(!dragging) return; // nessun movimento: era un tap, lascia partire il click (modale)
+    if(s.mode==="table"){
+      const t=(ev().tables||[]).find(x=>x.id===s.tid);
+      if(t && typeof s.nx==="number"){ t.x=+s.nx.toFixed(2); t.y=+s.ny.toFixed(2); commit("Tavolo spostato"); }
+      return;
+    }
     // sopprimi il click che segue il pointerup per non aprire la modale dopo un drag
     const sup=ce=>{ ce.stopPropagation(); ce.preventDefault(); document.removeEventListener("click",sup,true); };
     document.addEventListener("click",sup,true);
@@ -966,7 +1082,25 @@ function wireSeating(){
   host.addEventListener("pointerdown", e=>{
     if(st) return; // trascinamento già in corso: ignora un secondo dito (multi-touch)
     if(typeof Session!=="undefined" && !Session.canEdit()) return; // sola lettura: niente drag
-    const src=e.target.closest&&e.target.closest("[data-drag-guest]"); if(!src) return;
+    const src=e.target.closest&&e.target.closest("[data-drag-guest]");
+    if(!src){
+      // nessun ospite sotto il dito: prova a spostare il tavolo (G6)
+      const onSeat=e.target.closest&&e.target.closest("[data-seat-target]");
+      const tnode=(!onSeat&&e.target.closest)?e.target.closest("[data-drag-table]"):null;
+      if(tnode){
+        const tid=tnode.getAttribute("data-drag-table");
+        const svg=document.getElementById("planiSvg");
+        let scale=1; try{ const ctm=svg&&svg.getScreenCTM(); if(ctm&&ctm.a) scale=ctm.a; }catch(_){}
+        const m=/translate\(([-\d.]+),([-\d.]+)\)/.exec(tnode.getAttribute("transform")||"");
+        const baseX=m?+m[1]:0, baseY=m?+m[2]:0;
+        try{ if(e.target.hasPointerCapture && e.target.hasPointerCapture(e.pointerId)) e.target.releasePointerCapture(e.pointerId); }catch(_){}
+        st={mode:"table",tid,node:tnode,scale,baseX,baseY,pointerId:e.pointerId,x0:e.clientX,y0:e.clientY,dragging:false};
+        document.addEventListener("pointermove",onMove,opts);
+        document.addEventListener("pointerup",onUp,opts);
+        document.addEventListener("pointercancel",onCancel,opts);
+      }
+      return;
+    }
     const gid=src.getAttribute("data-drag-guest"); if(!gid) return;
     // Su touch il browser assegna cattura implicita del pointer all'elemento
     // sorgente (in SVG trattiene pointermove/up): la rilascio così gli eventi
@@ -981,6 +1115,188 @@ function wireSeating(){
     document.addEventListener("pointerup",onUp,opts);
     document.addEventListener("pointercancel",onCancel,opts);
   });
+}
+/* ---- Wizard abbinamenti (G3): Variabili -> Compila -> Regole -> Genera ---- */
+const GUEST_GROUP_COLORS={"Famiglia sposo":"#7e8b6f","Famiglia sposa":"#c08a87","Parenti":"#b58a5a","Amici":"#6f86a6","Colleghi":"#8a7ea6","Compagni di scuola":"#5aa0a6","Vicini":"#a68f5a","Altro":"#9aa0a6"};
+function seatGroupColor(grp){ return GUEST_GROUP_COLORS[grp]||"#c9cfd2"; }
+/* Temi per i nomi dei tavoli (G5): "numeri" = Tavolo 1,2…; gli altri usano la lista. */
+const SEAT_THEMES=[
+  {id:'numeri', name:'Numeri', list:[]},
+  {id:'citta',  name:'Città', list:["Parigi","Londra","New York","Tokyo","Roma","Barcellona","Vienna","Praga","Amsterdam","Lisbona","Berlino","Sydney","Istanbul","Marrakech","Kyoto","Rio"]},
+  {id:'fiori',  name:'Fiori', list:["Rosa","Tulipano","Orchidea","Girasole","Peonia","Lavanda","Glicine","Mimosa","Camelia","Magnolia","Iris","Gelsomino","Dalia","Ortensia","Narciso","Calla"]},
+  {id:'isole',  name:'Isole', list:["Santorini","Capri","Maldive","Bali","Mykonos","Sardegna","Sicilia","Ibiza","Zanzibar","Bora Bora","Formentera","Creta","Madeira","Pantelleria","Procida","Tahiti"]},
+  {id:'vini',   name:'Vini', list:["Barolo","Brunello","Amarone","Chianti","Franciacorta","Prosecco","Lambrusco","Vermentino","Sagrantino","Gavi","Soave","Primitivo","Aglianico","Greco","Fiano","Nero d'Avola"]},
+  {id:'pittori',name:'Pittori', list:["Caravaggio","Van Gogh","Monet","Klimt","Picasso","Vermeer","Botticelli","Rembrandt","Matisse","Renoir","Cézanne","Turner","Hopper","Frida","Chagall","Dalí"]},
+  {id:'stelle', name:'Stelle', list:["Sirio","Vega","Antares","Rigel","Betelgeuse","Polare","Aldebaran","Altair","Arturo","Spica","Deneb","Capella","Procione","Regolo","Bellatrix","Mizar"]}
+];
+function seatThemeId(){ const e=ev(); e.seating=e.seating||{rules:[]}; return e.seating.theme||"numeri"; }
+function seatThemeName(i){ const th=SEAT_THEMES.find(t=>t.id===seatThemeId()); if(!th||!th.list.length||i>=th.list.length) return "Tavolo "+(i+1); return th.list[i]; }
+function seatApplyTheme(id){ const e=ev(); e.seating=e.seating||{rules:[]}; e.seating.theme=id; (e.tables||[]).forEach((t,i)=>{ t.name=seatThemeName(i); }); commit("Nomi tavoli: "+((SEAT_THEMES.find(t=>t.id===id)||{}).name||id)); }
+function seatThemePicker(){
+  if(!(ev().tables||[]).length){ toast("Crea prima i tavoli"); return; }
+  const cur=seatThemeId();
+  modal("Nomi dei tavoli (tema)",
+    `<div class="field"><label>Tema</label><select class="inp" id="th_sel">${SEAT_THEMES.map(t=>`<option value="${t.id}"${t.id===cur?" selected":""}>${esc(t.name)}</option>`).join("")}</select></div>
+     <p class="muted" style="font-size:12px">Rinomina tutti i tavoli secondo il tema scelto. "Numeri" li chiama Tavolo 1, 2, …</p>`,
+    [{label:"Annulla"},{label:"Applica",cls:"",fn:()=>seatApplyTheme($("#th_sel").value)}]);
+}
+let SEATZOOM=1; // zoom planimetria (G6), solo vista
+function seatZoom(delta){ SEATZOOM=Math.max(0.5,Math.min(3, +(SEATZOOM+delta).toFixed(2))); render(); }
+let SEATWIZ={step:1, sel:{}, fillVar:null, snapshot:null};
+function seatWizard(){
+  if(!(ev().tables||[]).length){ toast("Crea prima almeno un tavolo"); return; }
+  SEATWIZ={step:1, sel:{}, fillVar:null, snapshot:null};
+  modal("Genera disposizione tavoli", '<div id="wizBody"></div>', [{label:"Chiudi", fn:()=>render()}]);
+  seatWizRender();
+}
+function seatWizNav(step){
+  let h='<div class="wiznav">';
+  if(step>1) h+=`<button type="button" class="btn ghost" data-ws="${step-1}">← Indietro</button>`;
+  h+='<span style="flex:1"></span>';
+  if(step<4) h+=`<button type="button" class="btn primary" data-ws="${step+1}">Avanti →</button>`;
+  return h+'</div>';
+}
+function seatWizRender(){
+  const host=document.getElementById("wizBody"); if(!host) return;
+  const step=SEATWIZ.step, names=['Variabili','Compila','Regole','Genera'];
+  let h='<div class="wizbar">'+names.map((t,i)=>`<button type="button" class="wizstep${i+1===step?' on':''}" data-ws="${i+1}">${i+1}. ${esc(t)}</button>`).join('')+'</div>';
+  if(step===1) h+=seatWizVars();
+  else if(step===2) h+=seatWizFill();
+  else if(step===3) h+=seatWizRules();
+  else h+=seatWizGen();
+  host.innerHTML=h;
+  host.querySelectorAll("[data-ws]").forEach(b=>b.onclick=()=>{ SEATWIZ.step=+b.getAttribute("data-ws"); seatWizRender(); });
+  if(step===1) seatWizVarsBind(host);
+  else if(step===2) seatWizFillBind(host);
+  else if(step===3) seatWizRulesBind(host);
+  else seatWizGenBind(host);
+}
+function seatWizVars(){
+  const vars=seatVars();
+  let h='<p class="muted" style="font-size:13px">Scegli quali caratteristiche l\'algoritmo usa per abbinare gli ospiti. Il peso dice quanto conta; "unisci" avvicina chi condivide il valore, "separa" li allontana.</p>';
+  h+='<div style="text-align:right;margin:2px 0 6px"><button type="button" class="btn sm ghost" id="wz-prefill" title="Deriva nucleo, lato ed età dai dati già inseriti">Precompila dai dati</button></div>';
+  vars.forEach((v,i)=>{
+    h+=`<div class="varrow"><button type="button" class="switch${v.on?' on':''}" data-vtog="${i}" aria-pressed="${v.on?'true':'false'}" aria-label="Attiva ${esc(v.name)}"></button>`
+      +`<div class="vn">${esc(v.name)}<span class="muted" style="font-size:11px;display:block">${v.values.filter(Boolean).length} valori</span></div>`
+      +`<label class="muted" style="font-size:11px">peso <input type="number" class="inp" style="width:52px;padding:4px" min="0" max="20" value="${v.weight}" data-vw="${i}"></label>`
+      +`<select class="inp" style="width:96px;padding:4px" data-vm="${i}"><option value="cluster"${v.mode!=='separate'?' selected':''}>unisci</option><option value="separate"${v.mode==='separate'?' selected':''}>separa</option></select>`
+      +(v.custom?`<button type="button" class="btn sm danger" data-vdel="${i}" aria-label="Elimina">&times;</button>`:'')+`</div>`;
+  });
+  h+=`<div class="varadd"><input class="inp" id="wz-nvname" placeholder="Nuova variabile (es. Hobby)"><input class="inp" id="wz-nvvals" placeholder="Valori separati da virgola"><button type="button" class="btn sm primary" id="wz-nvadd">Aggiungi</button></div>`;
+  return h+seatWizNav(1);
+}
+function seatWizVarsBind(host){
+  const vars=seatVars();
+  host.querySelectorAll("[data-vtog]").forEach(b=>b.onclick=()=>{ const v=vars[+b.getAttribute("data-vtog")]; v.on=!v.on; Store.save(STATE); seatWizRender(); });
+  host.querySelectorAll("[data-vw]").forEach(inp=>inp.onchange=()=>{ vars[+inp.getAttribute("data-vw")].weight=Math.max(0,Math.min(20,+inp.value||0)); Store.save(STATE); });
+  host.querySelectorAll("[data-vm]").forEach(sel=>sel.onchange=()=>{ vars[+sel.getAttribute("data-vm")].mode=sel.value; Store.save(STATE); });
+  host.querySelectorAll("[data-vdel]").forEach(b=>b.onclick=()=>{ vars.splice(+b.getAttribute("data-vdel"),1); Store.save(STATE); seatWizRender(); });
+  const add=host.querySelector("#wz-nvadd"); if(add) add.onclick=()=>{
+    const n=(host.querySelector("#wz-nvname").value||"").trim();
+    const vals=(host.querySelector("#wz-nvvals").value||"").split(",").map(s=>s.trim()).filter(Boolean);
+    if(!n){ toast("Dai un nome alla variabile"); return; }
+    vars.push({id:"cv"+Date.now(),name:n,on:true,weight:5,mode:"cluster",values:[""].concat(vals),custom:true});
+    Store.save(STATE); seatWizRender(); toast("Variabile aggiunta");
+  };
+  const pf=host.querySelector("#wz-prefill"); if(pf) pf.onclick=()=>{ seatPrefillAttrs(); seatWizRender(); };
+}
+function seatAttrFillPct(){ const vars=seatActiveVars(), people=seatableGuests(); const cells=vars.length*people.length; if(!cells) return 0; let f=0; people.forEach(g=>vars.forEach(v=>{ if(g.attr&&g.attr[v.id]) f++; })); return Math.round(f*100/cells); }
+function seatPrefillAttrs(){
+  const e=ev(); let n=0;
+  (e.guests||[]).forEach(g=>{ g.attr=g.attr||{};
+    if(g.household&&g.household!=="Senza nucleo"&&!g.attr.nucleo){ g.attr.nucleo=g.household; n++; }
+    if(!g.attr.eta){ g.attr.eta=(g.meal==="bambino"?"Bambino":"Adulto"); n++; }
+    if(!g.attr.lato){ g.attr.lato=(g.side==="A"?"Sposa":"Sposo"); n++; }
+    const map={"Amici":"Amici","Colleghi":"Colleghi","Parenti":"Parenti","Vicini":"Vicini","Compagni di scuola":"Scuola"};
+    if(g.group&&map[g.group]&&!g.attr.ambiente){ g.attr.ambiente=map[g.group]; n++; }
+  });
+  const nv=seatVarById("nucleo"); if(nv){ (e.guests||[]).forEach(g=>{ if(g.attr&&g.attr.nucleo&&nv.values.indexOf(g.attr.nucleo)<0) nv.values.push(g.attr.nucleo); }); }
+  Store.save(STATE); toast("Precompilate "+n+" caratteristiche");
+}
+function seatWizFill(){
+  const vars=seatActiveVars();
+  if(!vars.length) return '<div class="muted" style="font-size:13px">Nessuna variabile attiva. Torna al passo 1 e attivane almeno una.</div>'+seatWizNav(2);
+  if(!SEATWIZ.fillVar || !vars.some(v=>v.id===SEATWIZ.fillVar)) SEATWIZ.fillVar=vars[0].id;
+  const v=seatVarById(SEATWIZ.fillVar), people=seatableGuests(), pct=seatAttrFillPct();
+  const selCount=people.filter(g=>SEATWIZ.sel[g.id]).length;
+  let h=`<div style="font-size:13px;margin-bottom:4px">Compilazione: <b>${pct}%</b></div>`;
+  h+='<p class="muted" style="font-size:12px">1) scegli una caratteristica · 2) spunta gli invitati (o tutti / per gruppo) · 3) scegli il valore e premi Assegna. Puoi anche usare il menù su ogni riga.</p>';
+  h+=`<div class="varadd"><select class="inp" id="wz-fv" style="flex:1">${vars.map(x=>`<option value="${x.id}"${x.id===SEATWIZ.fillVar?' selected':''}>${esc(x.name)}</option>`).join("")}</select></div>`;
+  h+=`<div class="varadd" style="margin-top:6px"><button type="button" class="btn sm ghost" id="wz-selall">Tutti</button><button type="button" class="btn sm ghost" id="wz-selnone">Nessuno</button><select class="inp" id="wz-selgrp" style="flex:1"><option value="">…o per gruppo</option>${guestGroups().map(g=>`<option value="${esc(g)}">${esc(g)}</option>`).join("")}</select></div>`;
+  h+=`<div class="varadd" style="margin-top:6px"><select class="inp" id="wz-bval" style="flex:1">${v.values.map(val=>`<option value="${esc(val)}">${val===''?'(svuota)':esc(val)}</option>`).join("")}</select><button type="button" class="btn sm primary" id="wz-bapply">Assegna${selCount?` (${selCount})`:''}</button></div>`;
+  h+='<div style="max-height:36vh;overflow:auto;margin-top:8px">';
+  people.forEach(g=>{ const cur=(g.attr&&g.attr[SEATWIZ.fillVar])||'';
+    h+=`<div class="fillrow"><span class="fchk${SEATWIZ.sel[g.id]?' on':''}" data-selg="${g.id}"></span><span class="gdot" style="background:${seatGroupColor(g.group)}"></span><span style="flex:1">${esc(g.name)}</span><select class="inp" style="width:120px;padding:4px" data-frow="${g.id}">${v.values.map(val=>`<option value="${esc(val)}"${val===cur?' selected':''}>${val===''?'—':esc(val)}</option>`).join("")}</select></div>`;
+  });
+  h+='</div>';
+  return h+seatWizNav(2);
+}
+function seatWizFillBind(host){
+  const people=seatableGuests();
+  const fv=host.querySelector("#wz-fv"); if(fv) fv.onchange=()=>{ SEATWIZ.fillVar=fv.value; seatWizRender(); };
+  host.querySelectorAll("[data-selg]").forEach(c=>c.onclick=()=>{ const id=c.getAttribute("data-selg"); SEATWIZ.sel[id]=!SEATWIZ.sel[id]; c.classList.toggle("on"); });
+  host.querySelectorAll("[data-frow]").forEach(sel=>sel.onchange=()=>{ const g=seatGuestById(sel.getAttribute("data-frow")); if(!g) return; g.attr=g.attr||{}; if(sel.value) g.attr[SEATWIZ.fillVar]=sel.value; else delete g.attr[SEATWIZ.fillVar]; Store.save(STATE); });
+  const sa=host.querySelector("#wz-selall"); if(sa) sa.onclick=()=>{ people.forEach(g=>SEATWIZ.sel[g.id]=true); seatWizRender(); };
+  const sn=host.querySelector("#wz-selnone"); if(sn) sn.onclick=()=>{ SEATWIZ.sel={}; seatWizRender(); };
+  const sg=host.querySelector("#wz-selgrp"); if(sg) sg.onchange=()=>{ const grp=sg.value; if(grp){ people.forEach(g=>{ if(g.group===grp) SEATWIZ.sel[g.id]=true; }); seatWizRender(); } };
+  const ap=host.querySelector("#wz-bapply"); if(ap) ap.onclick=()=>{ const val=host.querySelector("#wz-bval").value; let n=0; people.forEach(g=>{ if(SEATWIZ.sel[g.id]){ g.attr=g.attr||{}; if(val) g.attr[SEATWIZ.fillVar]=val; else delete g.attr[SEATWIZ.fillVar]; n++; } }); SEATWIZ.sel={}; Store.save(STATE); seatWizRender(); toast(n+" invitati aggiornati"); };
+}
+function seatWizRulesList(){
+  const rules=((ev().seating&&ev().seating.rules)||[]);
+  if(!rules.length) return '<p class="muted" style="font-size:13px">Nessuna vicinanza definita.</p>';
+  return rules.map(r=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--line)"><span style="font-size:13px">${esc(seatGuestName(r.a))} <span class="pill ${r.kind==="together"?"ok":"no"}">${r.kind==="together"?"insieme":"lontani"}</span> ${esc(seatGuestName(r.b))}</span><button type="button" class="btn sm danger" data-wzdel="${r.id}" aria-label="Rimuovi">&times;</button></div>`).join("");
+}
+function seatWizRules(){
+  const gs=seatableGuests();
+  let h='<p class="muted" style="font-size:13px">Vincoli espliciti tra due ospiti: "insieme" li mette vicini, "lontani" li separa. Sono opzionali.</p>';
+  if(gs.length>=2){
+    const opts=gs.map(g=>`<option value="${g.id}">${esc(g.name)}</option>`).join("");
+    h+=`<div class="varadd"><select class="inp" id="wz-ra" style="flex:1">${opts}</select><select class="inp" id="wz-rk" style="flex:0 0 auto;width:96px"><option value="together">insieme</option><option value="separate">lontani</option></select><select class="inp" id="wz-rb" style="flex:1">${opts}</select><button type="button" class="btn sm primary" id="wz-radd">Aggiungi</button></div>`;
+  }
+  h+=`<div style="margin-top:10px">${seatWizRulesList()}</div>`;
+  return h+seatWizNav(3);
+}
+function seatWizRulesBind(host){
+  const add=host.querySelector("#wz-radd"); if(add) add.onclick=()=>{
+    const a=host.querySelector("#wz-ra").value, b=host.querySelector("#wz-rb").value, kind=host.querySelector("#wz-rk").value;
+    if(!a||!b||a===b){ toast("Scegli due ospiti diversi"); return; }
+    const e=ev(); e.seating=e.seating||{rules:[]}; e.seating.rules=e.seating.rules||[];
+    const key=(a<b?a+"|"+b:b+"|"+a);
+    e.seating.rules=e.seating.rules.filter(r=>((r.a<r.b?r.a+"|"+r.b:r.b+"|"+r.a)!==key));
+    e.seating.rules.push({id:"sr"+seatNextSeq(),a:a,b:b,kind:kind});
+    Store.save(STATE); seatWizRender(); toast("Vicinanza aggiunta");
+  };
+  host.querySelectorAll("[data-wzdel]").forEach(b=>b.onclick=()=>{ const id=b.getAttribute("data-wzdel"); const e=ev(); e.seating=e.seating||{rules:[]}; e.seating.rules=(e.seating.rules||[]).filter(r=>r.id!==id); Store.save(STATE); seatWizRender(); });
+}
+function seatRulesOutcome(){
+  const rules=((ev().seating&&ev().seating.rules)||[]); if(!rules.length) return '';
+  const tof={}; (ev().tables||[]).forEach(t=>(t.seatIds||[]).forEach(id=>{ if(id) tof[id]=t.id; }));
+  let ok=0,ko=0;
+  rules.forEach(r=>{ const same=tof[r.a]&&tof[r.a]===tof[r.b]; const good=r.kind==='together'?same:!same; if(good)ok++; else ko++; });
+  return `<div style="font-size:13px;margin-top:4px">Regole rispettate: ${ok}/${rules.length}${ko?` · <span style="color:var(--no)">${ko} non soddisfatte</span>`:''}</div>`;
+}
+function seatWizGen(){
+  const pct=seatAttrFillPct();
+  let h='<p class="muted" style="font-size:13px">Distribuisce gli ospiti sui tavoli per affinità (variabili + regole), poi ottimizza i posti a ogni tavolo. Puoi annullare subito dopo.</p>';
+  if(pct<20) h+='<div style="font-size:12px;color:var(--gold);margin-bottom:6px">Suggerimento: compilazione bassa ('+pct+'%). Con più caratteristiche l\'abbinamento migliora, ma puoi generare comunque.</div>';
+  h+=`<div class="wiznav" style="margin-top:2px"><button type="button" class="btn primary" id="wz-gen">Genera disposizione</button><span style="flex:1"></span><button type="button" class="btn ghost" id="wz-undo"${SEATWIZ.snapshot?'':' disabled'}>↶ Annulla</button></div>`;
+  h+='<div id="wz-report" style="margin-top:10px"></div>';
+  return h+seatWizNav(4);
+}
+function seatWizGenBind(host){
+  const gen=host.querySelector("#wz-gen"); if(gen) gen.onclick=()=>{
+    SEATWIZ.snapshot=JSON.stringify(ev().tables||[]);
+    const r=seatAutoAssignRun(); Store.save(STATE);
+    let out;
+    if(!r||r.empty){ out='<div class="muted">Niente da assegnare.</div>'; SEATWIZ.snapshot=null; }
+    else out=`<div style="font-size:13px">Assegnati <b>${r.assigned}/${r.total}</b> ospiti su ${(ev().tables||[]).length} tavoli.</div>`+(r.unseated?`<div style="font-size:13px;color:var(--no)">${r.unseated} senza posto (capienza insufficiente).</div>`:'')+seatRulesOutcome();
+    seatWizRender();
+    const rep=document.getElementById("wz-report"); if(rep) rep.innerHTML=out;
+    toast("Disposizione generata");
+  };
+  const undo=host.querySelector("#wz-undo"); if(undo && !undo.disabled) undo.onclick=()=>{
+    if(SEATWIZ.snapshot){ ev().tables=JSON.parse(SEATWIZ.snapshot); SEATWIZ.snapshot=null; Store.save(STATE); seatWizRender(); const rep=document.getElementById("wz-report"); if(rep) rep.innerHTML='<div style="font-size:13px">Ripristinata la disposizione precedente.</div>'; toast("Annullato"); }
+  };
 }
 function viewSeating(){
   const tables=ev().tables||[];
@@ -998,7 +1314,7 @@ function viewSeating(){
     <div class="card kpi"><div class="v">${seated}/${totSeats}</div><div class="l">Posti occupati</div></div>
     <div class="card kpi"><div class="v">${unseated.length}</div><div class="l">Ospiti da sedere</div></div>
   </div>
-  <div class="sec-title"><h2>Planimetria</h2><span>${tables.length?'<button class="btn sm ghost" data-act="autoAssign">Assegna automaticamente</button> <button class="btn sm ghost" data-act="optimizeAll">Ottimizza tutti</button> ':''}<button class="btn sm" data-act="addTable">+ Tavolo</button></span></div>
+  <div class="sec-title"><h2>Planimetria</h2><span>${tables.length?'<button class="btn sm primary" data-act="seatWizard">Genera (guidato)</button> <button class="btn sm ghost" data-act="autoAssign">Assegna auto</button> <button class="btn sm ghost" data-act="optimizeAll">Ottimizza</button> <button class="btn sm ghost" data-act="themeTables">Nomi tema</button> <button class="btn sm ghost" data-act="printTables">Stampa</button> ':''}<button class="btn sm" data-act="addTable">+ Tavolo</button></span></div>
   <div id="planiHost">
     <div class="card" style="padding:8px">${renderPlanimetria()}</div>
     <div class="sec-title" style="margin-top:6px"><h2 style="font-size:15px">Riserva ospiti</h2></div>
@@ -1817,6 +2133,18 @@ function managedSelect(id, current, options){
     +`<input class="inp" id="${id}_new" placeholder="Scrivi il nuovo valore" style="display:none;margin-top:6px">`;
 }
 function managedValue(id){ const sel=$("#"+id); if(!sel) return ""; if(sel.value==="__new__"){ const t=$("#"+id+"_new"); return t?(t.value||"").trim():""; } return sel.value; }
+// Campi attributi per ospite (G2): una tendina per ogni variabile attiva.
+function seatGuestAttrFields(x){
+  const vars=seatActiveVars(); if(!vars.length) return "";
+  const attr=x.attr||{};
+  const rows=vars.map(v=>`<div class="field"><label>${esc(v.name)}</label><select class="inp" data-gattr="${v.id}">${v.values.map(val=>`<option value="${esc(val)}"${(attr[v.id]||"")===val?" selected":""}>${val===""?"—":esc(val)}</option>`).join("")}</select></div>`).join("");
+  return `<details style="margin-top:6px"><summary class="muted" style="cursor:pointer">Caratteristiche per i tavoli (${vars.length})</summary><div class="two" style="margin-top:6px">${rows}</div></details>`;
+}
+function seatReadAttrFields(prev){
+  const attr=Object.assign({}, prev||{});
+  document.querySelectorAll("[data-gattr]").forEach(sel=>{ const k=sel.getAttribute("data-gattr"); if(sel.value) attr[k]=sel.value; else delete attr[k]; });
+  return attr;
+}
 function editGuest(id){
   const g=ev().guests.find(x=>x.id===id); const isNew=!g;
   const x=g||{name:"",side:"A",household:"",group:"",rsvp:"attesa",meal:"adulto",intolerances:"",accessibility:"",shuttle:false,plusOne:0};
@@ -1838,10 +2166,11 @@ function editGuest(id){
      <div class="two">
        <div class="field"><label>Accessibilità</label><input class="inp" id="g_acc" value="${esc(x.accessibility)}" placeholder="Seggiolone, disabili…"></div>
        <div class="field"><label>Navetta</label><select class="inp" id="g_sh"><option value="0"${!x.shuttle?" selected":""}>No</option><option value="1"${x.shuttle?" selected":""}>Sì</option></select></div>
-     </div>`,
+     </div>
+     ${seatGuestAttrFields(x)}`,
     [{label:"Annulla"},{label:"Salva",cls:"",fn:()=>{
       const name=$("#g_name").value.trim(); if(!name) return;
-      const data={name,side:$("#g_side").value,household:managedValue("g_hh")||"Senza nucleo",group:managedValue("g_group"),rsvp:$("#g_rsvp").value,meal:$("#g_meal").value,intolerances:$("#g_int").value.trim(),accessibility:$("#g_acc").value.trim(),shuttle:$("#g_sh").value==="1",plusOne:+$("#g_plus").value||0};
+      const data={name,side:$("#g_side").value,household:managedValue("g_hh")||"Senza nucleo",group:managedValue("g_group"),rsvp:$("#g_rsvp").value,meal:$("#g_meal").value,intolerances:$("#g_int").value.trim(),accessibility:$("#g_acc").value.trim(),shuttle:$("#g_sh").value==="1",plusOne:+$("#g_plus").value||0,attr:seatReadAttrFields(x.attr)};
       if(isNew){ ev().guests.push(Object.assign({id:"g"+Date.now(),gift:"",thanked:false},data)); }
       else Object.assign(g,data);
       commit(isNew?"Ospite aggiunto":"Ospite aggiornato");
@@ -2026,7 +2355,7 @@ const Session=(function(){ let role="owner"; return {
   canEdit(){ return role==="owner"||role==="editor"; }
 }; })();
 // Azioni non-mutanti sempre permesse (navigazione/aiuto/account/diagnostica).
-const READONLY_ACTS={ openGuide:1, openAccount:1, openDiag:1, hideTip:1 };
+const READONLY_ACTS={ openGuide:1, openAccount:1, openDiag:1, hideTip:1, exportGuestsCsv:1, printTables:1, seatZoomIn:1, seatZoomOut:1, seatZoomReset:1 };
 function actIsMutating(act){ return !READONLY_ACTS[act]; }
 function permBlocks(act){ return !Session.canEdit() && actIsMutating(act); }
 /* ==== fine blocco permessi ==== */
@@ -2093,6 +2422,7 @@ document.addEventListener("click",e=>{ try{
   else if(act==="togglePay"){ const p=ev().payments.find(x=>x.id===id); if(p){p.paid=!p.paid; commit(p.paid?"Rata segnata pagata":"Rata riaperta");} }
   else if(act==="applyPlan"){ const g=+$("#plg").value||0, c=+$("#cpct").value||0; meta().plannedGuests=g; meta().contingencyPct=c; commit("Pianificazione aggiornata"); }
   else if(act==="importGuests") importWizard();
+  else if(act==="exportGuestsCsv") exportGuestsCsv();
   else if(act==="addGuest") editGuest(null);
   else if(act==="editGuest") editGuest(id);
   else if(act==="cycleRsvp"){ const e=ev(), g=e.guests.find(x=>x.id===id); if(g){ const seq=["conf","attesa","no"]; g.rsvp=seq[(seq.indexOf(g.rsvp)+1)%seq.length]; if(g.rsvp==="no"){ e.seating=e.seating||{rules:[]}; e.seating.rules=seatPurgeGuest(e.tables, e.seating.rules||[], g.id); } commit("RSVP: "+(RSVP[g.rsvp]?RSVP[g.rsvp][1]:g.rsvp)); } }
@@ -2121,6 +2451,12 @@ document.addEventListener("click",e=>{ try{
   else if(act==="optimizeTable") optimizeTable(id);
   else if(act==="optimizeAll") optimizeAllTables();
   else if(act==="autoAssign") autoAssignConfirm();
+  else if(act==="seatWizard") seatWizard();
+  else if(act==="themeTables") seatThemePicker();
+  else if(act==="printTables") printTables();
+  else if(act==="seatZoomIn") seatZoom(0.25);
+  else if(act==="seatZoomOut") seatZoom(-0.25);
+  else if(act==="seatZoomReset"){ SEATZOOM=1; render(); }
   else if(act==="addRule") seatRuleEditor();
   else if(act==="delRule") delSeatRule(id);
   else if(act==="assignSeat") assignSeat(a.getAttribute("data-table"), a.getAttribute("data-idx"));

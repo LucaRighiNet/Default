@@ -4,6 +4,13 @@ Confronto tra l'app tavoli originale caricata dall'utente
 (`Tableau_Matrimonio.html`, ~486 KB) e la scheda Tavoli nativa dentro
 `hub-nozze/index.html`. Data: 2026-07-02.
 
+## Stato: CHIUSA
+
+Tutti i gap funzionali (G1–G9) sono stati implementati e verificati end-to-end
+(Playwright) il 2026-07-02. Resta fuori solo G10 (dati seed finti), scelta
+deliberata: l'app importa i dati reali dell'utente, non ha senso gonfiare il
+seed con 130 nomi inventati. Dettaglio per gap nella tabella sotto.
+
 ## In sintesi (difetto principale per primo)
 
 Il divario più grosso non è l'algoritmo: il motore di ottimizzazione nativo
@@ -35,52 +42,53 @@ non incastrato di fretta.
   mappatura colonne). [Certain]
 - Backup JSON export/import: presente. [Certain]
 
-## Gap prioritizzati
+## Gap: stato di chiusura
 
-Priorità P1 = ciò che l'utente ha esplicitamente chiesto o che sblocca il resto.
+    ID   Area                    Cosa è stato fatto                                   Stato
+    ---  ----------------------  ---------------------------------------------------  ------
+    G1   Variabili ottimizzatore 8 variabili (4 attive) con peso 0–20, modo           FATTO
+                                 unisci/separa, tendine di valori, variabili custom;
+                                 editor nel wizard passo 1. SEAT_VARS_DEF.
+    G2   Attributi per ospite    g.attr{var:val}; compilazione bulk (tutti / per      FATTO
+                                 gruppo / singolo) con % completamento nel wizard
+                                 passo 2; tendine anche in "Modifica ospite";
+                                 "Precompila dai dati" deriva nucleo/lato/età.
+    G3   Wizard abbinamenti      4 passi (Variabili → Compila → Regole → Genera)      FATTO
+                                 con barra passi; pulsante "Genera (guidato)".
+    G4   Gruppi con colore       Pallino colorato per gruppo nella lista ospiti e     FATTO
+                                 nel wizard (GUEST_GROUP_COLORS).
+    G5   Temi nomi tavoli        7 temi (Numeri, Città, Fiori, Isole, Vini,           FATTO
+                                 Pittori, Stelle); "Nomi tema" rinomina tutti;
+                                 nuovi tavoli auto-nominati dal tema attivo.
+    G6   Planimetria avanzata    Drag del tavolo sulla planimetria (coordinate SVG    FATTO*
+                                 via getScreenCTM) + zoom 50–300%. Rotazione/resize/
+                                 sfondo NON portati (vedi nota).
+    G7   Filtri/ricerca ospiti   Chip Tutti/Confermati/In attesa/Non viene +          FATTO
+                                 ricerca testo, lato client (nessuna perdita focus).
+    G8   Export CSV / stampa     Export CSV (con colonne variabili) + tableau         FATTO
+                                 stampabile (finestra dedicata, window.print).
+    G9   Undo generazione        Snapshot pre-generazione + "Annulla" nel wizard.     FATTO
+    G10  Dati seed realistici    NON fatto per scelta: l'utente importa i suoi        SALTATO
+                                 dati; niente 130 nomi finti nel seed.
 
-    ID   Area                    Originale                         Nativo oggi              Prio
-    ---  ----------------------  --------------------------------  -----------------------  ----
-    G1   Variabili ottimizzatore 8 default + custom, peso,         affinità fissa a 3       P1
-                                 modo unisci/separa, tendine       booleani, nessun peso
-    G2   Attributi per ospite    g.attr{var:val}, compilazione     solo nucleo/gruppo/lato  P1
-                                 bulk per gruppo, % completamento   singoli campi
-    G3   Wizard abbinamenti      4 passi guidati (Variabili →      pulsanti sparsi          P2
-                                 Compila → Regole → Genera)        (ottimizza/auto/regole)
-    G4   Gruppi con colore       GROUPS con pallino colorato       gruppo = testo, no       P2
-                                 (sposa/sposo/amici/lavoro/vip)    colore
-    G5   Temi nomi tavoli        ~50 temi (città, gin, vini,       nome manuale             P3
-                                 pittori…) auto-generati
-    G6   Planimetria avanzata    drag tavolo, rotazione, resize,   drag ospite→posto, SVG,  P3
-                                 zoom S/M/L, sfondo, elementi      auto-layout, no move/zoom
-    G7   Filtri/ricerca ospiti   chip Tutti/Conf/Forse/No/Da       tabella per nucleo,      P2
-                                 invitare + ricerca + ordina       nessun filtro
-    G8   Export CSV / stampa     CSV ospiti + layout Tableau       solo backup JSON         P3
-                                 stampabile
-    G9   Undo generazione        snapshot + "annulla generazione"  nessun undo dedicato     P2
-    G10  Dati seed realistici    ~130 ospiti reali                 seed piccolo (rb27)      P3
+*G6: il drag tavolo e lo zoom sono verificati in headless (Playwright). Il drag
+touch su dispositivo reale resta da confermare sul campo — è storicamente il
+punto più fragile (vedi post mortem drag ospiti nel REGISTRO). Rotazione, resize
+e immagine di sfondo dei tavoli non sono stati portati: sono rifiniture estetiche
+a più alto rischio/beneficio marginale; da valutare solo se richiesti.
 
-## Raccomandazione
+## Come funziona ora l'ottimizzatore (per chi legge il codice)
 
-Ordine consigliato, dal più utile al meno:
-
-1. G1+G2 insieme (sono lo stesso pezzo): sistema variabili configurabili con
-   attributi per ospite. È la richiesta dell'utente e senza questo G3 non ha
-   contenuto. Stimo l'intervento più grande della lista; va isolato dietro test
-   dedicati (una suite `vars_test` sul modello + `similarity`). [Guessing sulla
-   stima] Prima di partire serve una conferma di scopo dall'utente: è un
-   sotto-progetto, non un ritocco.
-2. G7 (filtri/ricerca ospiti) e G9 (undo generazione): piccoli, alto ritorno,
-   riducono i clic. Fattibili subito.
-3. G4 (gruppi colorati): cosmetico ma migliora la leggibilità e prepara la
-   "precompila dai gruppi" dell'originale.
-4. G3 (wizard) dopo G1/G2, altrimenti è un contenitore vuoto.
-5. G5/G6/G8/G10: rifiniture. G6 (drag/zoom tavoli) è la più vistosa ma anche la
-   più rischiosa su touch (già pagato caro il drag ospiti); da fare solo con
-   verifica su dispositivo reale, non a occhi chiusi.
-
-Cosa NON vale la pena copiare pari-pari: la lista dei ~50 temi è graziosa ma è
-tabella statica; se serve la porto in una riga, non è un gap "di prodotto".
+Le variabili pesate alimentano `seatSimilarity(a,b)` (somma con segno: stesso
+valore su una variabile "unisci" = +peso, su una "separa" = −peso). Questa entra
+in due punti:
+- assegnazione globale ai tavoli (`seatPlanAssignment` con parametro `simFn`):
+  ogni gruppo va sul tavolo che massimizza l'affinità con chi è già seduto,
+  preferendo i tavoli che contengono tutto il gruppo;
+- ordinamento dei posti dentro il tavolo (`seatAffinityFn` → `seatOptimize`):
+  l'affinità booleana ora considera anche `seatSimilarity>0`.
+Retrocompatibilità: `simFn` è opzionale, le firme storiche restano valide (suite
+b1/b2 invariate). Nuova suite `vars_test` (11 casi) blocca il comportamento.
 
 ## Interventi già applicati in questo giro (clic minimi e guidati)
 

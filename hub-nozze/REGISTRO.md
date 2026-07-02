@@ -705,3 +705,34 @@ l'app tavoli originale (Tableau_Matrimonio.html, caricata).
 Verifica: node --check ok; suite 162/162 verde; Playwright (430x932): doppio clic
 voce+titolo con save/persistenza dopo reload, RSVP 1-clic, Invio-conferma modale,
 smoke su tutte le 8 schede senza errori JS. dist/Hub_Nozze.html rigenerato.
+
+## Giro 23 (Claude Code) — chiusura gap analysis app tavoli (G1–G9)
+
+Richiesta utente: "esegui tutti i punti della todo e chiudi la gap analysis".
+Implementati e verificati tutti i gap funzionali del documento GAP_ANALYSIS.md.
+
+- G1 variabili configurabili: SEAT_VARS_DEF (8 variabili, 4 attive) con peso
+  0–20, modo unisci/separa, tendine di valori, variabili custom. Editor nel
+  wizard (passo 1).
+- G2 attributi per ospite: g.attr{var:val}; seatSimilarity(a,b) pesata con segno;
+  compilazione bulk (tutti/per gruppo/singolo) con % nel wizard (passo 2);
+  tendine anche in "Modifica ospite"; "Precompila dai dati" (nucleo/lato/età).
+  Integrata in seatPlanAssignment (nuovo param opzionale simFn, retrocompatibile)
+  e in seatAffinityFn.
+- G3 wizard 4 passi (Variabili→Compila→Regole→Genera), pulsante "Genera (guidato)".
+- G4 gruppi con colore (GUEST_GROUP_COLORS): pallino nella lista ospiti e wizard.
+- G5 temi nomi tavoli (7 temi); "Nomi tema" rinomina tutti; nuovi tavoli
+  auto-nominati dal tema.
+- G6 planimetria: drag del tavolo (coordinate SVG via getScreenCTM) + zoom
+  50–300%. seatLayout ora rispetta x,y manuali. Rotazione/resize/sfondo non
+  portati (rifiniture a rischio/beneficio marginale).
+- G7 filtri (chip RSVP) + ricerca ospiti lato client (niente perdita focus).
+- G8 export CSV ospiti (con colonne variabili) + tableau stampabile (window.print).
+- G9 undo generazione: snapshot pre-generazione + "Annulla" nel wizard.
+- G10 dati seed finti: SALTATO per scelta (l'utente importa i suoi dati).
+
+Nuova suite tests/vars_test.js (11 casi) su seatSimilarity + assegnazione con
+simFn. Verifica: node --check ok; suite 173/173 verde (162 + 11); Playwright
+(430x932): dot gruppo, filtro/ricerca, attr in editGuest, export CSV, creazione
+tavoli, tema (Rosa/Tulipano), zoom 100→125%, drag tavolo, wizard 8 variabili,
+precompila 75%, genera 9/9, undo — zero errori JS. dist/Hub_Nozze.html rigenerato.
