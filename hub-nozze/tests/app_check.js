@@ -552,18 +552,30 @@ function seatPositions(t){
 }
 function seatGuestById(gid){ return (ev().guests||[]).find(g=>g.id===gid); }
 function seatInitials(g){ if(!g)return""; const p=(g.name||"").trim().split(/\s+/); return (((p[0]||"")[0]||"")+((p[1]||"")[0]||"")).toUpperCase(); }
+// Layout a griglia con celle dimensionate sull'ingombro MASSIMO: nessuna
+// sovrapposizione, qualunque siano forma e numero di posti dei tavoli.
+function seatLayout(tables){
+  let cw=0, ch=0;
+  tables.forEach(t=>{ const f=seatFootprint(t); if(f.w>cw)cw=f.w; if(f.h>ch)ch=f.h; });
+  cw+=1.8; ch+=2.2; // margine tra tavoli + spazio per l'etichetta sotto
+  const cols=Math.max(1,Math.ceil(Math.sqrt(tables.length)));
+  const pos={};
+  tables.forEach((t,i)=>{ const c=i%cols, r=Math.floor(i/cols); pos[t.id]={x:c*cw+cw/2, y:r*ch+ch/2}; });
+  return pos;
+}
 function renderPlanimetria(){
   const tables=ev().tables||[];
   if(!tables.length) return `<div class="placeholder"><div class="ic">&#9638;</div><p>Nessun tavolo. Usa "+ Tavolo" per disegnare la planimetria.</p></div>`;
+  const LP=seatLayout(tables);
   let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
-  tables.forEach(t=>{ const f=seatFootprint(t), x=t.x||0, y=t.y||0;
+  tables.forEach(t=>{ const f=seatFootprint(t), x=LP[t.id].x, y=LP[t.id].y;
     minX=Math.min(minX,x-f.w/2-0.7); maxX=Math.max(maxX,x+f.w/2+0.7);
     minY=Math.min(minY,y-f.h/2-0.9); maxY=Math.max(maxY,y+f.h/2+0.9);
   });
   const W=Math.max(1,maxX-minX), H=Math.max(1,maxY-minY);
   let body="";
   tables.forEach(t=>{
-    const f=seatFootprint(t), x=t.x||0, y=t.y||0;
+    const f=seatFootprint(t), x=LP[t.id].x, y=LP[t.id].y;
     let shapeSvg;
     if(t.shape==='round'){ shapeSvg=`<circle cx="0" cy="0" r="${(f.lin/2).toFixed(2)}" fill="#e9eef0" stroke="#9bb0b3" stroke-width="0.05"/>`; }
     else if(t.shape==='square'){ const sd=f.lin; shapeSvg=`<rect x="${(-sd/2).toFixed(2)}" y="${(-sd/2).toFixed(2)}" width="${sd.toFixed(2)}" height="${sd.toFixed(2)}" rx="0.15" fill="#e9eef0" stroke="#9bb0b3" stroke-width="0.05"/>`; }
@@ -624,6 +636,39 @@ function optimizeTable(id){
   const res=seatOptimizeTable(t);
   t.seatIds=res.order.map(x=>x===undefined?null:x);
   commit(res.improved?("Ottimizzato: costo "+res.before.toFixed(1)+" → "+res.after.toFixed(1)):"Nessun miglioramento possibile");
+}
+function optimizeAllTables(){
+  const e=ev(); let improved=false, done=0;
+  (e.tables||[]).forEach(t=>{ if(seatHeadAt(t)>=2){ const r=seatOptimizeTable(t); t.seatIds=r.order.map(x=>x===undefined?null:x); improved=improved||r.improved; done++; } });
+  if(!done){ toast("Nessun tavolo con almeno 2 ospiti"); return; }
+  commit(improved?("Ottimizzati "+done+" tavoli"):"Nessun miglioramento possibile");
+}
+/* ---- Categorizzazione: vicinanze insieme/lontano (alimentano l'ottimizzatore) ---- */
+function seatGuestName(gid){ const g=seatGuestById(gid); return g?g.name:"(ospite rimosso)"; }
+function seatRuleEditor(){
+  const e=ev(), gs=seatableGuests();
+  if(gs.length<2){ toast("Servono almeno 2 ospiti sedibili"); return; }
+  const opts=gs.map(g=>`<option value="${g.id}">${esc(g.name)} (${g.side})</option>`).join("");
+  modal("Nuova vicinanza",
+    `<div class="field"><label>Ospite</label><select class="inp" id="ru_a">${opts}</select></div>
+     <div class="field"><label>Relazione</label><select class="inp" id="ru_k"><option value="together">Insieme (vicini di posto)</option><option value="separate">Lontani</option></select></div>
+     <div class="field"><label>Con</label><select class="inp" id="ru_b">${opts}</select></div>
+     <p class="muted" style="font-size:12px">La regola conta quando i due ospiti sono allo stesso tavolo: l'ottimizzatore li avvicina o li allontana di posto.</p>`,
+    [{label:"Annulla"},{label:"Aggiungi",cls:"",fn:()=>{
+       const a=$("#ru_a").value, b=$("#ru_b").value, kind=$("#ru_k").value;
+       if(!a||!b||a===b){ toast("Scegli due ospiti diversi"); return; }
+       e.seating=e.seating||{rules:[]}; e.seating.rules=e.seating.rules||[];
+       const key=(a<b?a+"|"+b:b+"|"+a);
+       e.seating.rules=e.seating.rules.filter(r=>((r.a<r.b?r.a+"|"+r.b:r.b+"|"+r.a)!==key)); // una sola regola per coppia
+       e.seating.rules.push({id:"sr"+seatNextSeq(),a:a,b:b,kind:kind});
+       commit("Vicinanza aggiunta");
+     }}]);
+}
+function delSeatRule(id){ const e=ev(); e.seating=e.seating||{rules:[]}; e.seating.rules=(e.seating.rules||[]).filter(r=>r.id!==id); commit("Vicinanza rimossa"); }
+function renderSeatRules(){
+  const rules=((ev().seating&&ev().seating.rules)||[]);
+  if(!rules.length) return `<p class="muted" style="font-size:13px">Nessuna vicinanza definita. Aggiungi chi deve stare insieme o lontano: "Ottimizza" ne terrà conto. Anche stesso nucleo familiare e bambini creano affinità automatica.</p>`;
+  return rules.map(r=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--line)"><span style="font-size:13px">${esc(seatGuestName(r.a))} <span class="pill ${r.kind==="together"?"ok":"no"}">${r.kind==="together"?"insieme":"lontani"}</span> ${esc(seatGuestName(r.b))}</span><button class="btn sm danger" data-act="delRule" data-id="${r.id}">&times;</button></div>`).join("");
 }
 // Core riusabile da modale (click) e drag-drop (B4): assegna/libera un posto con dedup.
 function seatAssignCore(tableId, idx, gid){
@@ -710,19 +755,21 @@ function viewSeating(){
     +(unseated.length?unseated.map(g=>`<span class="tag" data-drag-guest="${g.id}" style="cursor:grab;touch-action:none">${esc(g.name)} (${g.side})</span>`).join("")
       :`<span class="muted" style="font-size:13px">Tutti gli ospiti sedibili sono assegnati.</span>`)+`</div>`;
   return `
-  <div class="card"><span class="pill todo">come funziona</span> Planimetria nativa (anteprima): crea i tavoli e assegna gli ospiti. Tocca un posto per scegliere dall'elenco, oppure trascina un ospite dalla riserva su un posto (e trascinalo sulla riserva per liberarlo). L'editor Tableau legacy resta finché il port nativo non è completo (B5).</div>
+  <div class="card"><span class="pill todo">come funziona</span> Crea i tavoli e assegna gli ospiti: tocca un posto per sceglierlo dall'elenco, oppure trascina un nome dalla riserva su un posto (e trascinalo sulla riserva per liberarlo). Definisci le vicinanze (chi insieme, chi lontano) qui sotto, poi premi Ottimizza: l'ottimizzatore dispone i posti rispettando le vicinanze, il nucleo familiare e i bambini.</div>
   <div class="grid cards">
     <div class="card kpi"><div class="v">${tables.length}</div><div class="l">Tavoli</div></div>
     <div class="card kpi"><div class="v">${seated}/${totSeats}</div><div class="l">Posti occupati</div></div>
     <div class="card kpi"><div class="v">${unseated.length}</div><div class="l">Ospiti da sedere</div></div>
   </div>
-  <div class="sec-title"><h2>Planimetria</h2><span><button class="btn sm" data-act="addTable">+ Tavolo</button></span></div>
+  <div class="sec-title"><h2>Planimetria</h2><span>${tables.length?'<button class="btn sm ghost" data-act="optimizeAll">Ottimizza tutti</button> ':''}<button class="btn sm" data-act="addTable">+ Tavolo</button></span></div>
   <div id="planiHost">
     <div class="card" style="padding:8px">${renderPlanimetria()}</div>
     <div class="sec-title" style="margin-top:6px"><h2 style="font-size:15px">Riserva ospiti</h2></div>
     ${tray}
   </div>
   ${tables.length?`<div class="scroll-x"><table class="tbl"><thead><tr><th>Tavolo</th><th>Forma</th><th class="num">Occupati</th><th></th></tr></thead><tbody>${tables.map(t=>`<tr><td>${esc(t.name)}</td><td>${SEAT_SHAPES[t.shape]||esc(t.shape)}</td><td class="num">${seatHeadAt(t)}/${t.seats}</td><td class="num"><button class="btn sm ghost" data-act="optimizeTable" data-id="${t.id}">Ottimizza</button> <button class="btn sm ghost" data-act="editTable" data-id="${t.id}">Modifica</button> <button class="btn sm danger" data-act="delTable" data-id="${t.id}">&times;</button></td></tr>`).join("")}</tbody></table></div>`:""}
+  <div class="sec-title" style="margin-top:14px"><h2>Vicinanze</h2><span><button class="btn sm" data-act="addRule">+ Regola</button></span></div>
+  <div class="card">${renderSeatRules()}</div>
   `;
 }
 
@@ -1700,6 +1747,9 @@ document.addEventListener("click",e=>{ try{
   else if(act==="editTable") editTable(id);
   else if(act==="delTable") delTable(id);
   else if(act==="optimizeTable") optimizeTable(id);
+  else if(act==="optimizeAll") optimizeAllTables();
+  else if(act==="addRule") seatRuleEditor();
+  else if(act==="delRule") delSeatRule(id);
   else if(act==="assignSeat") assignSeat(a.getAttribute("data-table"), a.getAttribute("data-idx"));
   else if(act==="openGuide") openGuide(0);
   else if(act==="hideTip"){ tipHidden[active]=true; render(); }

@@ -34,8 +34,8 @@ SIMULATORE APERITIVO (nativo)
 TABLEAU TAVOLI (nativo)
   B1 modello dati posti + serpentina + vicinati          FATTO  27 test
   B2 optimizer 2-opt + vincoli + affinità + undo          FATTO  25 test
-  B3 planimetria SVG                                      DA FARE (solo browser)
-  B4 drag-drop assegnazione posti (rischio alto)          DA FARE (solo browser)
+  B3 planimetria SVG + CRUD tavoli + assegnazione         FATTO   layout no-overlap
+  B4 drag-drop assegnazione posti (touch+mouse)           FATTO   verificato Playwright
   B5 rimozione iframe Tableau + blob TOOL_TABLEAU         FATTO   file 728→187 KB
 
 IMPORT GUIDATO OSPITI
@@ -399,3 +399,30 @@ invariato per il percorso felice.
 Verifica: node --check OK; suite 111/111 (nuova storage_test 10); Playwright:
 app avviata dopo refactor, Diagnostica apre, errore non gestito catturato, stato
 corrotto → backup + boot dal seed + log (contesto pulito).
+
+## Giro 9 (Claude Code) — fix segnalati: overlap tavoli + categorizzazione optimizer
+
+Due difetti segnalati dall'utente, corretti prima di proseguire.
+
+1. Tavoli sovrapposti: l'auto-layout usava una griglia fissa 7×6 che ignorava
+   l'ingombro reale, quindi tavoli grandi (imperiale/serpentina/molti posti) si
+   accavallavano. Fix: seatLayout() dispone i tavoli su una griglia con celle
+   dimensionate sull'ingombro MASSIMO (maxW+1.8 × maxH+2.2) e colonne ≈√n;
+   renderPlanimetria usa queste posizioni. Sovrapposizione impossibile per
+   costruzione. Verifica Playwright: 4 tavoli di forme diverse, 0 coppie sovrapposte.
+
+2. Categorizzazione per l'ottimizzatore assente: seating.rules (vincoli
+   insieme/lontano che la funzione di costo dell'optimizer usa) non aveva NESSUNA
+   UI, quindi l'ottimizzatore girava senza vincoli. Fix: sezione "Vicinanze" nella
+   scheda Tavoli — aggiungi/elenca/rimuovi regole together/separate tra due ospiti
+   (una per coppia), che alimentano seatRulesIdx→seatOptimize. Aggiunto
+   "Ottimizza tutti" (ottimizza ogni tavolo con ≥2 seduti). Chiarito che anche
+   nucleo familiare e bambini creano affinità automatica (già nell'editor ospite).
+   Verifica: regola aggiunta→UI+seating.rules persistiti; Ottimizza tutti senza
+   errori; rimozione ok.
+
+Limite dichiarato: l'ottimizzatore riordina i posti DENTRO un tavolo (le vicinanze
+contano quando i due ospiti sono già allo stesso tavolo); non assegna gli ospiti
+ai tavoli in automatico. Assegnazione globale ottimizzata = possibile stadio futuro.
+
+Suite 111/111; node --check OK; zero errori JS.
