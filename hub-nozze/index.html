@@ -162,54 +162,86 @@ input[type=checkbox]{accent-color:var(--sea); width:18px; height:18px}
 "use strict";
 (function(){
 
-/* ============ STORE (backend rilevato: window.storage | localStorage | RAM) ============ */
-const KEY="hub_state_v1";
-let memState=null, saveTimer=null;
-// Feature detection, NON user-agent. window.storage e' iniettata solo dal
-// runtime artifact di Claude.ai; fuori (browser desktop, Safari iPhone,
-// Playwright) non esiste e si ricade su localStorage, che persiste tra reload.
-// RAM = ultima spiaggia (nessuna persistenza). Vedi handoff sez.5 opzione B.
-const Backend=(function(){
-  try{
-    if(typeof window!=="undefined" && window.storage
-       && typeof window.storage.get==="function"
-       && typeof window.storage.set==="function"){
-      return {
-        kind:"window.storage",
-        async get(){ const r=await window.storage.get(KEY); return r&&r.value ? r.value : null; },
-        async set(v){ await window.storage.set(KEY, v); }
-      };
-    }
-  }catch(e){}
-  try{
-    if(typeof localStorage!=="undefined"){
-      const probe="__hub_probe__"; localStorage.setItem(probe,"1"); localStorage.removeItem(probe);
-      return {
-        kind:"localStorage",
-        async get(){ return localStorage.getItem(KEY); },
-        async set(v){ localStorage.setItem(KEY, v); }
-      };
-    }
-  }catch(e){}
-  return { kind:"memory", async get(){ return null; }, async set(){} };
+/* ============ DIAGNOSTICA / ERROR TRACKING (P0) ============ */
+// Senza backend gli errori di produzione sarebbero invisibili. Diag li cattura in
+// un buffer limitato, persistente (chiave separata) e ispezionabile dalla voce
+// "Diagnostica" nel menù. In P1/P3 qui si aggancerà l'invio a un servizio remoto.
+const DIAG_KEY="hub_diag_v1", DIAG_MAX=25;
+const Diag=(function(){
+  let buf=[];
+  function persist(){ try{ if(typeof localStorage!=="undefined") localStorage.setItem(DIAG_KEY, JSON.stringify(buf.slice(-DIAG_MAX))); }catch(e){} }
+  try{ if(typeof localStorage!=="undefined"){ const r=localStorage.getItem(DIAG_KEY); if(r) buf=JSON.parse(r)||[]; } }catch(e){ buf=[]; }
+  return {
+    log(kind,msg,extra){ buf.push({t:new Date().toISOString(),kind:String(kind||"error"),msg:String(msg||"").slice(0,300),extra:extra?String(extra).slice(0,600):""}); if(buf.length>DIAG_MAX) buf=buf.slice(-DIAG_MAX); persist(); },
+    list(){ return buf.slice(); },
+    clear(){ buf=[]; persist(); },
+    exportText(){ return buf.map(e=>e.t+" ["+e.kind+"] "+e.msg+(e.extra?" | "+e.extra:"")).join("\n"); }
+  };
 })();
+if(typeof window!=="undefined"){
+  window.addEventListener("error", function(e){ Diag.log("error", e.message, (e.filename||"")+":"+(e.lineno||"")); });
+  window.addEventListener("unhandledrejection", function(e){ Diag.log("promise", (e.reason&&e.reason.message)||String(e.reason||"rejection"), e.reason&&e.reason.stack); });
+}
+
+/* ============ STORAGE (adapter astratto: local-first, pronto per backend remoto) ============ */
+// L'app resta local-first. StorageAdapter isola il MEZZO di persistenza dietro
+// un'interfaccia async (get/set/remove); Store gestisce debounce, flush, hardening
+// e la scelta dell'adapter. In P1 si aggiunge un adapter remoto/sync via
+// Store.useAdapter(...) senza toccare i chiamanti (render/commit/INIT invariati).
+const KEY="hub_state_v1", BAK_KEY="hub_state_v1_bak";
+let memState=null, saveTimer=null;
+const memMap={};
+function makeWindowStorageAdapter(){ return { name:"window.storage",
+  async get(){ const r=await window.storage.get(KEY); return r&&r.value ? r.value : null; },
+  async set(v){ await window.storage.set(KEY, v); },
+  async remove(){ try{ await window.storage.set(KEY, ""); }catch(e){} } }; }
+function makeLocalStorageAdapter(){ return { name:"localStorage",
+  async get(){ return localStorage.getItem(KEY); },
+  async set(v){ localStorage.setItem(KEY, v); },
+  async remove(){ localStorage.removeItem(KEY); } }; }
+function makeMemoryAdapter(){ return { name:"memory",
+  async get(){ return memMap[KEY]!=null?memMap[KEY]:null; },
+  async set(v){ memMap[KEY]=v; },
+  async remove(){ delete memMap[KEY]; } }; }
+// Feature detection (non user-agent): window.storage (Claude.ai) → localStorage → RAM.
+function detectLocalAdapter(){
+  try{ if(typeof window!=="undefined" && window.storage && typeof window.storage.get==="function" && typeof window.storage.set==="function") return makeWindowStorageAdapter(); }catch(e){}
+  try{ if(typeof localStorage!=="undefined"){ const p="__hub_probe__"; localStorage.setItem(p,"1"); localStorage.removeItem(p); return makeLocalStorageAdapter(); } }catch(e){}
+  return makeMemoryAdapter();
+}
+// Validazione minima dello stato caricato: deve avere la forma attesa.
+function isValidState(s){ return !!(s && typeof s==="object" && s.events && typeof s.events==="object"); }
 const Store={
-  backend:Backend.kind,
+  adapter: detectLocalAdapter(),
+  get backend(){ return this.adapter.name; },
+  // Seam per P1: aggancia un adapter remoto/sync senza cambiare i chiamanti.
+  useAdapter(a){ if(a && typeof a.get==="function" && typeof a.set==="function") this.adapter=a; return this.adapter; },
   async load(){
-    try{ const v=await Backend.get(); if(v) return JSON.parse(v); }catch(e){}
-    return memState;
+    let raw=null;
+    try{ raw=await this.adapter.get(); }catch(e){ Diag.log("storage","load get fallita", e&&e.message); }
+    if(raw==null) return memState;
+    let parsed;
+    try{ parsed=JSON.parse(raw); }
+    catch(e){ this._backupCorrupt(raw, "JSON illeggibile: "+(e&&e.message)); return memState; }
+    if(!isValidState(parsed)){ this._backupCorrupt(raw, "forma stato non valida"); return memState; }
+    return parsed;
+  },
+  // Non perdere mai dati: uno stato illeggibile viene messo da parte, non sovrascritto in silenzio.
+  _backupCorrupt(raw, why){
+    Diag.log("storage", "stato illeggibile, salvato backup", why);
+    try{ if(typeof localStorage!=="undefined") localStorage.setItem(BAK_KEY, raw); }catch(e){}
   },
   save(state){
     memState=state;
     clearTimeout(saveTimer);
-    saveTimer=setTimeout(async()=>{ try{ await Backend.set(JSON.stringify(state)); }catch(e){} },250);
+    const self=this;
+    saveTimer=setTimeout(function(){ Promise.resolve(self.adapter.set(JSON.stringify(state))).catch(function(e){ Diag.log("storage","save fallita", e&&e.message); }); },250);
   },
   // Scrittura immediata di una save in sospeso: chiude la finestra di 250ms in cui
-  // una chiusura/reload perderebbe l'ultima modifica. Con localStorage la set è
-  // sincrona, quindi persiste anche durante l'unload.
+  // una chiusura/reload perderebbe l'ultima modifica.
   flush(){
     if(saveTimer){ clearTimeout(saveTimer); saveTimer=null; }
-    if(memState!=null){ try{ Backend.set(JSON.stringify(memState)); }catch(e){} }
+    if(memState!=null){ try{ Promise.resolve(this.adapter.set(JSON.stringify(memState))).catch(function(e){ Diag.log("storage","flush fallito", e&&e.message); }); }catch(e){ Diag.log("storage","flush fallito", e&&e.message); } }
   }
 };
 // Flush quando la pagina passa in background o viene chiusa (iOS: pagehide/
@@ -1730,9 +1762,10 @@ function openGear(){
     `<p class="muted" style="margin-bottom:10px">Motore generico: un evento attivo, riutilizzabile e portabile.</p>`,
     [{label:"Esporta",cls:"ghost",fn:()=>exportEvent(),close:false},
      {label:"Importa",cls:"ghost",fn:()=>{importEvent();},},
-     {label:"Guida",cls:"ghost",fn:()=>{openGuide(0);}},
-     {label:"Nuovo evento vuoto",cls:"ghost",fn:()=>{newEvent();}},
-     {label:"Reset al seed",cls:"danger",fn:()=>{resetEvent();}}]);
+     {label:"Guida",cls:"ghost",fn:()=>{openGuide(0);},close:false},
+     {label:"Diagnostica",cls:"ghost",fn:()=>{openDiag();},close:false},
+     {label:"Nuovo evento vuoto",cls:"ghost",fn:()=>{newEvent();},close:false},
+     {label:"Reset al seed",cls:"danger",fn:()=>{resetEvent();},close:false}]);
 }
 
 /* ============ GUIDA / ONBOARDING (D) ============ */
@@ -1764,6 +1797,15 @@ function openGuide(i){
 }
 function finishGuide(){ if(STATE && !STATE.onboarded){ STATE.onboarded=true; Store.save(STATE); } }
 
+// Diagnostica: rende visibili gli errori registrati da Diag (P0: "errori visibili").
+function openDiag(){
+  const items=Diag.list();
+  const txt=items.length?Diag.exportText():"Nessun errore registrato.";
+  const body=`<p class="muted" style="font-size:13px;margin-bottom:8px">Backend dati: ${esc(Store.backend)} · errori registrati: ${items.length}. Se qualcosa non va, copia questo testo e invialo al supporto.</p>`
+    +`<textarea class="inp" rows="8" readonly style="font-size:12px;font-family:monospace;white-space:pre">${esc(txt)}</textarea>`;
+  modal("Diagnostica", body, [{label:"Svuota",cls:"ghost",fn:()=>{ Diag.clear(); toast("Diagnostica svuotata"); }},{label:"Chiudi"}]);
+}
+
 // Suggerimento contestuale per scheda (riga compatta in cima alla vista).
 const TAB_TIP={
   dash:"I numeri chiave a colpo d'occhio. Apri la Guida per il tour completo.",
@@ -1784,7 +1826,7 @@ function hintBanner(tab){
 }
 
 /* ============ EVENTS ============ */
-document.addEventListener("click",e=>{
+document.addEventListener("click",e=>{ try{
   const tab=e.target.closest("[data-tab]"); if(tab){ active=tab.getAttribute("data-tab"); render(); return; }
   const a=e.target.closest("[data-act]"); if(!a) return;
   const act=a.getAttribute("data-act"), id=a.getAttribute("data-id");
@@ -1821,6 +1863,7 @@ document.addEventListener("click",e=>{
   else if(act==="assignSeat") assignSeat(a.getAttribute("data-table"), a.getAttribute("data-idx"));
   else if(act==="openGuide") openGuide(0);
   else if(act==="hideTip"){ tipHidden[active]=true; render(); }
+  }catch(err){ Diag.log("action","azione fallita",(err&&err.stack)||(err&&err.message)); toast("Si è verificato un errore"); }
 });
 $("#gearBtn").addEventListener("click",openGear);
 document.addEventListener("change",function(e){ if(e.target&&e.target.id==="rs_filter"){ rsFilter=e.target.value; render(); } });

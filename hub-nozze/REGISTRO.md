@@ -374,3 +374,28 @@ Limite non colmabile qui: la conferma finale del touch su iPhone/Safari reale
 non è automatizzabile in questo ambiente (Playwright usa Chromium). Checklist per
 il dispositivo consegnata all'utente (deploy via Safari + Aggiungi a Home; drag
 con un dito; verifica che la pagina non scrolli durante il trascinamento).
+
+## Giro 8 (Claude Code) — P0: astrazione Store + error tracking + hardening
+
+Primo passo del piano prodotto (P0). Tutto additivo/refactor, comportamento
+invariato per il percorso felice.
+
+- StorageAdapter astratto: il MEZZO di persistenza (window.storage | localStorage
+  | memory) dietro interfaccia async get/set/remove. Store.useAdapter() è il seam
+  per agganciare in P1 un adapter remoto/sync senza toccare render/commit/INIT.
+- Diag: error tracking senza backend. Cattura window 'error' e
+  'unhandledrejection', buffer limitato (25) persistente su chiave separata,
+  ispezionabile dalla voce "Diagnostica" nel menù (con export testo + svuota).
+- Hardening load: stato illeggibile (JSON rotto o forma non valida) NON viene
+  sovrascritto in silenzio ma copiato in hub_state_v1_bak e loggato; l'app
+  riparte dal seed. Zero perdita dati.
+- Resilienza UI: gestore click globale in try/catch → Diag.log + toast, così
+  un'azione difettosa non causa white-screen.
+- Bug preesistente corretto: i pulsanti del menù ingranaggio che aprono un
+  sotto-modale (Guida, Diagnostica, Nuovo evento vuoto, Reset al seed) non avevano
+  close:false, quindi il modale esterno chiudendosi cancellava subito quello
+  interno. Ora aperti correttamente.
+
+Verifica: node --check OK; suite 111/111 (nuova storage_test 10); Playwright:
+app avviata dopo refactor, Diagnostica apre, errore non gestito catturato, stato
+corrotto → backup + boot dal seed + log (contesto pulito).
