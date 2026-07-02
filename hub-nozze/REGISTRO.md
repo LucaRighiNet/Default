@@ -567,3 +567,15 @@ normale invariate; zero errori JS.
 
 Nota: redenzione invito e submit RSVP verso il backend restano da collegare
 (spike Supabase); qui payload e flusso client sono pronti e testati.
+
+## Giro 16 (Claude Code) — P2/P3: legale (GDPR) + hook osservabilità
+
+- Documenti legali (bozze/template da validare con legale): legal/PRIVACY.md,
+  TERMS.md, COOKIE.md — tarati su SaaS nozze UE (dati ospiti/particolari,
+  sub-responsabili, diritti, dati in UE).
+- UI "Privacy e dati" nel menù: sintesi trattamento + export dati (JSON) +
+  rimando ai documenti. Cancellazione evento già disponibile (Reset).
+- Osservabilità: Diag.setReporter(fn) — seam per invio errori a un servizio
+  remoto (Sentry) in P3; dormiente finché non impostato.
+
+Verifica: node --check OK; suite 153/153 (storage_test +1: setReporter).

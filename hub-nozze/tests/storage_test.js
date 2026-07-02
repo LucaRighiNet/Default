@@ -81,6 +81,19 @@ r.ok("Diag: log/list/clear/exportText", () => {
   S.Diag.clear();
   assert.strictEqual(S.Diag.list().length, 0);
 });
+r.ok("Diag.setReporter: il reporter riceve ogni voce loggata", () => {
+  S.Diag.clear();
+  const got = [];
+  S.Diag.setReporter(e => got.push(e));
+  S.Diag.log("cloud", "prova");
+  assert.strictEqual(got.length, 1);
+  assert.strictEqual(got[0].kind, "cloud");
+  assert.strictEqual(got[0].msg, "prova");
+  S.Diag.setReporter(null);
+  S.Diag.log("x", "dopo-null");
+  assert.strictEqual(got.length, 1, "dopo setReporter(null) non deve più ricevere");
+  S.Diag.clear();
+});
 r.ok("Diag: buffer limitato a DIAG_MAX", () => {
   S.Diag.clear();
   for (let i = 0; i < 60; i++) S.Diag.log("error", "e" + i);

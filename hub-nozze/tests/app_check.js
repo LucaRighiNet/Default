@@ -8,11 +8,13 @@
 // "Diagnostica" nel menù. In P1/P3 qui si aggancerà l'invio a un servizio remoto.
 const DIAG_KEY="hub_diag_v1", DIAG_MAX=25;
 const Diag=(function(){
-  let buf=[];
+  let buf=[], reporter=null;
   function persist(){ try{ if(typeof localStorage!=="undefined") localStorage.setItem(DIAG_KEY, JSON.stringify(buf.slice(-DIAG_MAX))); }catch(e){} }
   try{ if(typeof localStorage!=="undefined"){ const r=localStorage.getItem(DIAG_KEY); if(r) buf=JSON.parse(r)||[]; } }catch(e){ buf=[]; }
   return {
-    log(kind,msg,extra){ buf.push({t:new Date().toISOString(),kind:String(kind||"error"),msg:String(msg||"").slice(0,300),extra:extra?String(extra).slice(0,600):""}); if(buf.length>DIAG_MAX) buf=buf.slice(-DIAG_MAX); persist(); },
+    log(kind,msg,extra){ const ent={t:new Date().toISOString(),kind:String(kind||"error"),msg:String(msg||"").slice(0,300),extra:extra?String(extra).slice(0,600):""}; buf.push(ent); if(buf.length>DIAG_MAX) buf=buf.slice(-DIAG_MAX); persist(); if(reporter){ try{ reporter(ent); }catch(e){} } },
+    // Seam per l'osservabilità remota (es. Sentry) in P3: dormiente finché non impostato.
+    setReporter(fn){ reporter=(typeof fn==="function")?fn:null; },
     list(){ return buf.slice(); },
     clear(){ buf=[]; persist(); },
     exportText(){ return buf.map(e=>e.t+" ["+e.kind+"] "+e.msg+(e.extra?" | "+e.extra:"")).join("\n"); }
@@ -1841,6 +1843,7 @@ function openGear(){
      {label:"Guida",cls:"ghost",fn:()=>{openGuide(0);},close:false},
      {label:"Account e sync",cls:"ghost",fn:()=>{openAccount();},close:false},
      {label:"Diagnostica",cls:"ghost",fn:()=>{openDiag();},close:false},
+     {label:"Privacy e dati",cls:"ghost",fn:()=>{openPrivacy();},close:false},
      {label:"Nuovo evento vuoto",cls:"ghost",fn:()=>{newEvent();},close:false},
      {label:"Reset al seed",cls:"danger",fn:()=>{resetEvent();},close:false}]);
 }
@@ -1881,6 +1884,13 @@ function openDiag(){
   const body=`<p class="muted" style="font-size:13px;margin-bottom:8px">Backend dati: ${esc(Store.backend)} · errori registrati: ${items.length}. Se qualcosa non va, copia questo testo e invialo al supporto.</p>`
     +`<textarea class="inp" rows="8" readonly style="font-size:12px;font-family:monospace;white-space:pre">${esc(txt)}</textarea>`;
   modal("Diagnostica", body, [{label:"Svuota",cls:"ghost",fn:()=>{ Diag.clear(); toast("Diagnostica svuotata"); }},{label:"Chiudi"}]);
+}
+// Privacy e diritti sui dati (GDPR): sintesi + export + rimando ai documenti.
+function openPrivacy(){
+  modal("Privacy e dati",
+    `<p class="muted" style="font-size:13px">I tuoi dati (evento, ospiti, fornitori) sono salvati sul dispositivo; con il sync cloud opzionale anche sul server (UE). Trattiamo dati personali degli ospiti, incluse informazioni alimentari e di accessibilità: raccoglile solo se necessarie e con il loro consenso.</p>
+     <p class="muted" style="font-size:13px">Puoi esportare i tuoi dati o cancellare l'evento in ogni momento. Documenti completi: <code>legal/PRIVACY.md</code>, <code>legal/TERMS.md</code>, <code>legal/COOKIE.md</code>.</p>`,
+    [{label:"Esporta i miei dati (JSON)",cls:"ghost",fn:()=>{ exportEvent(); },close:false},{label:"Chiudi"}]);
 }
 
 // Account e sync cloud (P1). Dormiente finché il backend non è configurato
