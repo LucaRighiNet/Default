@@ -447,3 +447,28 @@ coppia "insieme" stesso tavolo, coppia "lontano" tavoli diversi, zero errori JS.
 Limite: gruppo più grande della capienza del tavolo viene diviso (warning);
 capienza totale insufficiente → alcuni restano senza posto (riportato nel toast).
 Margini futuri: solutore migliore, blocco posti, spiegazione "perché qui".
+
+## Giro 11 (Claude Code) — P1 groundwork: scaffolding sync + contratto backend
+
+"Procedi" = P1 (account + sync cloud). Limite dichiarato: un backend live non è
+provisionabile da questo ambiente (serve infra + credenziali + decisioni prodotto
+dell'utente). Consegnati gli artefatti che rendono P1 agganciabile.
+
+- Client (index.html): modulo Sync DORMIENTE (enable/disable/pull/notify/flush) +
+  interfaccia RemoteAdapter (pull/push con versione e conflict) + makeMemoryRemote
+  (mock, referenza del contratto). Store.save chiama Sync.notify (no-op finché non
+  abilitato) e i listener pagehide/visibilitychange fanno Sync.flush. Comportamento
+  dell'app INVARIATO (sync spento di default).
+- Contratto backend: BACKEND_P1.md — schema Postgres (users/events/memberships/
+  event_state/audit_log), RLS per isolamento per-evento, protocollo sync
+  (pull/push ottimistico con guardia di versione), aggancio client, auth, ordine
+  di lavoro. Modello v1 = whole-document versionato + last-writer-wins; path a
+  per-entità/CRDT (P2).
+- Aggiornato PIANO_PRODOTTO.md 5.1 con la feature di assegnazione (Giro 10).
+
+Verifica: node --check OK; suite 124/124 (nuova sync_test 8: mock pull/push,
+versioni, conflitto, resolver, LWW). Playwright: app invariata (boot + persistenza
+ok, zero errori JS) col sync dormiente.
+
+Cosa resta all'utente per andare live: provisionare Supabase (UE) + schema/RLS,
+dare le chiavi; poi makeSupabaseRemote (piccolo) e Sync.enable dopo il login.

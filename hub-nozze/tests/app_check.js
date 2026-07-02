@@ -76,6 +76,7 @@ const Store={
     clearTimeout(saveTimer);
     const self=this;
     saveTimer=setTimeout(function(){ Promise.resolve(self.adapter.set(JSON.stringify(state))).catch(function(e){ Diag.log("storage","save fallita", e&&e.message); }); },250);
+    try{ if(typeof Sync!=="undefined") Sync.notify(state); }catch(e){} // sync dormiente finché non abilitato
   },
   // Scrittura immediata di una save in sospeso: chiude la finestra di 250ms in cui
   // una chiusura/reload perderebbe l'ultima modifica.
@@ -84,11 +85,61 @@ const Store={
     if(memState!=null){ try{ Promise.resolve(this.adapter.set(JSON.stringify(memState))).catch(function(e){ Diag.log("storage","flush fallito", e&&e.message); }); }catch(e){ Diag.log("storage","flush fallito", e&&e.message); } }
   }
 };
+
+/* ============ SYNC (scaffolding P1: local-first + backend remoto) ============ */
+// DORMIENTE finché Sync.enable(remote) non viene chiamato (in P1, dopo il login).
+// RemoteAdapter (contratto):
+//   pull() -> {version:int, data:string} | null
+//   push(baseVersion:int, data:string) -> {ok:true, version:int}
+//                                       | {conflict:true, version:int, data:string}
+// v1: sync dell'intero documento evento con versione + last-writer-wins (policy
+// pluggabile via onConflict). Multi-editor concorrente fitto -> per-entità/CRDT (P2).
+const Sync=(function(){
+  let remote=null, enabled=false, baseVersion=0, pushTimer=null, onConflict=null;
+  function _push(str){
+    if(!enabled||!remote) return Promise.resolve();
+    return Promise.resolve(remote.push(baseVersion, str)).then(function(res){
+      if(res&&res.ok){ baseVersion=res.version; }
+      else if(res&&res.conflict){
+        baseVersion=res.version;
+        if(onConflict){ onConflict(res); }
+        else { return Promise.resolve(remote.push(baseVersion, str)).then(function(r2){ if(r2&&r2.ok) baseVersion=r2.version; }); } // LWW: locale vince
+      }
+    }).catch(function(e){ Diag.log("sync","push fallita (offline?)", e&&e.message); });
+  }
+  return {
+    isEnabled(){ return enabled; },
+    version(){ return baseVersion; },
+    enable(r, opts){ remote=r; enabled=!!r; opts=opts||{}; onConflict=opts.onConflict||null; baseVersion=opts.version||0; return this; },
+    disable(){ enabled=false; remote=null; },
+    pull(){
+      if(!enabled||!remote) return Promise.resolve(null);
+      return Promise.resolve(remote.pull()).then(function(res){
+        if(res){ baseVersion=res.version; try{ return JSON.parse(res.data); }catch(e){ Diag.log("sync","pull JSON illeggibile"); return null; } }
+        return null;
+      }).catch(function(e){ Diag.log("sync","pull fallita", e&&e.message); return null; });
+    },
+    notify(state){ if(!enabled||!remote) return; clearTimeout(pushTimer); const str=JSON.stringify(state); pushTimer=setTimeout(function(){ _push(str); }, 400); },
+    flush(state){ clearTimeout(pushTimer); if(enabled&&remote&&state!=null) return _push(JSON.stringify(state)); return Promise.resolve(); }
+  };
+})();
+// Remote mock in memoria: per test e sviluppo, stesso contratto del backend reale.
+function makeMemoryRemote(){
+  let store={version:0, data:null};
+  return {
+    name:"memory-remote",
+    pull(){ return Promise.resolve(store.data==null?null:{version:store.version, data:store.data}); },
+    push(baseVersion, data){
+      if(baseVersion===store.version){ store.version++; store.data=data; return Promise.resolve({ok:true, version:store.version}); }
+      return Promise.resolve({conflict:true, version:store.version, data:store.data});
+    }
+  };
+}
 // Flush quando la pagina passa in background o viene chiusa (iOS: pagehide/
 // visibilitychange sono gli eventi affidabili; 'unload' non è garantito su Safari).
 if(typeof window!=="undefined"){
-  window.addEventListener("pagehide", function(){ Store.flush(); });
-  document.addEventListener("visibilitychange", function(){ if(document.visibilityState==="hidden") Store.flush(); });
+  window.addEventListener("pagehide", function(){ Store.flush(); if(typeof Sync!=="undefined") Sync.flush(memState); });
+  document.addEventListener("visibilitychange", function(){ if(document.visibilityState==="hidden"){ Store.flush(); if(typeof Sync!=="undefined") Sync.flush(memState); } });
 }
 
 /* ============ SEED (motore generico: questi dati sono SEED, non codice) ============ */
