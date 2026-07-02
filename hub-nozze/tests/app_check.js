@@ -2007,5 +2007,7 @@ document.addEventListener("change",function(e){ if(e.target&&e.target.id==="rs_f
   }catch(e){ Diag.log("cloud","bootstrap fallito", e&&e.message); }
   updateSyncChip(); // il bootstrap gira dopo render(): aggiorna subito l'indicatore
   if(!STATE.onboarded) openGuide(0);
+  // PWA: registra il service worker (solo su http(s); su file:// fallisce silenziosamente)
+  try{ if(typeof navigator!=="undefined" && navigator.serviceWorker && location.protocol.indexOf("http")===0){ navigator.serviceWorker.register("sw.js").catch(function(e){ Diag.log("pwa","SW register fallita", e&&e.message); }); } }catch(e){}
 })();
 })();
