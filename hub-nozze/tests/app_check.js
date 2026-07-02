@@ -197,6 +197,8 @@ const Cloud=(function(){
     async login(email){
       if(!this.configured()) throw new Error("cloud non configurato");
       user=await auth.signIn(email);
+      // ruolo dalla membership (owner/editor/viewer); default owner finché il backend non lo fornisce
+      if(typeof Session!=="undefined") Session.setRole((user&&user.role) || (auth.getRole&&auth.getRole()) || "owner");
       Sync.enable(remote, {
         onStatus:function(){ if(typeof updateSyncChip==="function") updateSyncChip(); },
         onConflict:function(){ if(typeof toast==="function") toast("Modifica concorrente: ho applicato la tua versione"); }
@@ -204,7 +206,7 @@ const Cloud=(function(){
       const cloudState=await Sync.pull();   // stato dal cloud (o null se primo accesso)
       return { user:user, cloudState:cloudState };
     },
-    async logout(){ if(auth){ try{ await auth.signOut(); }catch(e){} } user=null; Sync.disable(); }
+    async logout(){ if(auth){ try{ await auth.signOut(); }catch(e){} } user=null; if(typeof Session!=="undefined") Session.setRole("owner"); Sync.disable(); }
   };
 })();
 // Flush quando la pagina passa in background o viene chiusa (iOS: pagehide/
@@ -424,7 +426,9 @@ function updateSyncChip(){
   el.style.display="";
   if(!Sync.isEnabled()){ el.textContent="Accedi per sincronizzare"; return; }
   const map={synced:"☁ Sincronizzato", syncing:"☁ Sincronizzo…", offline:"☁ Offline", conflict:"☁ Conflitto risolto", local:"☁ —"};
-  el.textContent=map[Sync.getStatus()]||("☁ "+Sync.getStatus());
+  let txt=map[Sync.getStatus()]||("☁ "+Sync.getStatus());
+  if(typeof Session!=="undefined" && Session.role()==="viewer") txt+=" · sola lettura";
+  el.textContent=txt;
 }
 
 /* ============ DASHBOARD ============ */
@@ -913,6 +917,7 @@ function wireSeating(){
   }
   host.addEventListener("pointerdown", e=>{
     if(st) return; // trascinamento già in corso: ignora un secondo dito (multi-touch)
+    if(typeof Session!=="undefined" && !Session.canEdit()) return; // sola lettura: niente drag
     const src=e.target.closest&&e.target.closest("[data-drag-guest]"); if(!src) return;
     const gid=src.getAttribute("data-drag-guest"); if(!gid) return;
     // Su touch il browser assegna cattura implicita del pointer all'elemento
@@ -1925,11 +1930,26 @@ function hintBanner(tab){
     +`<span style="white-space:nowrap"><button class="btn sm ghost" data-act="openGuide">Guida</button> <button class="btn sm ghost" data-act="hideTip" aria-label="Nascondi suggerimento">Nascondi</button></span></div>`;
 }
 
+/* ============ RUOLI E PERMESSI (P2) ============ */
+// Ruolo dell'utente sull'evento. Default 'owner' (uso locale/senza cloud = pieno
+// accesso). In P2 il ruolo arriva dalla membership (owner/editor/viewer).
+const Session=(function(){ let role="owner"; return {
+  role(){ return role; },
+  setRole(r){ role=(r==="editor"||r==="viewer")?r:"owner"; },
+  canEdit(){ return role==="owner"||role==="editor"; }
+}; })();
+// Azioni non-mutanti sempre permesse (navigazione/aiuto/account/diagnostica).
+const READONLY_ACTS={ openGuide:1, openAccount:1, openDiag:1, hideTip:1 };
+function actIsMutating(act){ return !READONLY_ACTS[act]; }
+function permBlocks(act){ return !Session.canEdit() && actIsMutating(act); }
+/* ==== fine blocco permessi ==== */
+
 /* ============ EVENTS ============ */
 document.addEventListener("click",e=>{ try{
   const tab=e.target.closest("[data-tab]"); if(tab){ active=tab.getAttribute("data-tab"); render(); return; }
   const a=e.target.closest("[data-act]"); if(!a) return;
   const act=a.getAttribute("data-act"), id=a.getAttribute("data-id");
+  if(permBlocks(act)){ toast("Sola lettura: non hai i permessi di modifica"); return; }
   if(act==="editBudget") editBudget(id);
   else if(act==="addBudget") addBudget();
   else if(act==="togglePay"){ const p=ev().payments.find(x=>x.id===id); if(p){p.paid=!p.paid; commit(p.paid?"Rata segnata pagata":"Rata riaperta");} }

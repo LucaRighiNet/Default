@@ -523,3 +523,25 @@ Verificato così l'intero stack bootstrap→Cloud→login→Sync→pull→indica
 Nota P1 (per lo spike): l'auth Supabase via OTP non autentica al signInWithOtp
 (l'utente clicca il link via email); servirà un listener onAuthStateChange per
 completare il login. makeMockAuth invece autentica subito (per il dry-run).
+
+## Giro 14 (Claude Code) — P2 (a secco): ruoli e permessi
+
+Avvio P2 (collaborazione) lato client. Ruoli owner/editor/viewer con gating.
+
+- Session: ruolo dell'utente (default 'owner' = uso locale/pieno accesso);
+  setRole/canEdit. In P2 il ruolo arriva dalla membership; Cloud.login lo imposta
+  (da user.role o auth.getRole), logout torna a owner.
+- Gating centrale: nel dispatcher click, permBlocks(act) blocca le azioni mutanti
+  se !canEdit e mostra "Sola lettura"; le azioni safe (navigazione, guida,
+  account, diagnostica, hideTip) restano permesse. Guard anche sul drag-drop
+  (i viewer non trascinano).
+- UI: il chip sync aggiunge "· sola lettura" per i viewer; stato/ruolo visibili.
+
+Verifica: node --check OK; suite 145/145 (nuova perm_test 8: Session, actIsMutating,
+permBlocks). Playwright: (A) owner senza cloud apre l'editor tavolo (nessuna
+regressione); (B) viewer via fake cloud → chip "☁ Sincronizzato · sola lettura",
+"+ Tavolo" bloccato (editor non si apre); zero errori JS.
+
+Limite v1: il viewer è bloccato anche dall'aprire gli editor in sola visione
+(no "view details"); refinement futuro. Ruolo reale = query memberships lato
+backend (spike). Prossimi P2: inviti/token collaboratori + pagina RSVP pubblica.
