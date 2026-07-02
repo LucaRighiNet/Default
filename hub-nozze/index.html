@@ -558,14 +558,21 @@ function modal(title, bodyHtml, actions){
 }
 
 /* ============ ROUTER ============ */
-const TABS=[
-  ["dash","Dashboard"],["budget","Budget & Finanze"],["guests","Ospiti & RSVP"],
-  ["vendors","Fornitori"],["seating","Tavoli"],
-  ["aperitivo","Aperitivo"],["timeline","Timeline"],["lists","Note & Liste"]
-];
+/* ============ I18N (fondamenta P3) ============ */
+// Meccanismo pronto; qui tradotte le etichette schede come slice dimostrativo.
+// L'estrazione completa delle stringhe resta una passata dedicata (vedi PIANO).
+const I18N={
+  it:{ "tab.dash":"Dashboard","tab.budget":"Budget & Finanze","tab.guests":"Ospiti & RSVP","tab.vendors":"Fornitori","tab.seating":"Tavoli","tab.aperitivo":"Aperitivo","tab.timeline":"Timeline","tab.lists":"Note & Liste" },
+  en:{ "tab.dash":"Dashboard","tab.budget":"Budget & Finance","tab.guests":"Guests & RSVP","tab.vendors":"Vendors","tab.seating":"Tables","tab.aperitivo":"Aperitif","tab.timeline":"Timeline","tab.lists":"Notes & Lists" }
+};
+function appLang(){ try{ return (typeof STATE!=="undefined" && STATE && STATE.lang) ? STATE.lang : "it"; }catch(e){ return "it"; } }
+function t(key){ const L=I18N[appLang()]||I18N.it; return (L && L[key]) || I18N.it[key] || key; }
+function toggleLang(){ if(typeof STATE==="undefined"||!STATE) return; STATE.lang = appLang()==="it" ? "en" : "it"; commit(appLang()==="it"?"Lingua: Italiano":"Language: English"); }
+/* ==== fine blocco i18n ==== */
+const TABS=[["dash"],["budget"],["guests"],["vendors"],["seating"],["aperitivo"],["timeline"],["lists"]];
 let active="dash";
 function renderTabs(){
-  $("#tabs").innerHTML=TABS.map(t=>'<button role="tab" data-tab="'+t[0]+'" aria-selected="'+(active===t[0])+'">'+esc(t[1])+'</button>').join("");
+  $("#tabs").innerHTML=TABS.map(x=>'<button role="tab" data-tab="'+x[0]+'" aria-selected="'+(active===x[0])+'">'+esc(t("tab."+x[0]))+'</button>').join("");
 }
 function render(){
   const m=meta(), d=DERIVED;
@@ -2011,6 +2018,8 @@ function openGear(){
      {label:"Account e sync",cls:"ghost",fn:()=>{openAccount();},close:false},
      {label:"Diagnostica",cls:"ghost",fn:()=>{openDiag();},close:false},
      {label:"Privacy e dati",cls:"ghost",fn:()=>{openPrivacy();},close:false},
+     {label:"Abbonamento",cls:"ghost",fn:()=>{openBilling();},close:false},
+     {label:"Lingua (IT/EN)",cls:"ghost",fn:()=>{toggleLang();}},
      {label:"Nuovo evento vuoto",cls:"ghost",fn:()=>{newEvent();},close:false},
      {label:"Reset al seed",cls:"danger",fn:()=>{resetEvent();},close:false}]);
 }
@@ -2058,6 +2067,14 @@ function openPrivacy(){
     `<p class="muted" style="font-size:13px">I tuoi dati (evento, ospiti, fornitori) sono salvati sul dispositivo; con il sync cloud opzionale anche sul server (UE). Trattiamo dati personali degli ospiti, incluse informazioni alimentari e di accessibilità: raccoglile solo se necessarie e con il loro consenso.</p>
      <p class="muted" style="font-size:13px">Puoi esportare i tuoi dati o cancellare l'evento in ogni momento. Documenti completi: <code>legal/PRIVACY.md</code>, <code>legal/TERMS.md</code>, <code>legal/COOKIE.md</code>.</p>`,
     [{label:"Esporta i miei dati (JSON)",cls:"ghost",fn:()=>{ exportEvent(); },close:false},{label:"Chiudi"}]);
+}
+// Abbonamento (scaffold P2): piano free/premium. Pagamento (Stripe) da collegare al backend.
+const Billing=(function(){ let plan="free"; return { plan(){ return plan; }, setPlan(p){ plan=(p==="premium")?"premium":"free"; }, isPremium(){ return plan==="premium"; } }; })();
+function openBilling(){
+  modal("Abbonamento",
+    `<p class="muted" style="font-size:13px">Piano attuale: <b>${Billing.plan()==="premium"?"Premium":"Gratuito"}</b>. Il pagamento (Stripe) si attiverà quando il backend sarà configurato; qui è un'anteprima dell'interfaccia.</p>
+     <p class="muted" style="font-size:12px">Premium (futuro): sincronizzazione multi-dispositivo illimitata, collaboratori, backup esteso, esportazioni avanzate.</p>`,
+    [{label:"Chiudi"}]);
 }
 
 // Account e sync cloud (P1). Dormiente finché il backend non è configurato

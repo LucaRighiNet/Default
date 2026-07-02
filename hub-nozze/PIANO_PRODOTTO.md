@@ -262,3 +262,60 @@ più grossa.
 
 - Storage policy iOS/WebKit (eviction 7 giorni): https://webkit.org/blog/14403/updates-to-storage-policy/ ; https://searchengineland.com/what-safaris-7-day-cap-on-script-writeable-storage-means-for-pwa-developers-332519
 - Regole/fee App Store UE 2025-2026 (DMA, pagamenti esterni): https://developer.apple.com/support/dma-and-apps-in-the-eu/ ; https://www.revenuecat.com/blog/growth/apple-eu-dma-update-june-2025/
+
+---
+
+## 11. Stato di avanzamento (aggiornato in questa sessione)
+
+Legenda: FATTO = implementato e testato qui; SCAFFOLD = interfaccia/seam pronta,
+dormiente, da collegare; UTENTE = richiede provisioning/decisioni esterne che non
+posso fare da questo ambiente.
+
+```
+P0 stabilizzazione
+  Astrazione Store (adapter) ................ FATTO
+  Error tracking (Diag) + Diagnostica UI .... FATTO
+  Hardening load (backup anti-perdita) ...... FATTO
+  Flush su pagehide/visibilitychange ........ FATTO
+  Conferma touch su dispositivo reale ....... UTENTE (checklist consegnata)
+
+P1 account + sync cloud
+  StorageAdapter + Sync (stato/retry/conflitti) FATTO (client)
+  makeSupabaseRemote + auth + Cloud + login ... SCAFFOLD (testato su fake)
+  Indicatore sync in UI ....................... FATTO
+  Contratto backend (schema/RLS/protocollo) ... FATTO (BACKEND_P1.md)
+  Progetto Supabase (UE) + chiavi + onAuthStateChange  UTENTE
+
+P2 collaborazione + condivisione + billing
+  Ruoli e permessi (owner/editor/viewer) ...... FATTO
+  Inviti collaboratori (token/link/revoca) ..... SCAFFOLD (redenzione = UTENTE)
+  Pagina RSVP pubblica (?rsvp=) ................ FATTO (submit al backend = UTENTE)
+  Abbonamento (Billing) ........................ SCAFFOLD (Stripe = UTENTE)
+  Legale ToS/Privacy/Cookie + UI privacy/export  FATTO (bozze da validare = UTENTE)
+
+P3 distribuzione + qualità
+  CI (GitHub Actions) .......................... FATTO
+  PWA (manifest + icone + service worker) ...... FATTO
+  Osservabilità (Diag.setReporter) ............. SCAFFOLD (Sentry = UTENTE)
+  i18n (fondamenta + IT/EN su schede + toggle) . FATTO (estrazione completa = passata dedicata)
+  Accessibilità WCAG 2.2 AA .................... PARZIALE (passata dedicata da fare)
+  Wrapper store (Capacitor) + pen test ......... UTENTE
+
+P4 crescita
+  Onboarding guidato ........................... FATTO (Giro 6)
+  Analytics / ASO / SEO / supporto ............. UTENTE
+```
+
+Test totali: 158 (11 suite) + node --check, verifiche Playwright per ogni feature.
+
+## 12. Cosa serve da te per andare in produzione (riassunto)
+
+1. Provisiona Supabase (regione UE) con schema + RLS di BACKEND_P1.md; imposta
+   window.HUB_CLOUD={url,anonKey} e includi supabase-js; aggiungi onAuthStateChange
+   per completare il login OTP. -> attiva P1/P2 (sync, ruoli, inviti, RSVP submit).
+2. Account Stripe -> attiva Billing/abbonamenti.
+3. Account error-tracking (es. Sentry) -> Diag.setReporter.
+4. Valida i documenti legali con un legale; nomina eventuale DPO.
+5. Conferma touch/drag-drop su iPhone reale (checklist già fornita).
+6. Passate dedicate: estrazione i18n completa; audit accessibilità WCAG.
+Il resto del codice client è pronto e testato per accogliere questi collegamenti.

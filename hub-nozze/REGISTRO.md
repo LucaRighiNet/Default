@@ -579,3 +579,20 @@ Nota: redenzione invito e submit RSVP verso il backend restano da collegare
   remoto (Sentry) in P3; dormiente finché non impostato.
 
 Verifica: node --check OK; suite 153/153 (storage_test +1: setReporter).
+
+## Giro 17 (Claude Code) — i18n (fondamenta) + Billing (scaffold) + stato piano
+
+- i18n: I18N(it/en) + t() + appLang() + toggleLang(); etichette schede tradotte
+  come slice dimostrativo, toggle "Lingua (IT/EN)" nel menù. Estrazione completa
+  delle stringhe = passata dedicata (documentata).
+- Billing: modulo dormiente (free/premium) + voce "Abbonamento" (anteprima;
+  Stripe da collegare).
+- PIANO_PRODOTTO.md sez.11-12: stato di avanzamento (FATTO/SCAFFOLD/UTENTE) e
+  cosa serve dall'utente per andare live.
+
+Verifica: node --check OK; suite 158/158 (nuova i18n_test 5). Playwright: toggle
+lingua schede IT<->EN, nessuna regressione, zero errori JS.
+
+STATO PIANO: completato per quanto fattibile in questo ambiente. Resta ciò che
+richiede provisioning/decisioni esterne (Supabase, Stripe, Sentry, store, legale,
+conferma device) + le passate dedicate i18n completa e WCAG.
