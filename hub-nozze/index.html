@@ -864,7 +864,7 @@ function seatOptimize(gids,seats,rulesIdx,affinityFn){
   return {order:bestOrder,before:before,after:bestCost,improved:bestCost<before-1e-9};
 }
 function seatRulesIdx(){ const together=new Set(),separate=new Set(); ((ev().seating&&ev().seating.rules)||[]).forEach(r=>{ const k=r.a<r.b?r.a+'|'+r.b:r.b+'|'+r.a; if(r.kind==='together')together.add(k); else separate.add(k); }); return {together:together,separate:separate}; }
-function seatAffinityFn(){ const by={}; ev().guests.forEach(g=>by[g.id]=g); return function(ga,gb){ const a=by[ga],b=by[gb]; if(!a||!b)return false; const sameHH=a.household&&a.household!=='Senza nucleo'&&a.household===b.household; const kids=a.meal==='bambino'&&b.meal==='bambino'; return !!(sameHH||kids); }; }
+function seatAffinityFn(){ const by={}; ev().guests.forEach(g=>by[g.id]=g); return function(ga,gb){ const a=by[ga],b=by[gb]; if(!a||!b)return false; const sameHH=a.household&&a.household!=='Senza nucleo'&&a.household===b.household; const sameGroup=a.group&&b.group&&a.group===b.group; const kids=a.meal==='bambino'&&b.meal==='bambino'; return !!(sameHH||sameGroup||kids); }; }
 function seatOptimizeTable(t){ return seatOptimize((t.seatIds||[]).slice(), t.seats, seatRulesIdx(), seatAffinityFn()); }
 // Pianificazione assegnazione globale ospiti->tavoli (pura, testabile).
 // Euristica: raggruppa per vincoli "insieme" + stesso nucleo (union-find), poi
@@ -1964,15 +1964,29 @@ function importWizard(){
   function doAdd(){ if(!plan||!plan.toAdd.length)return; const n=plan.toAdd.length; ev().guests=ev().guests.concat(impNewGuests(plan.toAdd)); $("#modalRoot").innerHTML=""; commit("Importati "+n+" ospiti"); toast(n+" ospiti importati"); }
 }
 
+/* ---- Categorizzazione ospiti a tendina (valori gestiti, estensibili) ---- */
+const GUEST_GROUPS_DEF=["Famiglia sposo","Famiglia sposa","Parenti","Amici","Colleghi","Compagni di scuola","Vicini","Altro"];
+function guestHouseholds(){ const s=new Set(); (ev().guests||[]).forEach(g=>{ if(g.household&&g.household!=="Senza nucleo") s.add(g.household); }); return Array.from(s).sort(); }
+function guestGroups(){ const s=new Set(); GUEST_GROUPS_DEF.forEach(x=>s.add(x)); (ev().guests||[]).forEach(g=>{ if(g.group) s.add(g.group); }); return Array.from(s); }
+// Select con valori esistenti + "+ Nuovo…" (mostra un campo testo). Niente più testo libero
+// per i campi che alimentano l'ottimizzatore: valori coerenti = raggruppamenti corretti.
+function managedSelect(id, current, options){
+  const opts=options.slice(); if(current && current!=="__new__" && opts.indexOf(current)<0) opts.unshift(current);
+  const optHtml=opts.map(o=>`<option value="${esc(o)}"${o===current?" selected":""}>${o===""?"— nessuno —":esc(o)}</option>`).join("");
+  return `<select class="inp" id="${id}" data-managed>${optHtml}<option value="__new__">+ Nuovo…</option></select>`
+    +`<input class="inp" id="${id}_new" placeholder="Scrivi il nuovo valore" style="display:none;margin-top:6px">`;
+}
+function managedValue(id){ const sel=$("#"+id); if(!sel) return ""; if(sel.value==="__new__"){ const t=$("#"+id+"_new"); return t?(t.value||"").trim():""; } return sel.value; }
 function editGuest(id){
   const g=ev().guests.find(x=>x.id===id); const isNew=!g;
-  const x=g||{name:"",side:"A",household:"",rsvp:"attesa",meal:"adulto",intolerances:"",accessibility:"",shuttle:false,plusOne:0};
+  const x=g||{name:"",side:"A",household:"",group:"",rsvp:"attesa",meal:"adulto",intolerances:"",accessibility:"",shuttle:false,plusOne:0};
   modal(isNew?"Nuovo ospite":"Modifica ospite",
     `<div class="field"><label>Nome</label><input class="inp" id="g_name" value="${esc(x.name)}"></div>
      <div class="two">
        <div class="field"><label>Lato</label><select class="inp" id="g_side"><option value="A"${x.side==="A"?" selected":""}>${meta().coupleA}</option><option value="B"${x.side==="B"?" selected":""}>${meta().coupleB}</option></select></div>
-       <div class="field"><label>Nucleo</label><input class="inp" id="g_hh" value="${esc(x.household)}"></div>
+       <div class="field"><label>Nucleo</label>${managedSelect("g_hh", x.household||"Senza nucleo", ["Senza nucleo"].concat(guestHouseholds()))}</div>
      </div>
+     <div class="field"><label>Gruppo <span class="muted" style="font-size:11px">(l'ottimizzatore tiene vicini chi è dello stesso gruppo)</span></label>${managedSelect("g_group", x.group||"", [""].concat(guestGroups()))}</div>
      <div class="two">
        <div class="field"><label>RSVP</label><select class="inp" id="g_rsvp">${Object.keys(RSVP).map(k=>`<option value="${k}"${x.rsvp===k?" selected":""}>${RSVP[k][1]}</option>`).join("")}</select></div>
        <div class="field"><label>Menù</label><select class="inp" id="g_meal">${MEALS.map(m=>`<option value="${m}"${x.meal===m?" selected":""}>${m}</option>`).join("")}</select></div>
@@ -1987,7 +2001,7 @@ function editGuest(id){
      </div>`,
     [{label:"Annulla"},{label:"Salva",cls:"",fn:()=>{
       const name=$("#g_name").value.trim(); if(!name) return;
-      const data={name,side:$("#g_side").value,household:$("#g_hh").value.trim()||"Senza nucleo",rsvp:$("#g_rsvp").value,meal:$("#g_meal").value,intolerances:$("#g_int").value.trim(),accessibility:$("#g_acc").value.trim(),shuttle:$("#g_sh").value==="1",plusOne:+$("#g_plus").value||0};
+      const data={name,side:$("#g_side").value,household:managedValue("g_hh")||"Senza nucleo",group:managedValue("g_group"),rsvp:$("#g_rsvp").value,meal:$("#g_meal").value,intolerances:$("#g_int").value.trim(),accessibility:$("#g_acc").value.trim(),shuttle:$("#g_sh").value==="1",plusOne:+$("#g_plus").value||0};
       if(isNew){ ev().guests.push(Object.assign({id:"g"+Date.now(),gift:"",thanked:false},data)); }
       else Object.assign(g,data);
       commit(isNew?"Ospite aggiunto":"Ospite aggiornato");
@@ -2276,7 +2290,13 @@ document.addEventListener("click",e=>{ try{
   }catch(err){ Diag.log("action","azione fallita",(err&&err.stack)||(err&&err.message)); toast("Si è verificato un errore"); }
 });
 $("#gearBtn").addEventListener("click",openGear);
-document.addEventListener("change",function(e){ if(e.target&&e.target.id==="rs_filter"){ rsFilter=e.target.value; render(); } });
+document.addEventListener("change",function(e){
+  if(e.target&&e.target.id==="rs_filter"){ rsFilter=e.target.value; render(); }
+  if(e.target&&e.target.matches&&e.target.matches("select[data-managed]")){
+    const inp=document.getElementById(e.target.id+"_new");
+    if(inp){ if(e.target.value==="__new__"){ inp.style.display=""; inp.focus(); } else { inp.style.display="none"; inp.value=""; } }
+  }
+});
 /* ============ INIT ============ */
 (async function(){
   // Pagina pubblica RSVP per gli ospiti: schermata dedicata, non l'app intera.

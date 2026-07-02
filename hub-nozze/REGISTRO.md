@@ -658,3 +658,25 @@ verificato; gli ignoti residui sono soprattutto iPhone reale e backend reale.
   nota persistenza/backup.
 - .github/workflows/pages.yml: deploy della cartella hub-nozze su GitHub Pages
   (l'utente attiva Settings->Pages->GitHub Actions) -> URL per iPhone.
+
+## Giro 21 (Claude Code) — categorizzazione ospiti a tendina + variabile Gruppo
+
+Segnalazione utente: poche variabili per l'ottimizzatore; "Nucleo" a testo libero
+è un errore (rompe l'affinità che confronta la stringa esatta).
+
+- FIX bug: "Nucleo" da input libero a SELECT gestita (valori esistenti + "+ Nuovo…"
+  che mostra un campo). Valori coerenti = raggruppamenti corretti. Helper
+  managedSelect/managedValue + delega change su select[data-managed].
+- Nuova variabile "Gruppo" (a tendina, estensibile, default: Famiglia sposo/sposa,
+  Parenti, Amici, Colleghi, ...): per-ospite g.group. L'ottimizzatore
+  (seatAffinityFn) ora tiene vicini chi è dello stesso gruppo (oltre a nucleo e
+  bambini). Affinità = soft (adiacenza nel tavolo), non forza mega-gruppi.
+- Onestà: App_tavoli_ (la "prima versione") non è mai stato trasferito nel
+  workspace, quindi non riproduco il set esatto di variabili di allora. Il pattern
+  managedSelect è pronto per aggiungerne altre in fretta; se l'utente carica
+  App_tavoli_ allineo al set originale.
+
+Variabili ottimizzatore ora: lato, nucleo, gruppo, bambini (affinità) + vicinanze
+insieme/lontano (regole esplicite). Verifica: node --check; suite 162/162
+(b2 +2 su affinità gruppo). Playwright: nucleo/gruppo = SELECT, "+ Nuovo" funziona,
+salvataggio corretto. dist/Hub_Nozze.html rigenerato.

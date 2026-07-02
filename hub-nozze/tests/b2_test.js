@@ -80,6 +80,15 @@ r.ok("seatAffinityFn: due bambini", () => {
   evState = { guests:[ {id:"a",household:"X",meal:"bambino"}, {id:"b",household:"Y",meal:"bambino"} ] };
   assert.strictEqual(S.seatAffinityFn()("a","b"), true);
 });
+r.ok("seatAffinityFn: stesso gruppo crea affinità", () => {
+  evState = { guests:[ {id:"a",household:"Senza nucleo",group:"Amici",meal:"adulto"}, {id:"b",household:"Senza nucleo",group:"Amici",meal:"adulto"} ] };
+  assert.strictEqual(S.seatAffinityFn()("a","b"), true);
+});
+r.ok("seatAffinityFn: gruppi diversi (o vuoti) niente affinità", () => {
+  evState = { guests:[ {id:"a",household:"Senza nucleo",group:"Amici",meal:"adulto"}, {id:"b",household:"Senza nucleo",group:"Colleghi",meal:"adulto"}, {id:"c",household:"Senza nucleo",group:"",meal:"adulto"} ] };
+  assert.strictEqual(S.seatAffinityFn()("a","b"), false);
+  assert.strictEqual(S.seatAffinityFn()("a","c"), false);
+});
 r.ok("seatAffinityFn: 'Senza nucleo' non crea affinità", () => {
   evState = { guests:[ {id:"a",household:"Senza nucleo",meal:"adulto"}, {id:"b",household:"Senza nucleo",meal:"adulto"} ] };
   assert.strictEqual(S.seatAffinityFn()("a","b"), false);
