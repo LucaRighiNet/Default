@@ -95,31 +95,40 @@ const Store={
 // v1: sync dell'intero documento evento con versione + last-writer-wins (policy
 // pluggabile via onConflict). Multi-editor concorrente fitto -> per-entità/CRDT (P2).
 const Sync=(function(){
-  let remote=null, enabled=false, baseVersion=0, pushTimer=null, onConflict=null;
+  let remote=null, enabled=false, baseVersion=0, pushTimer=null, onConflict=null, onStatus=null;
+  let status="local", pendingStr=null;   // status: local|synced|syncing|offline|conflict
+  function setStatus(s){ status=s; if(onStatus){ try{ onStatus(s); }catch(e){} } }
   function _push(str){
     if(!enabled||!remote) return Promise.resolve();
+    pendingStr=str; setStatus("syncing");
     return Promise.resolve(remote.push(baseVersion, str)).then(function(res){
-      if(res&&res.ok){ baseVersion=res.version; }
+      if(res&&res.ok){ baseVersion=res.version; pendingStr=null; setStatus("synced"); }
       else if(res&&res.conflict){
-        baseVersion=res.version;
-        if(onConflict){ onConflict(res); }
-        else { return Promise.resolve(remote.push(baseVersion, str)).then(function(r2){ if(r2&&r2.ok) baseVersion=r2.version; }); } // LWW: locale vince
+        // Politica v1: last-writer-wins (il locale vince), MA l'utente viene avvisato.
+        baseVersion=res.version; setStatus("conflict"); if(onConflict){ try{ onConflict(res); }catch(e){} }
+        return Promise.resolve(remote.push(baseVersion, str)).then(function(r2){ if(r2&&r2.ok){ baseVersion=r2.version; pendingStr=null; setStatus("synced"); } });
       }
-    }).catch(function(e){ Diag.log("sync","push fallita (offline?)", e&&e.message); });
+    }).catch(function(e){ Diag.log("sync","push fallita (offline?)", e&&e.message); setStatus("offline"); }); // resta in coda per il retry
   }
   return {
     isEnabled(){ return enabled; },
     version(){ return baseVersion; },
-    enable(r, opts){ remote=r; enabled=!!r; opts=opts||{}; onConflict=opts.onConflict||null; baseVersion=opts.version||0; return this; },
-    disable(){ enabled=false; remote=null; },
+    getStatus(){ return enabled?status:"local"; },
+    hasPending(){ return pendingStr!=null; },
+    enable(r, opts){ remote=r; enabled=!!r; opts=opts||{}; onConflict=opts.onConflict||null; onStatus=opts.onStatus||null; baseVersion=opts.version||0; pendingStr=null; setStatus("synced"); return this; },
+    disable(){ enabled=false; remote=null; pendingStr=null; setStatus("local"); },
     pull(){
       if(!enabled||!remote) return Promise.resolve(null);
+      setStatus("syncing");
       return Promise.resolve(remote.pull()).then(function(res){
+        setStatus("synced");
         if(res){ baseVersion=res.version; try{ return JSON.parse(res.data); }catch(e){ Diag.log("sync","pull JSON illeggibile"); return null; } }
         return null;
-      }).catch(function(e){ Diag.log("sync","pull fallita", e&&e.message); return null; });
+      }).catch(function(e){ Diag.log("sync","pull fallita", e&&e.message); setStatus("offline"); return null; });
     },
     notify(state){ if(!enabled||!remote) return; clearTimeout(pushTimer); const str=JSON.stringify(state); pushTimer=setTimeout(function(){ _push(str); }, 400); },
+    // Riprova un push rimasto in sospeso (es. dopo che la rete torna).
+    retry(){ if(enabled&&remote&&pendingStr!=null) return _push(pendingStr); return Promise.resolve(); },
     flush(state){ clearTimeout(pushTimer); if(enabled&&remote&&state!=null) return _push(JSON.stringify(state)); return Promise.resolve(); }
   };
 })();
@@ -188,7 +197,10 @@ const Cloud=(function(){
     async login(email){
       if(!this.configured()) throw new Error("cloud non configurato");
       user=await auth.signIn(email);
-      Sync.enable(remote);
+      Sync.enable(remote, {
+        onStatus:function(){ if(typeof updateSyncChip==="function") updateSyncChip(); },
+        onConflict:function(){ if(typeof toast==="function") toast("Modifica concorrente: ho applicato la tua versione"); }
+      });
       const cloudState=await Sync.pull();   // stato dal cloud (o null se primo accesso)
       return { user:user, cloudState:cloudState };
     },
@@ -200,6 +212,7 @@ const Cloud=(function(){
 if(typeof window!=="undefined"){
   window.addEventListener("pagehide", function(){ Store.flush(); if(typeof Sync!=="undefined") Sync.flush(memState); });
   document.addEventListener("visibilitychange", function(){ if(document.visibilityState==="hidden"){ Store.flush(); if(typeof Sync!=="undefined") Sync.flush(memState); } });
+  window.addEventListener("online", function(){ if(typeof Sync!=="undefined") Sync.retry(); }); // ripubblica ciò che era rimasto offline
 }
 
 /* ============ SEED (motore generico: questi dati sono SEED, non codice) ============ */
@@ -402,6 +415,16 @@ function render(){
   v.innerHTML=hintBanner(active)+v.innerHTML;
   if(active==="aperitivo") wireAperitivo();
   if(active==="seating") wireSeating();
+  updateSyncChip();
+}
+// Indicatore di stato sync in header: visibile solo se il cloud è configurato.
+function updateSyncChip(){
+  const el=document.getElementById("syncChip"); if(!el) return;
+  if(typeof Cloud==="undefined" || !Cloud.configured()){ el.style.display="none"; return; }
+  el.style.display="";
+  if(!Sync.isEnabled()){ el.textContent="Accedi per sincronizzare"; return; }
+  const map={synced:"☁ Sincronizzato", syncing:"☁ Sincronizzo…", offline:"☁ Offline", conflict:"☁ Conflitto risolto", local:"☁ —"};
+  el.textContent=map[Sync.getStatus()]||("☁ "+Sync.getStatus());
 }
 
 /* ============ DASHBOARD ============ */
@@ -1866,7 +1889,8 @@ function openAccount(){
   }
   const u=Cloud.currentUser();
   if(u){
-    modal("Account", `<p>Connesso come <b>${esc(u.email||u.id)}</b>. Le modifiche si sincronizzano tra i tuoi dispositivi.</p>`,
+    const stLabel={synced:"sincronizzato",syncing:"sincronizzazione in corso",offline:"offline (riprovo al ritorno della rete)",conflict:"conflitto risolto (ha vinto la tua versione)",local:"locale"};
+    modal("Account", `<p>Connesso come <b>${esc(u.email||u.id)}</b>.</p><p class="muted" style="font-size:13px">Stato sync: ${esc(stLabel[Sync.getStatus()]||Sync.getStatus())}. Le modifiche si sincronizzano tra i tuoi dispositivi.</p>`,
       [{label:"Esci",cls:"danger",fn:()=>{ Cloud.logout().then(()=>{ toast("Disconnesso"); }); }},{label:"Chiudi"}]);
     return;
   }
@@ -1942,6 +1966,7 @@ document.addEventListener("click",e=>{ try{
   else if(act==="delRule") delSeatRule(id);
   else if(act==="assignSeat") assignSeat(a.getAttribute("data-table"), a.getAttribute("data-idx"));
   else if(act==="openGuide") openGuide(0);
+  else if(act==="openAccount") openAccount();
   else if(act==="hideTip"){ tipHidden[active]=true; render(); }
   }catch(err){ Diag.log("action","azione fallita",(err&&err.stack)||(err&&err.message)); toast("Si è verificato un errore"); }
 });
@@ -1960,6 +1985,7 @@ document.addEventListener("change",function(e){ if(e.target&&e.target.id==="rs_f
       Cloud.configure(makeSupabaseAuth(sc), makeSupabaseRemote(sc, STATE.activeEventId||"rb27"));
     }
   }catch(e){ Diag.log("cloud","bootstrap fallito", e&&e.message); }
+  updateSyncChip(); // il bootstrap gira dopo render(): aggiorna subito l'indicatore
   if(!STATE.onboarded) openGuide(0);
 })();
 })();

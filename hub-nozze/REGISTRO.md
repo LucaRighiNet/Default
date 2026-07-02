@@ -499,3 +499,27 @@ invariata; "Account e sync" mostra "non configurato"; zero errori JS.
 Per andare live manca solo (lato utente): progetto Supabase (UE) + schema/RLS di
 BACKEND_P1.md + chiavi in window.HUB_CLOUD e inclusione di supabase-js. Allora il
 flusso già scritto si attiva senza altre modifiche.
+
+## Giro 13 (Claude Code) — P1 robustezza sync + indicatore di stato
+
+Continuazione P1 lato client (nessun backend richiesto).
+
+- Sync: macchina di stato (local|syncing|synced|offline|conflict) con callback
+  onStatus; retry() dei push rimasti in sospeso; listener window 'online' che
+  ripubblica automaticamente al ritorno della rete; su conflitto notifica
+  (onConflict) e applica last-writer-wins (locale vince).
+- UI: indicatore #syncChip nell'header, visibile SOLO se il cloud è configurato
+  (dormiente ora); mostra "Accedi per sincronizzare" / "☁ Sincronizzato" /
+  "Sincronizzo…" / "Offline" / "Conflitto risolto". Aggiornato via onStatus e in
+  coda a render(); toast sul conflitto; stato mostrato anche nel modale Account.
+- Bootstrap: updateSyncChip() dopo la configurazione (che gira dopo render()).
+
+Verifica: node --check OK; suite 137/137 (sync_test 12: stato, onStatus, conflitto
+notificato + risolto, offline+retry). Playwright: (a) regressione senza cloud →
+chip nascosto, app invariata; (b) dry-run con supabase FINTO iniettato →
+pre-login "Accedi per sincronizzare", post-login "☁ Sincronizzato"; zero errori JS.
+Verificato così l'intero stack bootstrap→Cloud→login→Sync→pull→indicatore.
+
+Nota P1 (per lo spike): l'auth Supabase via OTP non autentica al signInWithOtp
+(l'utente clicca il link via email); servirà un listener onAuthStateChange per
+completare il login. makeMockAuth invece autentica subito (per il dry-run).

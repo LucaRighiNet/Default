@@ -81,4 +81,49 @@ ok("Sync: senza resolver, last-writer-wins (locale sovrascrive)", async () => {
   S.Sync.disable();
 });
 
+// --- stato, notifica, retry offline ---
+ok("Sync.getStatus: 'local' da spento, 'synced' dopo enable", () => {
+  S.Sync.disable();
+  assert.strictEqual(S.Sync.getStatus(), "local");
+  S.Sync.enable(S.makeMemoryRemote());
+  assert.strictEqual(S.Sync.getStatus(), "synced");
+  S.Sync.disable();
+});
+ok("Sync: onStatus notifica le transizioni (syncing -> synced)", async () => {
+  const seen = [];
+  const r = S.makeMemoryRemote();
+  S.Sync.enable(r, { onStatus: s => seen.push(s) });
+  await S.Sync.flush({ events: { a: 1 } });
+  assert(seen.indexOf("syncing") >= 0 && seen.indexOf("synced") >= 0, "transizioni: " + seen.join(","));
+  S.Sync.disable();
+});
+ok("Sync: conflitto -> status 'conflict' + onConflict, poi 'synced' (LWW)", async () => {
+  const r = S.makeMemoryRemote();
+  await r.push(0, "remoto");                      // remote v1
+  let notified = false;
+  S.Sync.enable(r, { version: 0, onConflict: () => { notified = true; } });
+  await S.Sync.flush({ events: { x: 1 } });        // base 0 != 1 -> conflict -> LWW
+  assert.strictEqual(notified, true);
+  assert.strictEqual(S.Sync.getStatus(), "synced"); // risolto
+  assert(JSON.parse((await r.pull()).data).events.x === 1);
+  S.Sync.disable();
+});
+ok("Sync: push fallita -> 'offline' + pending, retry ripubblica", async () => {
+  let failNext = true;
+  const remote = {
+    name: "flaky",
+    pull(){ return Promise.resolve(null); },
+    push(base, data){ if(failNext){ return Promise.reject(new Error("network")); } return Promise.resolve({ ok:true, version: base+1 }); }
+  };
+  S.Sync.enable(remote);
+  await S.Sync.flush({ events: { z: 5 } });         // fallisce -> offline
+  assert.strictEqual(S.Sync.getStatus(), "offline");
+  assert.strictEqual(S.Sync.hasPending(), true);
+  failNext = false;
+  await S.Sync.retry();                             // rete tornata
+  assert.strictEqual(S.Sync.getStatus(), "synced");
+  assert.strictEqual(S.Sync.hasPending(), false);
+  S.Sync.disable();
+});
+
 run();
