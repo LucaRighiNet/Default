@@ -736,3 +736,13 @@ simFn. Verifica: node --check ok; suite 173/173 verde (162 + 11); Playwright
 (430x932): dot gruppo, filtro/ricerca, attr in editGuest, export CSV, creazione
 tavoli, tema (Rosa/Tulipano), zoom 100→125%, drag tavolo, wizard 8 variabili,
 precompila 75%, genera 9/9, undo — zero errori JS. dist/Hub_Nozze.html rigenerato.
+
+## Giro 24 (Claude Code) — deploy GitHub Pages automatico
+
+Deploy su GitHub Pages reso automatico: pages.yml con trigger on:push del branch
+(paths hub-nozze/**). Il workflow usa il proprio GITHUB_TOKEN (pages:write,
+id-token:write). Rimosso "with: enablement" perché la creazione del sito Pages
+via API è vietata al token ("Resource not accessible by integration").
+PREREQUISITO una tantum: Settings -> Pages -> Source "GitHub Actions" (azione
+admin, non automatizzabile dal token). Dopo l'abilitazione, ogni push pubblica
+da solo su https://lucarighinet.github.io/Default/.
