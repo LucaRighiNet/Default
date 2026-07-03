@@ -1,0 +1,17 @@
+{
+  "name": "Hub Nozze",
+  "short_name": "Nozze",
+  "description": "Pianificazione nozze: budget, ospiti, fornitori, tavoli, aperitivo, timeline. Offline e condivisibile.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F7F3E9",
+  "theme_color": "#0C5A63",
+  "lang": "it",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
