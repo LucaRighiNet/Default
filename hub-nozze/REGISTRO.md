@@ -811,3 +811,29 @@ Verifica: suite verde; Playwright: 113 ospiti, zero residui demo, smoke su
 tutte le schede senza errori. NOTA dispositivi: chi ha già aperto il sito con
 i dati vecchi in localStorage deve fare ingranaggio -> Reset (il seed nuovo
 non sovrascrive uno stato salvato).
+
+## Giro 28 (Claude Code) — sync multi-dispositivo via Supabase (opzione B)
+
+Attivato il modulo sync dormiente contro il progetto Supabase dell'utente.
+
+- Auth convertita da magic-link OTP a email+password (signInWithPassword):
+  risolve subito a una sessione, niente redirect da rifinire. makeSupabaseAuth
+  ora ha signIn(email,password) e sessionUser() per il resume.
+- Cloud.resume(): al riavvio, se supabase-js ha una sessione persistita,
+  riabilita Sync e tira giu lo stato dal cloud senza richiedere le credenziali.
+- Bootstrap: dopo Cloud.configure chiama Cloud.resume.
+- Schermata "Accedi" con campo password; copy aggiornata.
+- Config window.HUB_CLOUD (url progetto + anon key pubblica) + tag CDN
+  supabase-js@2 prima dello <script> principale. Nessun CSP nel file.
+- run_all.js: estrazione dello <script> principale ora usa lastIndexOf
+  (prima c'e la config e il tag esterno). tests/cloud_test +2 (resume): 9->11.
+
+Sicurezza: la anon key e pubblica per progetto; la protezione e data dal login
++ RLS lato Supabase (tabella event_state, policy solo per ruolo authenticated,
+signup pubblici disattivati). L'utente esegue SQL + crea l'account + disattiva
+i signup (istruzioni fornite in chat).
+
+Rischio dichiarato: da questo ambiente Supabase non e raggiungibile (proxy),
+quindi il flusso live non e collaudabile da me; verificato pero che senza
+supabase-js l'app degrada senza crash (Playwright: 113 ospiti, zero errori JS)
+e il contratto remote/sync/resume e coperto da unit test (mock). suite 177 verde.

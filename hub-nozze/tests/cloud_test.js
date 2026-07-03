@@ -100,5 +100,25 @@ ok("Cloud dry-run: login con stato già nel cloud -> lo restituisce", async () =
   assert(res.cloudState && res.cloudState.events.cloud===42);
   await S.Cloud.logout();
 });
+ok("Cloud.resume: sessione presente -> riabilita Sync e tira giù il cloud", async () => {
+  const remote=S.makeMemoryRemote();
+  await remote.push(0, JSON.stringify({ events:{ cloud:7 } }));
+  // auth con sessione già valida (simula supabase-js che ha persistito il login)
+  const auth={ name:"mock", async signIn(){ return {id:"u1",email:"a@b.it"}; }, async signOut(){}, async sessionUser(){ return {id:"u1",email:"a@b.it"}; } };
+  S.Cloud.configure(auth, remote);
+  const res=await S.Cloud.resume();
+  assert(res && res.user && res.user.email==="a@b.it");
+  assert(res.cloudState && res.cloudState.events.cloud===7);
+  assert.strictEqual(S.Sync.isEnabled(), true);
+  await S.Cloud.logout();
+});
+ok("Cloud.resume: nessuna sessione -> null, Sync resta spento", async () => {
+  const remote=S.makeMemoryRemote();
+  const auth={ name:"mock", async signIn(){ return null; }, async signOut(){}, async sessionUser(){ return null; } };
+  S.Cloud.configure(auth, remote);
+  const res=await S.Cloud.resume();
+  assert.strictEqual(res, null);
+  assert.strictEqual(S.Sync.isEnabled(), false);
+});
 
 run();
