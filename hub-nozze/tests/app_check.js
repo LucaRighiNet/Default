@@ -2583,6 +2583,7 @@ function revokeInvite(id){ const e=ev(); e.invites=(e.invites||[]).filter(functi
 function renderPublicRSVP(token){
   try{ const tb=document.getElementById("tabs"); if(tb) tb.style.display="none"; }catch(e){}
   try{ const gb=document.getElementById("gearBtn"); if(gb) gb.style.display="none"; const sc=document.getElementById("syncChip"); if(sc) sc.style.display="none"; }catch(e){}
+  try{ const br=document.querySelector(".brand"); if(br){ br.removeAttribute("data-act"); br.style.cursor="default"; } const pn=document.getElementById("editPencil"); if(pn) pn.style.display="none"; }catch(e){}
   try{ const et=document.getElementById("evTitle"); if(et) et.textContent="Le nostre nozze"; const es=document.getElementById("evSub"); if(es) es.textContent="Conferma la tua presenza"; const cd=document.getElementById("cd"); if(cd&&cd.parentNode) cd.parentNode.style.display="none"; }catch(e){}
   const meals=(typeof MEALS!=="undefined")?MEALS:["adulto","bambino","vegetariano","celiaco","vegano"];
   const v=document.getElementById("view"); if(!v) return;
