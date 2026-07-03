@@ -1,17 +1,17 @@
 name: Deploy hub-nozze to GitHub Pages
-# Deploy automatico: a ogni push sul branch di default che tocca hub-nozze/
-# (o questo workflow), l'app viene ripubblicata su GitHub Pages.
-# Il trigger è sul default branch perché l'ambiente github-pages accetta deploy
-# solo da lì (regola di protezione creata da GitHub all'abilitazione di Pages):
-# un trigger su altri branch produrrebbe solo run rossi. Il flusso è: lavoro sul
-# branch -> merge della PR -> il push sul default pubblica da solo.
-# PREREQUISITI (una tantum, già fatti): repo pubblico + Settings -> Pages ->
-# Source: "GitHub Actions".
+# Deploy automatico: a ogni push su main che tocca hub-nozze/ (o questo
+# workflow), l'app viene ripubblicata su GitHub Pages.
+# Il trigger è sul branch di default perché l'ambiente github-pages accetta
+# deploy solo da lì. Flusso: lavoro sul branch -> merge della PR -> il push su
+# main pubblica da solo.
+# NOTA DIFFUSIONE: viene pubblicata SOLO l'app (index.html, sw.js, manifest,
+# icone, legal/, dist/). Documenti interni, tests/ e tools/ restano nel repo
+# ma NON finiscono sul sito.
 on:
   workflow_dispatch:
   push:
     branches:
-      - claude/clone-mirofish-repo-PlIEe
+      - main
     paths:
       - 'hub-nozze/**'
       - '.github/workflows/pages.yml'
@@ -30,9 +30,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Prepara solo i file dell'app (esclude docs interni, tests, tools)
+        run: |
+          mkdir -p _site_src/legal _site_src/dist
+          cp hub-nozze/index.html hub-nozze/sw.js hub-nozze/manifest.json \
+             hub-nozze/icon-192.png hub-nozze/icon-512.png \
+             hub-nozze/apple-touch-icon.png _site_src/
+          cp hub-nozze/legal/*.md _site_src/legal/
+          cp hub-nozze/dist/Hub_Nozze.html _site_src/dist/
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: hub-nozze
+          path: _site_src
       - id: deployment
         uses: actions/deploy-pages@v4
