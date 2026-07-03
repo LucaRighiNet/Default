@@ -53,6 +53,8 @@ header.top{
   display:flex; align-items:center; gap:14px;
 }
 .brand{flex:1; min-width:0}
+.brandrow{display:flex; align-items:center; gap:7px}
+.editpen{opacity:.7; font-size:16px; color:var(--ivory); flex:0 0 auto}
 .brand h1{font-size:clamp(24px,6vw,34px); letter-spacing:.01em; color:var(--ivory); font-weight:600}
 .brand .sub{font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:rgba(247,243,233,.74); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:3px}
 .count{text-align:center; padding:6px 12px; border:1px solid var(--line-sea); border-radius:12px; background:rgba(247,243,233,.06); white-space:nowrap; flex:0 0 auto}
@@ -168,7 +170,7 @@ input[type=checkbox]{accent-color:var(--sea); width:18px; height:18px}
 <div class="app">
   <header class="top">
     <div class="brand" data-act="editHeader" title="Tocca per modificare nomi, location e data" style="cursor:pointer">
-      <h1 id="evTitle">—</h1>
+      <div class="brandrow"><h1 id="evTitle">—</h1><span id="editPencil" class="editpen" aria-hidden="true">✎</span></div>
       <div class="sub" id="evSub">—</div>
     </div>
     <div class="count"><b id="cd">—</b><span>giorni</span></div>
@@ -2772,6 +2774,7 @@ function revokeInvite(id){ const e=ev(); e.invites=(e.invites||[]).filter(functi
 function renderPublicRSVP(token){
   try{ const tb=document.getElementById("tabs"); if(tb) tb.style.display="none"; }catch(e){}
   try{ const gb=document.getElementById("gearBtn"); if(gb) gb.style.display="none"; const sc=document.getElementById("syncChip"); if(sc) sc.style.display="none"; }catch(e){}
+  try{ const br=document.querySelector(".brand"); if(br){ br.removeAttribute("data-act"); br.style.cursor="default"; } const pn=document.getElementById("editPencil"); if(pn) pn.style.display="none"; }catch(e){}
   try{ const et=document.getElementById("evTitle"); if(et) et.textContent="Le nostre nozze"; const es=document.getElementById("evSub"); if(es) es.textContent="Conferma la tua presenza"; const cd=document.getElementById("cd"); if(cd&&cd.parentNode) cd.parentNode.style.display="none"; }catch(e){}
   const meals=(typeof MEALS!=="undefined")?MEALS:["adulto","bambino","vegetariano","celiaco","vegano"];
   const v=document.getElementById("view"); if(!v) return;
