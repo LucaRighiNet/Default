@@ -884,3 +884,23 @@ zero errori JS. dist rigenerato.
 Nota: il ritorno automatico degli RSVP nel database (inbox lato sposi via anon
 insert Supabase) resta un possibile passo successivo; per ora la risposta torna
 via messaggio, senza backend e senza rischio.
+
+## Giro 31 (Claude Code) — login all'avvio (bypass locale) + fix filtro illeggibile
+
+Richieste utente: (1) all'avvio, se non loggato, chiedere l'accesso, con
+possibilita di lavorare in locale; (2) bug: cliccando i filtri ospiti il testo
+diventa illeggibile.
+
+- Login all'avvio: promptLoginStart() nel bootstrap, dopo Cloud.resume, solo se
+  cloud configurato e nessuna sessione. Modale con email+password e tasto
+  "Lavora in locale" (bypass). Estratto cloudDoLogin() condiviso con openAccount.
+  Se il cloud non c'e (supabase-js non caricato) nessun prompt, resta locale.
+- BUG filtro: il chip attivo usava classe "primary" -> con .btn.ghost:hover
+  (background var(--card2), su touch resta appiccicato dopo il tap) lo sfondo
+  si schiariva mentre il testo restava chiaro = illeggibile (avorio su card2).
+  Fix: classe dedicata .btn.ghost.fon + variante :hover (0,4,0) che vince anche
+  sull'hover, sfondo teal pieno con testo avorio. Verificato contrasto 522.
+
+Verifica: suite 177 verde; Playwright: filtro attivo leggibile anche con hover
+(avorio su teal), filtro funzionante; app carica senza errori. sw.js v7->v8;
+dist rigenerato.
