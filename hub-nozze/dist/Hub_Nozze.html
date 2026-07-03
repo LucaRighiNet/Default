@@ -577,6 +577,9 @@ function modal(title, bodyHtml, actions){
   });
   function focusables(){ return Array.prototype.slice.call(dialog.querySelectorAll('a[href],button,select,textarea,input,[tabindex]:not([tabindex="-1"])')).filter(function(el){ return !el.disabled && el.offsetParent!==null; }); }
   function onKey(e){
+    // Auto-sanante: se il dialog non è più nel DOM (chiuso senza close()),
+    // de-registra il listener e lascia passare il tasto alla pagina.
+    if(!document.body.contains(dialog)){ document.removeEventListener("keydown",onKey,true); if(_modalKey===onKey)_modalKey=null; return; }
     if(e.key==="Escape"){ e.preventDefault(); close(); return; }
     if(e.key==="Enter" && document.activeElement && document.activeElement.tagName==="INPUT"){
       // Invio da un campo di testo = conferma azione primaria (meno clic).
@@ -1492,7 +1495,7 @@ function viewSeating(){
     +(unseated.length?unseated.map(g=>`<span class="tag" data-drag-guest="${g.id}" style="cursor:grab;touch-action:none">${esc(g.name)} (${g.side})</span>`).join("")
       :`<span class="muted" style="font-size:13px">Tutti gli ospiti sedibili sono assegnati.</span>`)+`</div>`;
   return `
-  <div class="card"><span class="pill todo">come funziona</span> Crea i tavoli e assegna gli ospiti: tocca un posto per sceglierlo dall'elenco, oppure trascina un nome dalla riserva su un posto (e trascinalo sulla riserva per liberarlo). Definisci le vicinanze (chi insieme, chi lontano) qui sotto, poi premi Ottimizza: l'ottimizzatore dispone i posti rispettando le vicinanze, il nucleo familiare e i bambini.</div>
+  <div class="card"><span class="pill todo">come funziona</span> Crea i tavoli con + Tavolo, poi premi <b>Genera (guidato)</b>: in 4 passi scegli le caratteristiche che contano (nucleo, età, gruppo…), le compili in blocco, aggiungi i vincoli insieme/lontani e generi la disposizione — con Annulla se non convince. Ritocchi a mano: tocca un posto o trascina un nome dalla riserva; trascina un tavolo per spostarlo sulla planimetria.</div>
   <div class="grid cards">
     <div class="card kpi"><div class="v">${tables.length}</div><div class="l">Tavoli</div></div>
     <div class="card kpi"><div class="v">${seated}/${totSeats}</div><div class="l">Posti occupati</div></div>
@@ -2442,12 +2445,12 @@ const GUIDE=[
   { tab:"dash", title:"Benvenuto", body:`<p>Questo è l'hub unico per organizzare le nozze: un solo file, funziona offline e si salva da solo sul dispositivo. Si condivide aprendolo in Safari e poi "Aggiungi a Home".</p><p>Ti accompagno per le 8 schede. Usa Avanti e Indietro; puoi riaprire questa guida quando vuoi dall'ingranaggio in alto a destra.</p>` },
   { tab:"dash", title:"Dashboard", body:`<p>La panoramica: giorni mancanti, stato del budget, conferme degli ospiti, attività in scadenza. È il punto da cui controllare a colpo d'occhio se qualcosa è indietro.</p>` },
   { tab:"budget", title:"Budget & Finanze", body:`<p>Le voci di spesa con stima, preventivo e pagamenti. Collega una voce a un fornitore: quando il fornitore è confermato, il preventivo aggiorna la voce.</p><p>Aggiungi voci con + e registra le rate per tenere i pagamenti sotto controllo.</p>` },
-  { tab:"guests", title:"Ospiti & RSVP", body:`<p>La sorgente unica degli invitati: nome, lato (sposo A / sposa B), nucleo, RSVP, pasto, intolleranze, accessibilità, navetta, +1.</p><p>Hai già una lista? Usa + Importa: incolli o carichi un CSV/TSV, l'app riconosce le colonne, toglie i doppioni e unisce. Il numero invitati alimenta anche il simulatore aperitivo.</p>` },
+  { tab:"guests", title:"Ospiti & RSVP", body:`<p>La sorgente unica degli invitati: nome, lato (sposo A / sposa B), nucleo, gruppo (con pallino colorato), RSVP, pasto, intolleranze, accessibilità, navetta, +1.</p><p>Scorciatoie: clicca la pill RSVP per cambiare stato in un tocco (Confermato → In attesa → Non viene); filtra con i bottoni o cerca per nome; "Esporta CSV" scarica la lista per il catering.</p><p>Hai già una lista? Usa Importa: incolli o carichi un CSV/TSV, l'app riconosce le colonne, toglie i doppioni e unisce.</p>` },
   { tab:"vendors", title:"Fornitori", body:`<p>Il piccolo CRM dei fornitori con i loro stati (da valutazione a confermato) e i preventivi. Un fornitore "Confermato" spunta automaticamente il task collegato nella Timeline, e mostra lì il suo nome.</p>` },
-  { tab:"seating", title:"Tavoli", body:`<p>Planimetria nativa. Crea i tavoli con + Tavolo scegliendo forma e numero di posti.</p><p>Per sedere un ospite: tocca un posto e scegli dall'elenco, oppure trascina un nome dalla "Riserva ospiti" su un posto. Trascina un ospite sulla riserva per liberarlo. "Ottimizza" dispone il tavolo rispettando vicini e vincoli.</p>` },
+  { tab:"seating", title:"Tavoli", body:`<p>Planimetria nativa. Crea i tavoli con + Tavolo (forma e posti), poi la via più semplice è <b>Genera (guidato)</b>: 4 passi — scegli le caratteristiche che contano (nucleo, età, lingua… con pesi), compilale in blocco, aggiungi eventuali vincoli "insieme/lontani", genera. Se il risultato non piace, Annulla lo ripristina.</p><p>Ritocchi a mano: tocca un posto e scegli dall'elenco, o trascina un nome dalla "Riserva ospiti"; trascina un tavolo per spostarlo; zoom +/− per ingrandire. "Nomi tema" battezza i tavoli (fiori, città…), "Stampa" produce il tableau da esporre.</p>` },
   { tab:"aperitivo", title:"Aperitivo", body:`<p>Il simulatore delle code dell'aperitivo: imposta stazioni, personale e tempi di arrivo, e vedi attese e code stimate. Salva più scenari e confrontali per decidere quanti camerieri servono.</p>` },
   { tab:"timeline", title:"Timeline", body:`<p>La checklist a ritroso dalla data delle nozze e la scaletta del giorno (run-of-show). I task legati a una categoria di fornitore si spuntano da soli quando quel fornitore è confermato.</p>` },
-  { tab:"lists", title:"Note & Liste", body:`<p>Liste pronte: musica da suonare e da evitare, ordine della processione, foto di famiglia, packing. Aggiungi voci e nuove liste secondo necessità.</p>` },
+  { tab:"lists", title:"Note & Liste", body:`<p>Liste pronte: musica da suonare e da evitare, ordine della processione, foto di famiglia, packing.</p><p>Scrivi nel campo e premi Invio per aggiungere una voce. Doppio clic su una voce (o sul titolo) per modificarla al volo: Invio salva, Esc annulla, svuotarla la elimina.</p>` },
   { tab:null, title:"Pronto", body:`<p>Tutto qui. Il lavoro si salva da solo: non c'è un pulsante "salva". Ritrovi questa guida dall'ingranaggio in alto a destra, voce "Guida".</p><p>Buona organizzazione.</p>` }
 ];
 let guideAt=0;
@@ -2524,7 +2527,7 @@ const TAB_TIP={
   budget:"Aggiungi voci e rate; collega i fornitori alle voci di budget.",
   guests:"Sorgente unica degli ospiti. Hai una lista? Usa + Importa (CSV/TSV).",
   vendors:"Censisci i fornitori. 'Confermato' spunta i task collegati in Timeline.",
-  seating:"Crea i tavoli, poi assegna: tocca un posto o trascina dalla riserva.",
+  seating:"Crea i tavoli, poi \"Genera (guidato)\" dispone gli ospiti in 4 passi.",
   aperitivo:"Simula le code dell'aperitivo e confronta scenari di personale.",
   timeline:"Checklist a ritroso e scaletta; i task da fornitore si spuntano da soli.",
   lists:"Liste pronte per musica, processione, foto e packing."

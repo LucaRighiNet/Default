@@ -746,3 +746,23 @@ via API è vietata al token ("Resource not accessible by integration").
 PREREQUISITO una tantum: Settings -> Pages -> Source "GitHub Actions" (azione
 admin, non automatizzabile dal token). Dopo l'abilitazione, ogni push pubblica
 da solo su https://lucarighinet.github.io/Default/.
+
+## Giro 25 (Claude Code) — audit finale pre-rilascio + fix listener modale
+
+Audit completo richiesto dall'utente prima dell'uso reale (grafica, bug,
+armonia, funzioni, testi, guida).
+
+- BUG trovato e corretto: il keydown del modale (capture su document) restava
+  attivo se il modale veniva rimosso dal DOM senza close(); con l'Invio-conferma
+  (Giro 22) un Invio in un campo pagina poteva "cliccare" un bottone primario
+  staccato, cambiare scheda e svuotare l'input prima di addItem. Fix: handler
+  auto-sanante (dialog non più nel DOM -> si de-registra e lascia passare).
+- Testi allineati alle funzioni nuove: guida onboarding (Ospiti: RSVP 1-clic,
+  filtri/ricerca, CSV; Tavoli: Genera guidato, drag/zoom, temi, stampa; Liste:
+  Invio e doppio clic), card "come funziona" Tavoli, hint bar Tavoli.
+
+Verifica finale: node --check ok; suite 173/173; E2E Playwright tutti verdi
+(persistenza liste, dblclick, RSVP 1-clic, Invio-conferma, gap G1-G9, guida
+10/10 passi con onboarded persistente e Invio funzionante subito dopo);
+audit visivo 390x844: zero overflow su 8 schede e nei modali, zero errori JS.
+dist/Hub_Nozze.html rigenerato. Deploy Pages automatico attivo (repo pubblico).
