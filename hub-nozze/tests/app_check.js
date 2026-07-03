@@ -788,7 +788,7 @@ function viewGuests(){
 
   <div class="card" style="margin-top:14px"><span class="pill todo">sorgente unica</span> ${ev().guests.length} ospiti in lista. Con Importa aggiungi in blocco da Excel, Google Sheets o CSV: incolli o carichi il file, mappi le colonne e confermi. Da qui i dati alimentano catering e tavoli.</div>
 
-  <div class="sec-title"><h2>Ospiti per nucleo</h2><span><button class="btn sm ghost" data-act="exportGuestsCsv">Esporta CSV</button> <button class="btn sm ghost" data-act="importGuests">Importa</button> <button class="btn sm" data-act="addGuest">+ Ospite</button></span></div>
+  <div class="sec-title"><h2>Ospiti per nucleo</h2><span><button class="btn sm ghost" data-act="shareRsvp">Link RSVP</button> <button class="btn sm ghost" data-act="exportGuestsCsv">Esporta CSV</button> <button class="btn sm ghost" data-act="importGuests">Importa</button> <button class="btn sm" data-act="addGuest">+ Ospite</button></span></div>
   <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
     <input class="inp" id="guestSearch" placeholder="Cerca ospite…" style="flex:1;min-width:150px" aria-label="Cerca ospite">
     <button class="btn sm ghost" data-gfilter="all">Tutti</button>
@@ -2419,6 +2419,7 @@ const GUIDE=[
   { tab:"aperitivo", title:"Aperitivo", body:`<p>Il simulatore delle code dell'aperitivo: imposta stazioni, personale e tempi di arrivo, e vedi attese e code stimate. Salva più scenari e confrontali per decidere quanti camerieri servono.</p>` },
   { tab:"timeline", title:"Timeline", body:`<p>La checklist a ritroso dalla data delle nozze e la scaletta del giorno (run-of-show). I task legati a una categoria di fornitore si spuntano da soli quando quel fornitore è confermato.</p>` },
   { tab:"lists", title:"Note & Liste", body:`<p>Liste pronte: musica da suonare e da evitare, ordine della processione, foto di famiglia, packing.</p><p>Scrivi nel campo e premi Invio per aggiungere una voce. Doppio clic su una voce (o sul titolo) per modificarla al volo: Invio salva, Esc annulla, svuotarla la elimina.</p>` },
+  { tab:"guests", title:"Condividere", body:`<p>Due modi di condividere, diversi tra loro:</p><p><b>Collaboratori</b> (partner, wedding planner): fai accedere la persona con la <b>stessa email e password</b> che usi tu — vede e modifica tutto in tempo reale. Lo trovi da ingranaggio → Account e sync → "Invita a collaborare".</p><p><b>Invitati</b>: dalla scheda Ospiti, "Link RSVP" crea un link da mandare (WhatsApp, Messaggi). L'invitato conferma la presenza e, con un tocco, ti rimanda la risposta da inserire.</p>` },
   { tab:null, title:"Pronto", body:`<p>Tutto qui. Il lavoro si salva da solo: non c'è un pulsante "salva". Ritrovi questa guida dall'ingranaggio in alto a destra, voce "Guida".</p><p>Buona organizzazione.</p>` }
 ];
 let guideAt=0;
@@ -2542,36 +2543,75 @@ function inviteRoleParam(){ try{ const m=(location.search||"").match(/[?&]role=(
 // --- UI condivisione (usa DOM/ev/modal; dormiente per gli inviti finché il cloud non è configurato) ---
 function eventInvites(){ const e=ev(); e.invites=e.invites||[]; return e.invites; }
 function eventRsvpToken(){ const e=ev(); if(!e.rsvpToken) e.rsvpToken="rsvp_"+Math.random().toString(36).slice(2,10); return e.rsvpToken; }
-function showShareLink(title, url){ modal(title, '<p class="muted" style="font-size:13px">Copia e invia questo link:</p><textarea class="inp" rows="3" readonly style="font-size:12px">'+esc(url)+'</textarea>', [{label:"Chiudi"}]); }
+function copyText(text, okMsg){
+  function ok(){ toast(okMsg||"Copiato"); }
+  try{ if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(text).then(ok,function(){ fallback(); }); return; } }catch(e){}
+  fallback();
+  function fallback(){ try{ const ta=document.createElement("textarea"); ta.value=text; ta.style.position="fixed"; ta.style.opacity="0"; document.body.appendChild(ta); ta.focus(); ta.select(); document.execCommand("copy"); document.body.removeChild(ta); ok(); }catch(e){ toast("Copia non riuscita: seleziona e copia a mano"); } }
+}
+function shareOrCopy(payload, copyStr, okMsg){
+  // navigator.share apre il foglio nativo (iPhone: WhatsApp, Messaggi, Mail…); se assente, copia.
+  try{ if(navigator.share){ navigator.share(payload).catch(function(){}); return; } }catch(e){}
+  copyText(copyStr, okMsg);
+}
+function showShareLink(title, url, msg){
+  const full=(msg? msg+" " : "")+url;
+  modal(title,
+    (msg? '<p style="font-size:13px">'+esc(msg)+'</p>' : '')
+    +'<p class="muted" style="font-size:12px">Tocca "Condividi" per mandarlo su WhatsApp o Messaggi, oppure "Copia link".</p>'
+    +'<textarea class="inp" rows="3" readonly style="font-size:12px" onclick="this.select()">'+esc(url)+'</textarea>',
+    [{label:"Condividi…",cls:"",fn:function(){ shareOrCopy({title:title,text:(msg||""),url:url}, full, "Link copiato"); },close:false},
+     {label:"Copia link",cls:"ghost",fn:function(){ copyText(url,"Link copiato"); },close:false},
+     {label:"Chiudi",cls:"ghost"}]);
+}
 function openInvite(){
-  if(!Cloud.configured()){ toast("Configura prima il cloud (Account e sync)"); return; }
-  const inv=eventInvites();
-  const list=inv.length? inv.map(function(i){ return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--line)"><span style="font-size:12px">'+(i.role==="viewer"?"sola lettura":"editor")+' · '+esc(i.token.slice(0,16))+'…</span><button class="btn sm danger" data-act="revokeInvite" data-id="'+i.id+'">&times;</button></div>'; }).join("") : '<span class="muted" style="font-size:13px">Nessun invito attivo.</span>';
-  modal("Invita collaboratore",
-    '<p class="muted" style="font-size:13px">Genera un link da inviare. Chi lo apre e accede entra come collaboratore con il ruolo scelto.</p><div class="field"><label>Ruolo</label><select class="inp" id="inv_role"><option value="editor">Editor (può modificare)</option><option value="viewer">Solo lettura</option></select></div><div style="margin-top:8px">'+list+'</div>',
-    [{label:"Chiudi"},{label:"Genera link",cls:"",fn:function(){ const role=$("#inv_role").value; const t=makeInviteToken(); eventInvites().push({id:"iv"+Date.now(),token:t,role:role,ts:new Date().toISOString()}); commit("Invito creato"); showShareLink("Link invito ("+(role==="viewer"?"sola lettura":"editor")+")", inviteURL(location.origin, location.pathname, t, role)); }}]);
+  const m=meta(), appURL=location.origin+location.pathname;
+  const istr="Ti va di aiutarmi a organizzare le nozze ("+m.coupleA+" × "+m.coupleB+")?\n"
+    +"1) Apri questo link: "+appURL+"\n"
+    +"2) Tocca l'ingranaggio in alto a destra → \"Account e sync\" → \"Accedi\"\n"
+    +"3) Entra con l'email e la password che ti mando a parte.\n"
+    +"Vedrai e potrai modificare tutto: le modifiche si aggiornano tra noi in tempo reale.";
+  modal("Invita a collaborare",
+    '<p style="font-size:13px">Per organizzare le nozze in più persone (il partner, un wedding planner) basta farle accedere con <b>la stessa email e password</b> che usi tu, su un loro dispositivo. Vedranno e modificheranno tutto, sincronizzato in tempo reale.</p>'
+    +'<div class="card" style="background:var(--paper2,transparent);border:1px solid var(--line);padding:10px;margin:8px 0"><div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px">Come fare in 3 mosse</div><ol style="margin:0;padding-left:18px;font-size:13px"><li>Mandale il link dell\'app e le credenziali.</li><li>Lei apre → ingranaggio → Account e sync → Accedi.</li><li>Fatto: siete sugli stessi dati.</li></ol></div>'
+    +'<p class="muted" style="font-size:12px">Sicurezza: manda la password con un canale diverso dal link (a voce o in un altro messaggio). Chiunque abbia email+password può modificare i dati, quindi condividile solo con chi ti fidi.</p>',
+    [{label:"Condividi istruzioni",cls:"",fn:function(){ shareOrCopy({text:istr}, istr, "Istruzioni copiate"); },close:false},
+     {label:"Copia istruzioni",cls:"ghost",fn:function(){ copyText(istr,"Istruzioni copiate"); },close:false},
+     {label:"Chiudi",cls:"ghost"}]);
 }
 function revokeInvite(id){ const e=ev(); e.invites=(e.invites||[]).filter(function(x){return x.id!==id;}); commit("Invito revocato"); }
 function renderPublicRSVP(token){
   try{ const tb=document.getElementById("tabs"); if(tb) tb.style.display="none"; }catch(e){}
+  try{ const gb=document.getElementById("gearBtn"); if(gb) gb.style.display="none"; const sc=document.getElementById("syncChip"); if(sc) sc.style.display="none"; }catch(e){}
+  try{ const et=document.getElementById("evTitle"); if(et) et.textContent="Le nostre nozze"; const es=document.getElementById("evSub"); if(es) es.textContent="Conferma la tua presenza"; const cd=document.getElementById("cd"); if(cd&&cd.parentNode) cd.parentNode.style.display="none"; }catch(e){}
   const meals=(typeof MEALS!=="undefined")?MEALS:["adulto","bambino","vegetariano","celiaco","vegano"];
   const v=document.getElementById("view"); if(!v) return;
   v.innerHTML='<div class="card" style="max-width:520px;margin:16px auto">'
-    +'<div class="sec-title"><h2>Conferma la tua presenza</h2></div>'
+    +'<div class="sec-title" style="margin-top:2px"><h2>Ci sarai?</h2></div>'
+    +'<p class="muted" style="font-size:13px;margin-top:-4px;margin-bottom:12px">Compila e tocca "Invia": la tua risposta arriva direttamente agli sposi.</p>'
     +'<div class="field"><label>Nome e cognome</label><input class="inp" id="rs_name" placeholder="Mario Rossi"></div>'
     +'<div class="field"><label>Parteciperai?</label><select class="inp" id="rs_go"><option value="conf">Sì, ci sarò</option><option value="no">No, non posso</option><option value="attesa">Forse</option></select></div>'
-    +'<div class="field"><label>Menù</label><select class="inp" id="rs_meal">'+meals.map(function(m){return '<option value="'+m+'">'+m+'</option>';}).join("")+'</select></div>'
-    +'<div class="field"><label>Accompagnatori (+)</label><input class="inp" type="number" min="0" id="rs_plus" value="0"></div>'
-    +'<div class="field"><label>Intolleranze / allergie</label><input class="inp" id="rs_int" placeholder="(facoltativo)"></div>'
-    +'<div class="btnbar"><button class="btn" id="rs_send">Invia risposta</button></div>'
-    +'<div id="rs_msg" class="muted" style="font-size:13px;margin-top:8px"></div></div>';
+    +'<div class="two"><div class="field"><label>Menù</label><select class="inp" id="rs_meal">'+meals.map(function(m){return '<option value="'+m+'">'+m+'</option>';}).join("")+'</select></div>'
+    +'<div class="field"><label>Accompagnatori (+)</label><input class="inp" type="number" min="0" id="rs_plus" value="0"></div></div>'
+    +'<div class="field"><label>Intolleranze / allergie <span class="muted" style="font-size:11px">(facoltativo)</span></label><input class="inp" id="rs_int" placeholder="Es. celiaco, niente frutta secca…"></div>'
+    +'<div class="btnbar"><button class="btn primary" id="rs_send" style="flex:1">Invia risposta</button></div>'
+    +'<div id="rs_msg" style="font-size:13px;margin-top:8px;color:var(--no)"></div></div>';
   const send=document.getElementById("rs_send");
   if(send) send.addEventListener("click", function(){
     const payload=buildRsvpPayload(token, { name:document.getElementById("rs_name").value, rsvp:document.getElementById("rs_go").value, meal:document.getElementById("rs_meal").value, plusOne:document.getElementById("rs_plus").value, intolerances:document.getElementById("rs_int").value });
-    if(!payload.name){ document.getElementById("rs_msg").textContent="Inserisci il tuo nome."; return; }
-    // In produzione: POST del payload al backend (endpoint RSVP legato al token).
-    if(typeof Diag!=="undefined") Diag.log("rsvp","risposta (demo)", JSON.stringify(payload).slice(0,200));
-    v.innerHTML='<div class="card" style="max-width:520px;margin:16px auto"><div class="sec-title"><h2>Grazie, '+esc(payload.name)+'!</h2></div><p>La tua risposta è stata registrata'+(payload.rsvp==="conf"?": ci vediamo alle nozze.":(payload.rsvp==="no"?": ci dispiace che tu non possa esserci.":"."))+'</p></div>';
+    if(!payload.name){ document.getElementById("rs_msg").textContent="Inserisci il tuo nome per continuare."; return; }
+    const goTxt=payload.rsvp==="conf"?"Ci sarò":(payload.rsvp==="no"?"Non posso":"Forse");
+    const line="RSVP nozze — "+payload.name+": "+goTxt+(payload.plusOne?(" +"+payload.plusOne):"")+" · menù "+payload.meal+(payload.intolerances?(" · "+payload.intolerances):"");
+    if(typeof Diag!=="undefined") Diag.log("rsvp","risposta", line.slice(0,200));
+    // La risposta torna agli sposi: foglio di condivisione nativo (o copia).
+    shareOrCopy({title:"RSVP nozze", text:line}, line, "Risposta copiata: incollala e inviala agli sposi");
+    v.innerHTML='<div class="card" style="max-width:520px;margin:16px auto;text-align:center">'
+      +'<div style="font-size:40px;margin:6px 0">'+(payload.rsvp==="conf"?"🎉":(payload.rsvp==="no"?"🤍":"🙂"))+'</div>'
+      +'<div class="sec-title" style="justify-content:center"><h2>Grazie, '+esc(payload.name)+'!</h2></div>'
+      +'<p style="font-size:14px">'+(payload.rsvp==="conf"?"Non vediamo l\'ora di festeggiare con te.":(payload.rsvp==="no"?"Ci dispiace che tu non possa esserci, grazie di avercelo detto.":"Grazie, aspettiamo la tua conferma."))+'</p>'
+      +'<p class="muted" style="font-size:13px;margin-top:10px">Se non si è aperta la condivisione, tocca qui sotto per mandare la tua risposta agli sposi.</p>'
+      +'<div class="btnbar" style="justify-content:center"><button class="btn primary" id="rs_share2">Invia agli sposi</button></div></div>';
+    var b=document.getElementById("rs_share2"); if(b) b.addEventListener("click", function(){ shareOrCopy({title:"RSVP nozze", text:line}, line, "Risposta copiata"); });
   });
 }
 
@@ -2587,6 +2627,7 @@ document.addEventListener("click",e=>{ try{
   else if(act==="applyPlan"){ const g=+$("#plg").value||0, c=+$("#cpct").value||0; meta().plannedGuests=g; meta().contingencyPct=c; commit("Pianificazione aggiornata"); }
   else if(act==="importGuests") importWizard();
   else if(act==="exportGuestsCsv") exportGuestsCsv();
+  else if(act==="shareRsvp"){ const t=eventRsvpToken(); commit("Link RSVP pronto"); showShareLink("Link RSVP per gli invitati", rsvpURL(location.origin, location.pathname, t), "Confermi la tua presenza alle nostre nozze?"); }
   else if(act==="addGuest") editGuest(null);
   else if(act==="editGuest") editGuest(id);
   else if(act==="cycleRsvp"){ const e=ev(), g=e.guests.find(x=>x.id===id); if(g){ const seq=["conf","attesa","no"]; g.rsvp=seq[(seq.indexOf(g.rsvp)+1)%seq.length]; if(g.rsvp==="no"){ e.seating=e.seating||{rules:[]}; e.seating.rules=seatPurgeGuest(e.tables, e.seating.rules||[], g.id); } commit("RSVP: "+(RSVP[g.rsvp]?RSVP[g.rsvp][1]:g.rsvp)); } }
