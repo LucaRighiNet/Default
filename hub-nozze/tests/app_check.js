@@ -592,9 +592,10 @@ function wireGuests(){
   const search=host.querySelector('#guestSearch');
   if(search){ search.value=GUESTVIEW.q; search.oninput=()=>{ GUESTVIEW.q=search.value; guestApplyFilter(); }; }
   host.querySelectorAll('[data-gfilter]').forEach(b=>{
-    b.classList.toggle('primary', b.getAttribute('data-gfilter')===GUESTVIEW.filter);
+    b.classList.remove('primary'); // pulizia da versioni precedenti
+    b.classList.toggle('fon', b.getAttribute('data-gfilter')===GUESTVIEW.filter);
     b.onclick=()=>{ GUESTVIEW.filter=b.getAttribute('data-gfilter');
-      host.querySelectorAll('[data-gfilter]').forEach(x=>x.classList.toggle('primary', x===b)); guestApplyFilter(); };
+      host.querySelectorAll('[data-gfilter]').forEach(x=>x.classList.toggle('fon', x===b)); guestApplyFilter(); };
   });
   guestApplyFilter();
 }
@@ -2462,6 +2463,25 @@ function openBilling(){
 
 // Account e sync cloud (P1). Dormiente finché il backend non è configurato
 // (window.HUB_CLOUD + supabase-js). Lo strato client è già pronto e testato.
+function cloudDoLogin(email, pw){
+  if(!email||!pw){ toast("Inserisci email e password"); return; }
+  Cloud.login(email, pw).then(function(res){
+    if(res.cloudState){ STATE=res.cloudState; recompute(); render(); toast("Accesso ok · dati dal cloud"); }
+    else { Sync.notify(STATE); toast("Accesso ok · questo dispositivo diventa la copia madre"); }
+  }).catch(function(e){ toast("Accesso non riuscito: "+(e&&e.message||"")); Diag.log("cloud","login fallito", e&&e.message); });
+}
+// All'avvio: se il cloud è disponibile e non sei loggato, chiedi l'accesso;
+// "Lavora in locale" bypassa e usa solo questo dispositivo (senza sincronizzazione).
+function promptLoginStart(){
+  if(typeof Cloud==="undefined" || !Cloud.configured()) return; // niente cloud -> resta locale, nessun prompt
+  if(Cloud.currentUser()) return;                                // già loggato (sessione ripresa)
+  modal("Accedi per sincronizzare",
+    `<p style="font-size:13px">Accedi con email e password per ritrovare gli stessi dati su tutti i tuoi dispositivi. Oppure continua solo su questo dispositivo.</p>
+     <div class="field"><label>Email</label><input class="inp" id="cl_email" type="email" autocomplete="username" placeholder="tu@esempio.it"></div>
+     <div class="field"><label>Password</label><input class="inp" id="cl_pw" type="password" autocomplete="current-password" placeholder="la tua password"></div>`,
+    [{label:"Lavora in locale",cls:"ghost"},
+     {label:"Accedi",cls:"",fn:function(){ cloudDoLogin(($("#cl_email").value||"").trim(), ($("#cl_pw").value||"")); }}]);
+}
 function openAccount(){
   if(!Cloud.configured()){
     modal("Account e sync",
@@ -2482,14 +2502,7 @@ function openAccount(){
     `<div class="field"><label>Email</label><input class="inp" id="cl_email" type="email" autocomplete="username" placeholder="tu@esempio.it"></div>
      <div class="field"><label>Password</label><input class="inp" id="cl_pw" type="password" autocomplete="current-password" placeholder="la tua password"></div>
      <p class="muted" style="font-size:12px">Accedi con la stessa email e password su tutti i tuoi dispositivi: i dati si sincronizzano da soli.</p>`,
-    [{label:"Annulla"},{label:"Accedi",cls:"",fn:()=>{
-       const email=($("#cl_email").value||"").trim(), pw=($("#cl_pw").value||"");
-       if(!email||!pw){ toast("Inserisci email e password"); return; }
-       Cloud.login(email, pw).then(function(res){
-         if(res.cloudState){ STATE=res.cloudState; recompute(); render(); toast("Accesso ok · dati dal cloud"); }
-         else { Sync.notify(STATE); toast("Accesso ok · questo dispositivo diventa la copia madre"); }
-       }).catch(function(e){ toast("Accesso non riuscito: "+(e&&e.message||"")); Diag.log("cloud","login fallito", e&&e.message); });
-     }}]);
+    [{label:"Annulla"},{label:"Accedi",cls:"",fn:()=>{ cloudDoLogin(($("#cl_email").value||"").trim(), ($("#cl_pw").value||"")); }}]);
 }
 
 // Suggerimento contestuale per scheda (riga compatta in cima alla vista).
@@ -2729,6 +2742,7 @@ document.addEventListener("keydown", function(e){
   }catch(e){ Diag.log("cloud","bootstrap fallito", e&&e.message); }
   updateSyncChip(); // il bootstrap gira dopo render(): aggiorna subito l'indicatore
   if(!STATE.onboarded) openGuide(0);
+  else promptLoginStart(); // già onboardato ma non loggato -> chiedi accesso (con bypass locale)
   // PWA: registra il service worker (solo su http(s); su file:// fallisce silenziosamente)
   try{ if(typeof navigator!=="undefined" && navigator.serviceWorker && location.protocol.indexOf("http")===0){ navigator.serviceWorker.register("sw.js").catch(function(e){ Diag.log("pwa","SW register fallita", e&&e.message); }); } }catch(e){}
 })();
