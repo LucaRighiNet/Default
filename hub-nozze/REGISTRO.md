@@ -854,3 +854,33 @@ Verifica: suite 177 verde; Playwright: header seed "17 lug 2027", modifica nomi
 + location vuota + data, persistenza dopo reload. (In sandbox compare un errore
 console dovuto al CDN supabase-js bloccato dal proxy: artefatto d'ambiente, non
 presente nel browser reale; l'app funziona comunque.) dist rigenerato.
+
+## Giro 30 (Claude Code) — condivisione: collaboratori + link RSVP (UX + funzionanti)
+
+Richiesta utente: spiegare/migliorare invito collaboratori e link ospiti
+(UX, grafica, guida, usufruibilita).
+
+Prima erano semi-rotti: l'invito con ruolo generava un link che non dava
+accesso (con Supabase a un solo account, iscrizioni chiuse, l'invitato non puo
+loggarsi); la pagina RSVP ospite era una demo (la risposta non tornava a
+nessuno). Resi onesti e realmente utili:
+
+- Invito collaboratori (openInvite): ora spiega il modello che funziona davvero
+  = stesso login (email+password) su un altro dispositivo. Istruzioni pronte
+  ("Condividi/Copia istruzioni") + nota di sicurezza (password su canale a parte).
+- Link RSVP: pulsante "Link RSVP" nella scheda Ospiti (prima solo dentro
+  Account). showShareLink rifatto con "Condividi…" (foglio nativo iPhone:
+  WhatsApp/Messaggi) + "Copia link". Helper copyText/shareOrCopy.
+- Pagina pubblica RSVP (renderPublicRSVP): grafica curata, nasconde gear/tabs/
+  countdown, e all'invio la risposta TORNA agli sposi via condivisione nativa
+  (o copia) con un tocco + schermata di ringraziamento con ri-invio.
+- Guida: nuovo passo "Condividere" (collaboratori vs invitati).
+- sw.js CACHE v4->v5.
+
+Verifica: suite 177 verde; Playwright: link RSVP con ?rsvp=token, pagina ospite
+"Ci sarai?" con form, invio -> "Grazie" + "Invia agli sposi", validazione nome,
+zero errori JS. dist rigenerato.
+
+Nota: il ritorno automatico degli RSVP nel database (inbox lato sposi via anon
+insert Supabase) resta un possibile passo successivo; per ora la risposta torna
+via messaggio, senza backend e senza rischio.
