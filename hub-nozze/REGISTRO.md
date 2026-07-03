@@ -837,3 +837,20 @@ Rischio dichiarato: da questo ambiente Supabase non e raggiungibile (proxy),
 quindi il flusso live non e collaudabile da me; verificato pero che senza
 supabase-js l'app degrada senza crash (Playwright: 113 ospiti, zero errori JS)
 e il contratto remote/sync/resume e coperto da unit test (mock). suite 177 verde.
+
+## Giro 29 (Claude Code) — intestazione evento modificabile + data 17/07/2027
+
+Richiesta utente: il titolo mostrava "Castello Benelli" (location non definitiva)
+e la data e cambiata al 17/07/2027.
+
+- editEventHeader(): modale per nomi (= lati A/B), location, indirizzo, data
+  (input date). Salva su meta() + commit (header si ri-disegna).
+- Header cliccabile (data-act=editHeader su .brand) + voce "Intestazione e data"
+  nel menu ingranaggio.
+- Header gestisce location vuota: mostra solo la data (niente "· " orfano).
+- Seed: data 2027-07-03 -> 2027-07-17.
+
+Verifica: suite 177 verde; Playwright: header seed "17 lug 2027", modifica nomi
++ location vuota + data, persistenza dopo reload. (In sandbox compare un errore
+console dovuto al CDN supabase-js bloccato dal proxy: artefatto d'ambiente, non
+presente nel browser reale; l'app funziona comunque.) dist rigenerato.
