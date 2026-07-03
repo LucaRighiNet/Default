@@ -1,15 +1,17 @@
 name: Deploy hub-nozze to GitHub Pages
-# Deploy automatico: a ogni push sul branch che tocca hub-nozze/ (o questo
-# workflow), l'app viene ripubblicata su GitHub Pages. Usa il proprio GITHUB_TOKEN
-# (pages:write, id-token:write). Resta anche il "Run workflow" a mano.
-# PREREQUISITO (una volta sola): Settings -> Pages -> Source: "GitHub Actions".
-# L'abilitazione via API (enablement) qui è vietata al token, quindi va fatta a
-# mano una volta; dopo, ogni push pubblica da solo.
+# Deploy automatico: a ogni push sul branch di default che tocca hub-nozze/
+# (o questo workflow), l'app viene ripubblicata su GitHub Pages.
+# Il trigger è sul default branch perché l'ambiente github-pages accetta deploy
+# solo da lì (regola di protezione creata da GitHub all'abilitazione di Pages):
+# un trigger su altri branch produrrebbe solo run rossi. Il flusso è: lavoro sul
+# branch -> merge della PR -> il push sul default pubblica da solo.
+# PREREQUISITI (una tantum, già fatti): repo pubblico + Settings -> Pages ->
+# Source: "GitHub Actions".
 on:
   workflow_dispatch:
   push:
     branches:
-      - claude/hub-nozze-handoff-47lbmo
+      - claude/clone-mirofish-repo-PlIEe
     paths:
       - 'hub-nozze/**'
       - '.github/workflows/pages.yml'
