@@ -280,7 +280,123 @@ function seedState(){
         g("Sofia Biondi","B","Biondi","conf","bambino",{access:"Seggiolone"}),
         g("Martina Ferri","B","Ferri","attesa","adulto",{plus:1}),
         g("Luca Bianchi","A","Amici sposo","conf","adulto",{shuttle:true}),
-        g("Chiara Neri","B","Amici sposa","no","adulto")
+        g("Chiara Neri","B","Amici sposa","no","adulto"),
+        // Lista invitati reale (caricata 2026-07-03). Lato: A di default, DA
+        // RIVEDERE. RSVP: tutti "in attesa". "(nome da definire)" = persona
+        // annunciata ma senza nome. Nuclei dedotti dal testo dettato.
+        g("Greta Berardi","A","Senza nucleo","attesa","adulto"),
+        g("Alex Olivares","A","Senza nucleo","attesa","adulto"),
+        g("Michela Rocchi","A","Senza nucleo","attesa","adulto"),
+        g("Lisa Balzani","A","Senza nucleo","attesa","adulto"),
+        g("Carlo Catania","A","Senza nucleo","attesa","adulto"),
+        g("Natalia Sora","A","Sora","attesa","adulto"),
+        g("Compagno di Natalia (nome da definire)","A","Sora","attesa","adulto"),
+        g("Giada Comandini","A","Senza nucleo","attesa","adulto"),
+        g("Viola Castellucci","A","Senza nucleo","attesa","adulto"),
+        g("Alex Casadei","A","Senza nucleo","attesa","adulto"),
+        g("Davide Bagnetti","A","Senza nucleo","attesa","adulto"),
+        g("Jessika Berardi","A","Senza nucleo","attesa","adulto"),
+        g("Giacomo Gaviani","A","Gaviani","attesa","adulto"),
+        g("Amica di Giacomo (nome da definire)","A","Gaviani","attesa","adulto"),
+        g("Erica Fabiano","A","Fabiano-Lanci","attesa","adulto"),
+        g("Luca Lanci","A","Fabiano-Lanci","attesa","adulto"),
+        g("Vittoria Lanci","A","Fabiano-Lanci","attesa","bambino"),
+        g("Sabrina Zaccheroni","A","Senza nucleo","attesa","adulto"),
+        g("Luca (l'artista)","A","Senza nucleo","attesa","adulto"),
+        g("Valentina Telloli (Tello)","A","Telloli","attesa","adulto"),
+        g("Gigi (compagno di Valentina)","A","Telloli","attesa","adulto"),
+        g("Irene Telloli","A","Telloli","attesa","adulto"),
+        g("Emma Telloli","A","Telloli","attesa","adulto"),
+        g("Carlotta Pantani","A","Senza nucleo","attesa","adulto"),
+        g("Andrea Giananti","A","Giananti","attesa","adulto"),
+        g("Stella Giananti","A","Giananti","attesa","adulto"),
+        g("Giulia Pagan","A","Senza nucleo","attesa","adulto"),
+        g("Marco Visani","A","Visani","attesa","adulto"),
+        g("Tommaso Visani","A","Visani","attesa","adulto"),
+        g("Ludovica Visani","A","Visani","attesa","adulto"),
+        g("Anna Biondi","B","Senza nucleo","attesa","adulto"),
+        g("Tinta Unita","A","Senza nucleo","attesa","adulto"),
+        g("Martina Cicognani","A","Senza nucleo","attesa","adulto"),
+        g("Marco Forti","A","Forti","attesa","adulto"),
+        g("Romeo Forti","A","Forti","attesa","adulto"),
+        g("Olivia Forti","A","Forti","attesa","adulto"),
+        g("Francesca Lutti","A","Senza nucleo","attesa","adulto"),
+        g("Giacomo Quadrati","A","Quadrati","attesa","adulto"),
+        g("Adele Quadrati","A","Quadrati","attesa","adulto"),
+        g("Leonardo Quadrati","A","Quadrati","attesa","adulto"),
+        g("Aurora Falcone","A","Senza nucleo","attesa","adulto"),
+        g("Bob Aggiusta","A","Senza nucleo","attesa","adulto"),
+        g("Viola","A","Senza nucleo","attesa","adulto"),
+        g("Giulia","A","Senza nucleo","attesa","adulto"),
+        g("Angela Di Ianni","A","Di Ianni","attesa","adulto"),
+        g("Fabio (compagno di Angela)","A","Di Ianni","attesa","adulto"),
+        g("Francesco Di Ianni","A","Di Ianni","attesa","bambino"),
+        g("Nicole (dell'Abruzzo)","A","Senza nucleo","attesa","adulto"),
+        g("Maria Ferrara","A","Ferrara","attesa","adulto"),
+        g("Danilo Ferrara","A","Ferrara","attesa","adulto"),
+        g("Francesco Ferrara","A","Ferrara","attesa","bambino"),
+        g("Sara Croce","A","Senza nucleo","attesa","adulto"),
+        g("Luca","A","Senza nucleo","attesa","adulto"),
+        g("Brando","A","Senza nucleo","attesa","adulto"),
+        g("Dev Valea","A","Senza nucleo","attesa","adulto"),
+        g("Valeria Ciotti","A","Ciotti","attesa","adulto"),
+        g("Martino","A","Senza nucleo","attesa","adulto"),
+        g("Compagno di Valeria (nome da definire)","A","Ciotti","attesa","adulto"),
+        g("Michele Fusai","A","Senza nucleo","attesa","adulto"),
+        g("Matilde Danesi","A","Senza nucleo","attesa","adulto"),
+        g("Camilla Davi","A","Senza nucleo","attesa","adulto"),
+        g("Nicola Zani","A","Senza nucleo","attesa","adulto"),
+        g("Nicola Giannini","A","Senza nucleo","attesa","adulto"),
+        g("Angelo Gualdaroni","A","Senza nucleo","attesa","adulto"),
+        g("Fabio Bartolomei","A","Bartolomei","attesa","adulto"),
+        g("Jessika Braschi","A","Bartolomei","attesa","adulto"),
+        g("Elena Bartolomei","A","Bartolomei","attesa","adulto"),
+        g("Alessia Bartolomei","A","Bartolomei","attesa","adulto"),
+        g("Filippo Socci","A","Socci","attesa","adulto"),
+        g("Melissa Socci","A","Socci","attesa","adulto"),
+        g("Filippo Collinelli","A","Senza nucleo","attesa","adulto"),
+        g("Silvia Golinelli","A","Senza nucleo","attesa","adulto"),
+        g("Enrico Cangini","A","Senza nucleo","attesa","adulto"),
+        g("Matteo Canestrini","A","Canestrini","attesa","adulto"),
+        g("Paola Canestrini","A","Canestrini","attesa","adulto"),
+        g("Figlio Canestrini (nome da definire)","A","Canestrini","attesa","bambino"),
+        g("Logan Para","A","Para","attesa","adulto"),
+        g("Moglie di Logan (nome da definire)","A","Para","attesa","adulto"),
+        g("Figlio di Logan (nome da definire)","A","Para","attesa","bambino"),
+        g("Secondo figlio di Logan (nome da definire)","A","Para","attesa","bambino"),
+        g("Marco Zani","A","Zani (Marco)","attesa","adulto"),
+        g("Laura (compagna di Marco Zani)","A","Zani (Marco)","attesa","adulto"),
+        g("Figlia di Marco e Laura (nome da definire)","A","Zani (Marco)","attesa","bambino"),
+        g("Thomas Marri","A","Senza nucleo","attesa","adulto"),
+        g("Sofia Lucchi","A","Senza nucleo","attesa","adulto"),
+        g("Alessandro E. Zani","A","Zani (Alessandro)","attesa","adulto"),
+        g("Maria Vittoria","A","Zani (Alessandro)","attesa","adulto"),
+        g("Damiano Zani","A","Zani (Alessandro)","attesa","adulto"),
+        g("Gigi Cecca","A","Cecca","attesa","adulto"),
+        g("Lucia (compagna di Gigi Cecca)","A","Cecca","attesa","adulto"),
+        g("Manuel Guidi","A","Senza nucleo","attesa","adulto"),
+        g("Alessandro Lustri","A","Senza nucleo","attesa","adulto"),
+        g("Nicola Zava","A","Senza nucleo","attesa","adulto"),
+        g("Marianna","A","Senza nucleo","attesa","adulto"),
+        g("Alex Minotti","A","Senza nucleo","attesa","adulto"),
+        g("Caterina Gianni","A","Senza nucleo","attesa","adulto"),
+        g("Federico Giannini","A","Senza nucleo","attesa","adulto"),
+        g("Matteo Merli","A","Merli","attesa","adulto"),
+        g("Compagna di Matteo Merli (nome da definire)","A","Merli","attesa","adulto"),
+        g("Chiara Casadei (mamma di Giulia)","A","Senza nucleo","attesa","adulto"),
+        g("Giulio Monti","A","Monti","attesa","adulto"),
+        g("Alberto Monti (babbo di Giulio)","A","Monti","attesa","adulto"),
+        g("Fede Rossi","A","Rossi (Fede)","attesa","adulto"),
+        g("Giacomo Rossi","A","Rossi (Fede)","attesa","bambino"),
+        g("Compagno di Fede (nome da definire)","A","Rossi (Fede)","attesa","adulto"),
+        g("Camilla Rossi","A","Rossi (Fede)","attesa","bambino"),
+        g("Joe (ostetrica)","A","Senza nucleo","attesa","adulto",{group:"Ostetriche"}),
+        g("Rachele (ostetrica)","A","Senza nucleo","attesa","adulto",{group:"Ostetriche"}),
+        g("Nadia (ostetrica)","A","Senza nucleo","attesa","adulto",{group:"Ostetriche"}),
+        g("Chiara Alvise","A","Senza nucleo","attesa","adulto"),
+        g("Bernardo","A","Bernardo","attesa","adulto"),
+        g("Fra (di Bernardo)","A","Bernardo","attesa","adulto"),
+        g("Marghe (di Bernardo)","A","Bernardo","attesa","adulto")
       ],
       vendors:[
         {id:"fenice",name:"La Fenice Catering & Banqueting",category:"Catering",contact:"Vittorio Fiore",phone:"+39 331 668 2055",email:"",website:"lafenicecatering.com",status:"confermato",quote:18000,budgetLineId:"b1",rating:"",reviews:"",pastEvents:"",notes:"Tasting a Faenza",source:"preventivo",updated:""},
@@ -319,7 +435,7 @@ function seedState(){
       seating:{rules:[]}
     }}
   };
-  function g(name,side,hh,rsvp,meal,o){o=o||{};return{id:"g"+Math.random().toString(36).slice(2,8),name,side,household:hh,rsvp,meal,intolerances:"",accessibility:o.access||"",shuttle:!!o.shuttle,plusOne:o.plus||0,gift:"",thanked:false}}
+  function g(name,side,hh,rsvp,meal,o){o=o||{};return{id:"g"+Math.random().toString(36).slice(2,8),name,side,household:hh,group:o.group||"",rsvp,meal,intolerances:"",accessibility:o.access||"",shuttle:!!o.shuttle,plusOne:o.plus||0,gift:"",thanked:false}}
 }
 
 /* ============ STATE + DERIVED ============ */
@@ -1977,11 +2093,15 @@ function addBudget(){
 /* ============ IMPORT GUIDATO LISTE (motore nativo, E1) ============ */
 function impNorm(s){ return String(s==null?'':s).toLowerCase().trim().replace(/[àáâ]/g,'a').replace(/[èéê]/g,'e').replace(/[ìí]/g,'i').replace(/[òóô]/g,'o').replace(/[ùú]/g,'u').replace(/\s+/g,' '); }
 function impDelim(text){
-  const line=(text.split(/\r?\n/).find(l=>l.trim()!=='')||'');
-  const counts={'\t':0,';':0,',':0}; let q=false;
-  for(const ch of line){ if(ch==='"') q=!q; else if(!q && counts[ch]!==undefined) counts[ch]++; }
-  let best=',',bc=-1; for(const d of ['\t',';',',']){ if(counts[d]>bc){ bc=counts[d]; best=d; } }
-  return bc>0?best:',';
+  // Un separatore vale solo se compare nella MAGGIORANZA delle righe: una lista
+  // di soli nomi con qualche virgola occasionale ("Rossi, quello di Milano")
+  // deve restare a 1 colonna, non troncare i nomi alla virgola.
+  const lines=String(text).split(/\r?\n/).filter(l=>l.trim()!=='').slice(0,200);
+  if(!lines.length) return ',';
+  const has=(l,d)=>{ let q=false; for(const ch of l){ if(ch==='"') q=!q; else if(!q&&ch===d) return true; } return false; };
+  let best=',', bestFrac=0;
+  for(const d of ['\t',';',',']){ const f=lines.filter(l=>has(l,d)).length/lines.length; if(f>bestFrac){ bestFrac=f; best=d; } }
+  return bestFrac>=0.5 ? best : '\u0000'; // sentinella mai presente nel testo -> nessuno split (1 colonna)
 }
 function impSplitRows(text){
   const delim=impDelim(text);

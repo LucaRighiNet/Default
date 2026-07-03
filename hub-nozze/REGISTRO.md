@@ -766,3 +766,28 @@ Verifica finale: node --check ok; suite 173/173; E2E Playwright tutti verdi
 10/10 passi con onboarded persistente e Invio funzionante subito dopo);
 audit visivo 390x844: zero overflow su 8 schede e nei modali, zero errori JS.
 dist/Hub_Nozze.html rigenerato. Deploy Pages automatico attivo (repo pubblico).
+
+## Giro 26 (Claude Code) — lista invitati reale caricata + fix separatore import
+
+L'utente ha dettato la lista reale (113 nomi, testo sporco da dettatura).
+Caricata simulando il flusso utente (Ospiti -> Importa -> incolla -> Analizza
+-> Aggiungi): 3 azioni, 113 ospiti importati.
+
+- BUG scovato dal collaudo: impDelim eleggeva la virgola a separatore anche se
+  presente in 6 righe su 113 ("Alessandro E, Zani" troncato ad "Alessandro E").
+  Fix: un separatore vale solo se compare nella maggioranza delle righe;
+  altrimenti 1 colonna (sentinella U+0000). import_test 28->30.
+- Lista pulita e cotta nel seed (123 ospiti totali): nomi normalizzati
+  (maiuscole, refusi da dettatura), annotazioni scherzose RIMOSSE dai nomi
+  (finirebbero sul tableau stampato), disambiguazioni funzionali tenute tra
+  parentesi. Nuclei dedotti dal testo (Telloli, Bartolomei, Para, Ferrara,
+  Di Ianni, Rossi (Fede), Zani (Marco)/(Alessandro), ecc.): 31 nuclei.
+  Bambini SOLO dove il testo dice figlio/figlia (10). Ostetriche = gruppo.
+  Persone annunciate senza nome = "(nome da definire)". Lato: default A,
+  DA RIVEDERE dall'utente. RSVP: tutti in attesa.
+- Seed helper g() esteso con group.
+
+Verifica: suite verde (import 30/30); Playwright: 123 ospiti, 31 nuclei,
+ricerca ok, re-import della lista grezza ora resta a 1 colonna, zero errori JS,
+render <1.5s. dist rigenerato. NOTA deploy: il sito pubblicato ha ancora il
+seed precedente; serve un nuovo merge per portare la lista online.
