@@ -12,7 +12,9 @@ const root = path.join(dir, "..");
 
 // 1) node --check sullo <script> estratto da index.html
 const html = fs.readFileSync(path.join(root, "index.html"), "utf8");
-const s = html.indexOf("<script>") + "<script>".length;
+// Lo <script> principale è l'ULTIMO tag <script> (prima ci sono la config
+// window.HUB_CLOUD e il tag esterno <script src=...> di supabase-js).
+const s = html.lastIndexOf("<script>") + "<script>".length;
 const e = html.lastIndexOf("</script>");
 fs.writeFileSync(path.join(dir, "app_check.js"), html.slice(s, e));
 try { execFileSync("node", ["--check", path.join(dir, "app_check.js")], { stdio: "pipe" }); console.log("node --check: OK"); }

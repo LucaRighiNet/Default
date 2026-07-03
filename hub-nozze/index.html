@@ -183,6 +183,11 @@ input[type=checkbox]{accent-color:var(--sea); width:18px; height:18px}
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <p id="aria" class="sr" aria-live="polite"></p>
 
+<!-- Backend sync (Supabase). La anon key è pubblica per progetto: la sicurezza
+     dei dati è data dal login (RLS) lato Supabase, non dal nascondere la chiave. -->
+<script>window.HUB_CLOUD={url:"https://fmqldemjzzzhkqzmoujt.supabase.co",anonKey:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZtcWxkZW1qenp6aGtxem1vdWp0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwNjg5OTEsImV4cCI6MjA5ODY0NDk5MX0.ZOFqTFKDp8KgHO2IL1OFijCMgaGr4kWmBl-mR5S_B6Y"};</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
 <script>
 "use strict";
 (function(){
@@ -370,9 +375,11 @@ function makeMockAuth(){ let user=null; return {
 }; }
 function makeSupabaseAuth(supabase){ return {
   name:"supabase",
-  async signIn(email){ const r=await supabase.auth.signInWithOtp({email:email}); if(r.error) throw new Error(r.error.message); return r.data; },
+  // Login email+password (niente link da cliccare): risolve subito a una sessione.
+  async signIn(email, password){ const r=await supabase.auth.signInWithPassword({email:email, password:password||""}); if(r.error) throw new Error(r.error.message); return r.data&&r.data.user; },
   async signOut(){ await supabase.auth.signOut(); },
-  getUser(){ return supabase.auth.getUser?supabase.auth.getUser():null; }
+  // Sessione già presente (persistita da supabase-js): serve al resume dopo un reload.
+  async sessionUser(){ try{ const r=await supabase.auth.getSession(); return (r&&r.data&&r.data.session)?r.data.session.user:null; }catch(e){ return null; } }
 }; }
 /* ---- Cloud controller: lega auth + remote + Sync. Dormiente finché non configurato. ---- */
 const Cloud=(function(){
@@ -381,16 +388,30 @@ const Cloud=(function(){
     configure(a, r){ auth=a; remote=r; },
     configured(){ return !!(auth && remote); },
     currentUser(){ return user; },
-    async login(email){
-      if(!this.configured()) throw new Error("cloud non configurato");
-      user=await auth.signIn(email);
-      // ruolo dalla membership (owner/editor/viewer); default owner finché il backend non lo fornisce
-      if(typeof Session!=="undefined") Session.setRole((user&&user.role) || (auth.getRole&&auth.getRole()) || inviteRoleParam() || "owner");
+    _enableSync(){
       Sync.enable(remote, {
         onStatus:function(){ if(typeof updateSyncChip==="function") updateSyncChip(); },
         onConflict:function(){ if(typeof toast==="function") toast("Modifica concorrente: ho applicato la tua versione"); }
       });
+    },
+    async login(email, password){
+      if(!this.configured()) throw new Error("cloud non configurato");
+      user=await auth.signIn(email, password);
+      // ruolo dalla membership (owner/editor/viewer); default owner finché il backend non lo fornisce
+      if(typeof Session!=="undefined") Session.setRole((user&&user.role) || (auth.getRole&&auth.getRole()) || inviteRoleParam() || "owner");
+      this._enableSync();
       const cloudState=await Sync.pull();   // stato dal cloud (o null se primo accesso)
+      return { user:user, cloudState:cloudState };
+    },
+    // Riprende una sessione già valida (dopo un reload) senza richiedere le credenziali.
+    async resume(){
+      if(!this.configured() || !auth.sessionUser) return null;
+      const u=await auth.sessionUser();
+      if(!u) return null;
+      user=u;
+      if(typeof Session!=="undefined") Session.setRole("owner");
+      this._enableSync();
+      const cloudState=await Sync.pull();
       return { user:user, cloudState:cloudState };
     },
     async logout(){ if(auth){ try{ await auth.signOut(); }catch(e){} } user=null; if(typeof Session!=="undefined") Session.setRole("owner"); Sync.disable(); }
@@ -2626,14 +2647,16 @@ function openAccount(){
     return;
   }
   modal("Accedi",
-    `<div class="field"><label>Email</label><input class="inp" id="cl_email" type="email" placeholder="tu@esempio.it"></div>
-     <p class="muted" style="font-size:12px">Ti invieremo un accesso via email. Dopo l'accesso i dati si sincronizzano nel cloud.</p>`,
+    `<div class="field"><label>Email</label><input class="inp" id="cl_email" type="email" autocomplete="username" placeholder="tu@esempio.it"></div>
+     <div class="field"><label>Password</label><input class="inp" id="cl_pw" type="password" autocomplete="current-password" placeholder="la tua password"></div>
+     <p class="muted" style="font-size:12px">Accedi con la stessa email e password su tutti i tuoi dispositivi: i dati si sincronizzano da soli.</p>`,
     [{label:"Annulla"},{label:"Accedi",cls:"",fn:()=>{
-       const email=($("#cl_email").value||"").trim();
-       Cloud.login(email).then(function(res){
+       const email=($("#cl_email").value||"").trim(), pw=($("#cl_pw").value||"");
+       if(!email||!pw){ toast("Inserisci email e password"); return; }
+       Cloud.login(email, pw).then(function(res){
          if(res.cloudState){ STATE=res.cloudState; recompute(); render(); toast("Accesso ok · dati dal cloud"); }
-         else { Sync.notify(STATE); toast("Accesso ok"); }
-       }).catch(function(e){ toast("Accesso non riuscito"); Diag.log("cloud","login fallito", e&&e.message); });
+         else { Sync.notify(STATE); toast("Accesso ok · questo dispositivo diventa la copia madre"); }
+       }).catch(function(e){ toast("Accesso non riuscito: "+(e&&e.message||"")); Diag.log("cloud","login fallito", e&&e.message); });
      }}]);
 }
 
@@ -2825,6 +2848,9 @@ document.addEventListener("keydown", function(e){
     if(typeof window!=="undefined" && window.HUB_CLOUD && window.supabase && window.supabase.createClient){
       const sc=window.supabase.createClient(window.HUB_CLOUD.url, window.HUB_CLOUD.anonKey);
       Cloud.configure(makeSupabaseAuth(sc), makeSupabaseRemote(sc, STATE.activeEventId||"rb27"));
+      // Se c'è già una sessione valida (login precedente), riprendi e tira giù il cloud.
+      try{ const res=await Cloud.resume(); if(res && res.cloudState){ STATE=res.cloudState; recompute(); render(); } }
+      catch(e){ Diag.log("cloud","resume fallito", e&&e.message); }
     }
   }catch(e){ Diag.log("cloud","bootstrap fallito", e&&e.message); }
   updateSyncChip(); // il bootstrap gira dopo render(): aggiorna subito l'indicatore
