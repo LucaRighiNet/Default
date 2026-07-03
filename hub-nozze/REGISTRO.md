@@ -766,3 +766,48 @@ Verifica finale: node --check ok; suite 173/173; E2E Playwright tutti verdi
 10/10 passi con onboarded persistente e Invio funzionante subito dopo);
 audit visivo 390x844: zero overflow su 8 schede e nei modali, zero errori JS.
 dist/Hub_Nozze.html rigenerato. Deploy Pages automatico attivo (repo pubblico).
+
+## Giro 26 (Claude Code) — lista invitati reale caricata + fix separatore import
+
+L'utente ha dettato la lista reale (113 nomi, testo sporco da dettatura).
+Caricata simulando il flusso utente (Ospiti -> Importa -> incolla -> Analizza
+-> Aggiungi): 3 azioni, 113 ospiti importati.
+
+- BUG scovato dal collaudo: impDelim eleggeva la virgola a separatore anche se
+  presente in 6 righe su 113 ("Alessandro E, Zani" troncato ad "Alessandro E").
+  Fix: un separatore vale solo se compare nella maggioranza delle righe;
+  altrimenti 1 colonna (sentinella U+0000). import_test 28->30.
+- Lista pulita e cotta nel seed (123 ospiti totali): nomi normalizzati
+  (maiuscole, refusi da dettatura), annotazioni scherzose RIMOSSE dai nomi
+  (finirebbero sul tableau stampato), disambiguazioni funzionali tenute tra
+  parentesi. Nuclei dedotti dal testo (Telloli, Bartolomei, Para, Ferrara,
+  Di Ianni, Rossi (Fede), Zani (Marco)/(Alessandro), ecc.): 31 nuclei.
+  Bambini SOLO dove il testo dice figlio/figlia (10). Ostetriche = gruppo.
+  Persone annunciate senza nome = "(nome da definire)". Lato: default A,
+  DA RIVEDERE dall'utente. RSVP: tutti in attesa.
+- Seed helper g() esteso con group.
+
+Verifica: suite verde (import 30/30); Playwright: 123 ospiti, 31 nuclei,
+ricerca ok, re-import della lista grezza ora resta a 1 colonna, zero errori JS,
+render <1.5s. dist rigenerato. NOTA deploy: il sito pubblicato ha ancora il
+seed precedente; serve un nuovo merge per portare la lista online.
+
+## Giro 27 (Claude Code) — bonifica dati test + pubblicazione lista online
+
+Richiesta utente: niente più file/link, tutto sul sito online; bonificare i
+dati di test e inserire la lista invitati reale.
+
+- Rimossi i 10 ospiti demo del seed (Marco/Anna/Davide Righi, Giulia Conti,
+  Paolo/Elena/Sofia Biondi, Martina Ferri, Luca Bianchi, Chiara Neri).
+  Restano i 113 invitati reali. AVVISO: i genitori non sono nella lista
+  dettata; se invitati, vanno aggiunti dall'utente.
+- Conservati (non sono test): budget 50 voci, pagamenti Fenice, fornitori
+  (Fenice, Castello Benelli), task, run-of-show, liste note, sim aperitivo.
+- sw.js: CACHE v1 -> v2 (cache-first: senza bump i dispositivi già visitati
+  non vedrebbero mai l'aggiornamento).
+- Pubblicazione: PR verso il default branch + merge -> deploy Pages automatico.
+
+Verifica: suite verde; Playwright: 113 ospiti, zero residui demo, smoke su
+tutte le schede senza errori. NOTA dispositivi: chi ha già aperto il sito con
+i dati vecchi in localStorage deve fare ingranaggio -> Reset (il seed nuovo
+non sovrascrive uno stato salvato).
