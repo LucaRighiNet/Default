@@ -274,7 +274,7 @@ function seedState(){
     events:{ rb27:{
       id:"rb27",
       meta:{
-        coupleA:"Righi", coupleB:"Biondi", groom:"Luca", date:"2027-07-03",
+        coupleA:"Righi", coupleB:"Biondi", groom:"Luca", date:"2027-07-17",
         venue:"Castello Benelli", venueAddr:"Via San Vito 17, Bellaria-Igea Marina (RN)",
         currency:"EUR", locale:"it-IT", plannedGuests:planned, minGuaranteed:170,
         vat:{catering:10, third:22}, contingencyPct:8,
@@ -564,7 +564,7 @@ function renderTabs(){
 function render(){
   const m=meta(), d=DERIVED;
   $("#evTitle").textContent=m.coupleA+" × "+m.coupleB;
-  $("#evSub").textContent=m.venue+" · "+fdate(m.date);
+  $("#evSub").textContent=(m.venue? m.venue+" · " : "")+fdate(m.date);
   const dd=daysTo(m.date); $("#cd").textContent=dd>=0?dnum(dd):"—";
   renderTabs();
   const v=$("#view");
@@ -2331,6 +2331,26 @@ function delGuest(id){
 }
 
 /* ============ EVENT MENU (nuovo/reset/clona/export/import con guardrail) ============ */
+// Editor intestazione: nomi (= lati A/B), location, indirizzo, data. Modificabile.
+function editEventHeader(){
+  const m=meta();
+  modal("Intestazione e data",
+    `<div class="two">
+       <div class="field"><label>Nome 1 <span class="muted" style="font-size:11px">(lato A)</span></label><input class="inp" id="ev_a" value="${esc(m.coupleA||"")}"></div>
+       <div class="field"><label>Nome 2 <span class="muted" style="font-size:11px">(lato B)</span></label><input class="inp" id="ev_b" value="${esc(m.coupleB||"")}"></div>
+     </div>
+     <div class="field"><label>Location <span class="muted" style="font-size:11px">(vuota se non definita)</span></label><input class="inp" id="ev_venue" value="${esc(m.venue||"")}" placeholder="Es. Borgo Fregnano"></div>
+     <div class="field"><label>Indirizzo location <span class="muted" style="font-size:11px">(opzionale)</span></label><input class="inp" id="ev_addr" value="${esc(m.venueAddr||"")}"></div>
+     <div class="field"><label>Data</label><input class="inp" type="date" id="ev_date" value="${esc(m.date||"")}"></div>`,
+    [{label:"Annulla"},{label:"Salva",cls:"",fn:()=>{
+       m.coupleA=($("#ev_a").value||"").trim()||"Sposo";
+       m.coupleB=($("#ev_b").value||"").trim()||"Sposa";
+       m.venue=($("#ev_venue").value||"").trim();
+       m.venueAddr=($("#ev_addr").value||"").trim();
+       const d=($("#ev_date").value||"").trim(); if(d) m.date=d;
+       commit("Intestazione aggiornata");
+    }}]);
+}
 function exportEvent(){
   const blob=new Blob([JSON.stringify(STATE,null,2)],{type:"application/json"});
   const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
@@ -2373,7 +2393,8 @@ function newEvent(){
 function openGear(){
   modal("Gestione evento",
     `<p class="muted" style="margin-bottom:10px">Motore generico: un evento attivo, riutilizzabile e portabile.</p>`,
-    [{label:"Esporta",cls:"ghost",fn:()=>exportEvent(),close:false},
+    [{label:"Intestazione e data",cls:"ghost",fn:()=>{editEventHeader();},close:false},
+     {label:"Esporta",cls:"ghost",fn:()=>exportEvent(),close:false},
      {label:"Importa",cls:"ghost",fn:()=>{importEvent();},},
      {label:"Guida",cls:"ghost",fn:()=>{openGuide(0);},close:false},
      {label:"Account e sync",cls:"ghost",fn:()=>{openAccount();},close:false},
@@ -2603,6 +2624,7 @@ document.addEventListener("click",e=>{ try{
   else if(act==="addRule") seatRuleEditor();
   else if(act==="delRule") delSeatRule(id);
   else if(act==="assignSeat") assignSeat(a.getAttribute("data-table"), a.getAttribute("data-idx"));
+  else if(act==="editHeader") editEventHeader();
   else if(act==="openGuide") openGuide(0);
   else if(act==="openAccount") openAccount();
   else if(act==="revokeInvite") revokeInvite(id);
