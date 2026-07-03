@@ -791,3 +791,23 @@ Verifica: suite verde (import 30/30); Playwright: 123 ospiti, 31 nuclei,
 ricerca ok, re-import della lista grezza ora resta a 1 colonna, zero errori JS,
 render <1.5s. dist rigenerato. NOTA deploy: il sito pubblicato ha ancora il
 seed precedente; serve un nuovo merge per portare la lista online.
+
+## Giro 27 (Claude Code) — bonifica dati test + pubblicazione lista online
+
+Richiesta utente: niente più file/link, tutto sul sito online; bonificare i
+dati di test e inserire la lista invitati reale.
+
+- Rimossi i 10 ospiti demo del seed (Marco/Anna/Davide Righi, Giulia Conti,
+  Paolo/Elena/Sofia Biondi, Martina Ferri, Luca Bianchi, Chiara Neri).
+  Restano i 113 invitati reali. AVVISO: i genitori non sono nella lista
+  dettata; se invitati, vanno aggiunti dall'utente.
+- Conservati (non sono test): budget 50 voci, pagamenti Fenice, fornitori
+  (Fenice, Castello Benelli), task, run-of-show, liste note, sim aperitivo.
+- sw.js: CACHE v1 -> v2 (cache-first: senza bump i dispositivi già visitati
+  non vedrebbero mai l'aggiornamento).
+- Pubblicazione: PR verso il default branch + merge -> deploy Pages automatico.
+
+Verifica: suite verde; Playwright: 113 ospiti, zero residui demo, smoke su
+tutte le schede senza errori. NOTA dispositivi: chi ha già aperto il sito con
+i dati vecchi in localStorage deve fare ingranaggio -> Reset (il seed nuovo
+non sovrascrive uno stato salvato).

@@ -455,16 +455,10 @@ function seedState(){
         {id:"p3", vendorId:"fenice", label:"Saldo (−10 gg)", amount:6950, dueDate:"2027-06-23", paid:false, method:"Bonifico"}
       ],
       guests:[
-        g("Marco Righi","A","Genitori Righi","conf","adulto"),
-        g("Anna Righi","A","Genitori Righi","conf","adulto"),
-        g("Davide Righi","A","Righi","conf","adulto"),
-        g("Giulia Conti","A","Conti","attesa","vegetariano",{plus:1}),
-        g("Paolo Biondi","B","Genitori Biondi","conf","adulto"),
-        g("Elena Biondi","B","Genitori Biondi","conf","celiaco"),
-        g("Sofia Biondi","B","Biondi","conf","bambino",{access:"Seggiolone"}),
-        g("Martina Ferri","B","Ferri","attesa","adulto",{plus:1}),
-        g("Luca Bianchi","A","Amici sposo","conf","adulto",{shuttle:true}),
-        g("Chiara Neri","B","Amici sposa","no","adulto"),
+        // Bonifica 2026-07-03: rimossi i 10 ospiti di test del seed demo
+        // (Marco/Anna/Davide Righi, Giulia Conti, Paolo/Elena/Sofia Biondi,
+        // Martina Ferri, Luca Bianchi, Chiara Neri). NOTA per l'utente: i
+        // genitori NON sono nella lista dettata — se vanno invitati, aggiungili.
         // Lista invitati reale (caricata 2026-07-03). Lato: A di default, DA
         // RIVEDERE. RSVP: tutti "in attesa". "(nome da definire)" = persona
         // annunciata ma senza nome. Nuclei dedotti dal testo dettato.
