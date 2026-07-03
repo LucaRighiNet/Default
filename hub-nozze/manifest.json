@@ -1,6 +1,6 @@
 {
-  "name": "Hub Nozze",
-  "short_name": "Nozze",
+  "name": "HubNozze",
+  "short_name": "HubNozze",
   "description": "Pianificazione nozze: budget, ospiti, fornitori, tavoli, aperitivo, timeline. Offline e condivisibile.",
   "start_url": "./index.html",
   "scope": "./",
