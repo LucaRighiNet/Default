@@ -2859,7 +2859,7 @@ function openBilling(){
 function cloudDoLogin(email, pw){
   if(!email||!pw){ toast("Inserisci email e password"); return Promise.resolve(false); }
   return Cloud.login(email, pw).then(function(res){
-    if(res.cloudState){ STATE=res.cloudState; recompute(); render(); toast("Accesso ok · dati dal cloud"); }
+    if(res.cloudState){ STATE=res.cloudState; migrateBudgetV2(); recompute(); render(); toast("Accesso ok · dati dal cloud"); }
     else { Sync.notify(STATE); toast("Accesso ok · questo dispositivo diventa la copia madre"); }
     return true;
   }).catch(function(e){ toast("Accesso non riuscito: "+(e&&e.message||"")); Diag.log("cloud","login fallito", e&&e.message); return false; });
@@ -3142,7 +3142,9 @@ document.addEventListener("keydown", function(e){
       const sc=window.supabase.createClient(window.HUB_CLOUD.url, window.HUB_CLOUD.anonKey);
       Cloud.configure(makeSupabaseAuth(sc), makeSupabaseRemote(sc, STATE.activeEventId||"rb27"));
       // Se c'è già una sessione valida (login precedente), riprendi e tira giù il cloud.
-      try{ const res=await Cloud.resume(); if(res && res.cloudState){ STATE=res.cloudState; recompute(); render(); } }
+      // Migrazione DOPO il pull: lo stato del cloud vince su quello locale,
+      // quindi va migrato lui (Store.save dentro migrate rispinge nel cloud).
+      try{ const res=await Cloud.resume(); if(res && res.cloudState){ STATE=res.cloudState; migrateBudgetV2(); recompute(); render(); } }
       catch(e){ Diag.log("cloud","resume fallito", e&&e.message); }
     }
   }catch(e){ Diag.log("cloud","bootstrap fallito", e&&e.message); }
