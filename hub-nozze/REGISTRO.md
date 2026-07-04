@@ -1014,3 +1014,27 @@ Verifica: suite verde; Playwright: migrazione visibile (location 7000 nel
 preventivo, totali corretti), editor 4 campi, salvataggio, tabella dentro lo
 schermo a 375/390px, zero overflow, zero errori JS, screenshot controllato.
 sw.js v12->v13; dist rigenerato. Deploy verificato verde.
+
+## Giro 36 (Claude Code) — FIX: migrazione budget scartata dal pull del cloud
+
+Segnalazione utente: i valori della vecchia colonna Stima non comparivano nel
+Preventivo (sembravano persi). I dati NON erano persi: restano nel campo
+estimated dello stato. Il difetto era di sequenza: migrateBudgetV2 girava al
+boot sullo stato LOCALE, poi Cloud.resume() scaricava lo stato dal cloud e
+sostituiva STATE, buttando via la migrazione. Con login attivo la migrazione
+veniva sempre scartata (e il flag budgetV2 finiva solo sullo stato locale
+abbandonato).
+
+Fix: migrateBudgetV2() viene richiamata anche DOPO ogni sostituzione di STATE
+col cloud (Cloud.resume nel bootstrap e cloudDoLogin): lo stato che vince viene
+migrato, e Store.save dentro la migrazione rispinge nel cloud il risultato
+(vale quindi per tutti i dispositivi). La condizione quote==0 preserva i
+preventivi inseriti a mano dall'utente.
+
+Verifica E2E (scenario riprodotto con addInitScript che ricrea lo stato non
+migrato dopo il flush): stima 1234 -> preventivo, preventivo utente 999
+intatto, voce a persona 10x180=1800, flag impostato. Suite verde.
+sw.js v13->v14; dist rigenerato. Deploy verificato verde.
+
+Lezione: ogni migrazione di stato deve girare sul "vincitore" del merge
+locale/cloud, non solo al boot locale.
