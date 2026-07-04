@@ -981,3 +981,36 @@ Verifica: suite verde (190 casi); Playwright: badge campanella, centro avvisi
 con critico, goAlert naviga e chiude, Ignora/Riattiva, soglie salvate e
 persistenti dopo reload, dashboard e report coerenti, zero overflow, zero
 errori JS. sw.js v11->v12; dist rigenerato. Deploy verificato verde (run).
+
+Decisione utente (2026-07-04): Fase 3 avvisi (digest email via Supabase) NON si
+fa. Il sistema avvisi resta solo in-app (campanella + centro avvisi). Non
+riproporre senza richiesta esplicita.
+
+## Giro 35 (Claude Code) — budget: via la colonna Stima, tabella che entra nello schermo
+
+Richiesta utente: per arrivare a Modifica bisognava scorrere a destra/sinistra;
+togliere Stima e tenere Preventivo+Effettivo, migrando i valori di Stima nel
+Preventivo per non perdere nulla.
+
+- migrateBudgetV2() nel bootstrap: per ogni evento senza flag budgetV2, dove il
+  preventivo e' vuoto ci entra la stima (per le voci a persona: tariffa x ospiti
+  previsti). Una tantum + idempotente (condizione quote==0). Vale per stati
+  salvati e cloud, non solo seed.
+- Tabella voci: colonne Voce | Preventivo | Effettivo | matita (via Stima e
+  Stato; "pagata" come pill accanto al nome). Bottone Modifica -> icona matita:
+  la tabella ENTRA INTERA anche a 375px (iPhone mini), zero scroll orizzontale
+  (misurato: tableW==clientW a 375 e 390).
+- Editor voce semplificato: Voce, Preventivo, Effettivo, Stato pagata (via tipo
+  costo/stima/tariffa). Nuova voce: Voce, Tier, Preventivo.
+- Calcoli coerenti col nuovo modello: contingenza e Budget massimo ora si
+  basano sui PREVENTIVI (prima sulla stima, che non esiste piu' in UI); card
+  budget: Preventivi totali, Effettivo, Scostamento (eff-prev), Budget massimo.
+  Etichetta dashboard aggiornata. Pianificazione: "ospiti previsti" resta (serve
+  a catering/aperitivo), tolto il riferimento al ricalcolo voci a persona.
+- Avvisi: rimossa la regola "voci a persona senza tariffa" (concetto uscito
+  dalla UI).
+
+Verifica: suite verde; Playwright: migrazione visibile (location 7000 nel
+preventivo, totali corretti), editor 4 campi, salvataggio, tabella dentro lo
+schermo a 375/390px, zero overflow, zero errori JS, screenshot controllato.
+sw.js v12->v13; dist rigenerato. Deploy verificato verde.
