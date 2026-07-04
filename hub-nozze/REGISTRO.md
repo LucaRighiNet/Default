@@ -1071,3 +1071,41 @@ dashboard, ref vuoto innocuo, classe rimossa a fine animazione, filtro ospiti
 azzerato; swipe apre/chiude, una riga sola aperta, tabella sempre dentro lo
 schermo, eliminazione persistita dopo reload, zero errori JS, screenshot
 controllati. sw.js v14->v15; APP_BUILD 2026-07-04.2; dist rigenerato.
+
+## Giro 38 (Claude Code) — Audit di coerenza grafica: fix e armonizzazioni
+
+Su richiesta utente, audit completo delle 8 schede (screenshot, misure DOM,
+ricognizione etichette). Interventi, difetti prima:
+
+1. BUG Ospiti: la griglia "Report catering" a 3 colonne sbordava a 390px
+   (contenuto 406px su 362): tutta la pagina scorreva in orizzontale. Portata
+   al layout KPI standard a 2 colonne (come il resto dell'app) e accorciata
+   l'etichetta "Coperti totali (confermati + accompagnatori)" -> "Coperti
+   totali" (la spiegazione resta nel KPI in alto e nella nota sotto Pasti).
+   Primo tentativo con repeat(3,minmax(0,1fr)): niente overflow di pagina ma
+   "CON INTOLLERANZE" restava troncato dentro la card (scrollWidth>client);
+   scartato in favore delle 2 colonne.
+2. Conferme di eliminazione uniformate: delTask ("Eliminare l'attivita'?") e
+   delRs ("Eliminare il momento?") ora chiedono conferma come rate, fornitori,
+   liste, ospiti e voci budget. Prima la X cancellava all'istante.
+3. Etichette italiane e coerenti in Timeline: "Run-of-show" -> "Scaletta",
+   "+ Task" -> "+ Attivita'", modale "Nuovo task" -> "Nuova attivita'",
+   hint "i task da fornitore" -> "le attivita' da fornitore",
+   toast "Task rimosso" -> "Attivita' rimossa".
+4. Fornitori: la card "WEB" che citava il file autonomo e Claude.ai e' ora una
+   nota discreta e onesta ("su questo sito mostra un avviso e non modifica
+   nulla"); "Aggiorna dal web" degradato a ghost, "Modifica" promosso a primo
+   bottone pieno della card; aggiornati anche la modale di caricamento e il
+   testo S4 della guida.
+5. Aperitivo: "ingresso unico del Castello" -> "ingresso della location"
+   (la sede non e' definitiva e il nome e' modificabile dall'utente).
+
+Rimandati (cosmetici, decisione utente): matita di modifica estesa a
+Ospiti/Timeline; campanella emoji vs ingranaggio glifo; titoli liste seed in
+inglese (dati modificabili).
+
+Verifica: suite verde; Playwright 390/375px: Ospiti senza overflow ne'
+troncature, conferme Annulla/Elimina su attivita' e momenti, etichette nuove,
+bottoni fornitori in ordine, testo aperitivo; regressioni: avvisi con flash
+(tutte le aree, da campanella e dashboard), swipe voci budget, tabella budget.
+Zero errori JS. sw.js v15->v16; APP_BUILD 2026-07-04.3; dist rigenerato.
