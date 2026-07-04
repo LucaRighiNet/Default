@@ -119,6 +119,31 @@ r.ok("silenziato non compare; ordinamento per gravità", () => {
   const order={alta:0,media:1,info:2};
   for(let i=1;i<sevs.length;i++) assert(order[sevs[i-1]]<=order[sevs[i]], "non ordinato");
 });
+r.ok("ref: gli avvisi portano gli id delle righe da evidenziare", () => {
+  resetAll();
+  evState.budget=[{id:"b1",item:"Fiori",quote:1000,actual:1400}];
+  evState.payments=[{id:"p1",amount:100,paid:false,dueDate:daysFromNow(-3)},{id:"p2",amount:50,paid:false,dueDate:daysFromNow(-1)}];
+  evState.tasks=[{id:"k1",done:false,due:daysFromNow(3)}];
+  evState.vendors=[{id:"v1",name:"Borgo",status:"opzione",optionUntil:daysFromNow(-1)}];
+  const A=S.alertsCompute(), by=id=>A.find(a=>a.id===id);
+  assert.deepStrictEqual(by("bud_var_b1").ref, ["b1"]);
+  assert.deepStrictEqual(by("pay_late").ref, ["p1","p2"]);
+  assert.deepStrictEqual(by("task_due").ref, ["k1"]);
+  assert.deepStrictEqual(by("v_opt_v1").ref, ["v1"]);
+});
+r.ok("ref: s_unseated elenca i confermati senza posto, g_attesa gli inviti in attesa", () => {
+  resetAll(); D.counts={attesa:1}; evState.meta={date:daysFromNow(30)};
+  evState.tables=[{id:"t1",seats:8,seatIds:["a"]}];
+  evState.guests=[{id:"a",rsvp:"conf"},{id:"b",rsvp:"conf"},{id:"c",rsvp:"attesa"}];
+  const A=S.alertsCompute(), by=id=>A.find(a=>a.id===id);
+  assert.deepStrictEqual(by("s_unseated").ref, ["b"]);
+  assert.deepStrictEqual(by("g_attesa").ref, ["c"]);
+});
+r.ok("ref: avviso senza righe specifiche ha ref vuoto", () => {
+  resetAll(); D.variance=500;
+  const a=S.alertsCompute().find(x=>x.id==="bud_over");
+  assert.deepStrictEqual(a.ref, []);
+});
 r.ok("soglia payDays configurabile", () => {
   resetAll();
   evState.payments=[{id:"p1",amount:100,paid:false,dueDate:daysFromNow(20)}];
