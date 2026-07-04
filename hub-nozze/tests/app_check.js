@@ -3,7 +3,7 @@
 (function(){
 // Versione visibile della build (ingranaggio -> prima riga). Serve a capire al
 // volo quale versione sta girando su un dispositivo (cache vs deploy).
-const APP_BUILD="2026-07-04.1";
+const APP_BUILD="2026-07-04.2";
 
 /* ============ DIAGNOSTICA / ERROR TRACKING (P0) ============ */
 // Senza backend gli errori di produzione sarebbero invisibili. Diag li cattura in
@@ -508,30 +508,32 @@ function alertsCompute(){
   const e=ev(), d=DERIVED, m=meta(), cfg=alertsPrefs();
   const today=new Date().toISOString().slice(0,10);
   const soon=(dt,days)=>{ if(!dt) return false; const n=daysTo(dt); return n>=0&&n<=days; };
-  const A=[]; const add=(id,sev,area,text,tab)=>A.push({id,sev,area,text,tab});
+  // ref: id delle righe interessate -> goAlert le evidenzia con una sfumatura.
+  const A=[]; const add=(id,sev,area,text,tab,ref)=>A.push({id,sev,area,text,tab,ref:ref||[]});
   // Budget: scostamenti
   if(d.variance>0) add("bud_over","alta","Budget","Impegnato oltre il budget massimo di "+money(d.variance)+".","budget");
-  (e.budget||[]).forEach(b=>{ if((+b.quote)>0&&(+b.actual)>(+b.quote)) add("bud_var_"+b.id,"media","Budget","\""+b.item+"\": effettivo "+money(b.actual)+" sopra il preventivo "+money(b.quote)+".","budget"); });
+  (e.budget||[]).forEach(b=>{ if((+b.quote)>0&&(+b.actual)>(+b.quote)) add("bud_var_"+b.id,"media","Budget","\""+b.item+"\": effettivo "+money(b.actual)+" sopra il preventivo "+money(b.quote)+".","budget",[b.id]); });
   // Pagamenti: scaduti e imminenti
   const late=(e.payments||[]).filter(p=>!p.paid&&p.dueDate&&p.dueDate<today);
-  if(late.length) add("pay_late","alta","Pagamenti",late.length+" rate scadute ("+money(late.reduce((s,p)=>s+(+p.amount||0),0))+") da saldare.","budget");
+  if(late.length) add("pay_late","alta","Pagamenti",late.length+" rate scadute ("+money(late.reduce((s,p)=>s+(+p.amount||0),0))+") da saldare.","budget",late.map(p=>p.id));
   const due=(e.payments||[]).filter(p=>!p.paid&&soon(p.dueDate,cfg.payDays));
-  if(due.length) add("pay_due","media","Pagamenti",due.length+" rate in scadenza entro "+cfg.payDays+" giorni ("+money(due.reduce((s,p)=>s+(+p.amount||0),0))+").","budget");
+  if(due.length) add("pay_due","media","Pagamenti",due.length+" rate in scadenza entro "+cfg.payDays+" giorni ("+money(due.reduce((s,p)=>s+(+p.amount||0),0))+").","budget",due.map(p=>p.id));
   // Attività: scadute, imminenti, in sospeso da troppo
-  if(d.overdue>0) add("task_late","alta","Attività",d.overdue+" attività scadute da recuperare.","timeline");
+  const tlate=(e.tasks||[]).filter(t=>!taskDone(t)&&t.due&&t.due<today);
+  if(d.overdue>0) add("task_late","alta","Attività",d.overdue+" attività scadute da recuperare.","timeline",tlate.map(t=>t.id));
   const tsoon=(e.tasks||[]).filter(t=>!taskDone(t)&&soon(t.due,cfg.taskDays));
-  if(tsoon.length) add("task_due","media","Attività",tsoon.length+" attività in scadenza entro "+cfg.taskDays+" giorni.","timeline");
+  if(tsoon.length) add("task_due","media","Attività",tsoon.length+" attività in scadenza entro "+cfg.taskDays+" giorni.","timeline",tsoon.map(t=>t.id));
   const stale=(e.tasks||[]).filter(t=>!taskDone(t)&&!t.due&&t.createdAt&&daysTo(t.createdAt)<=-30);
-  if(stale.length) add("task_stale","info","Attività",stale.length+" attività senza scadenza ferme da oltre 30 giorni.","timeline");
+  if(stale.length) add("task_stale","info","Attività",stale.length+" attività senza scadenza ferme da oltre 30 giorni.","timeline",stale.map(t=>t.id));
   // Ospiti
   if(d.head&&m.minGuaranteed&&d.head<m.minGuaranteed) add("g_min","media","Ospiti","Coperti confermati ("+d.head+") sotto il minimo garantito ("+m.minGuaranteed+").","guests");
-  if(d.counts.attesa>0&&m.date&&daysTo(m.date)<=60) add("g_attesa","media","Ospiti",d.counts.attesa+" inviti ancora in attesa a "+daysTo(m.date)+" giorni dalle nozze.","guests");
+  if(d.counts.attesa>0&&m.date&&daysTo(m.date)<=60) add("g_attesa","media","Ospiti",d.counts.attesa+" inviti ancora in attesa a "+daysTo(m.date)+" giorni dalle nozze.","guests",(e.guests||[]).filter(g=>g.rsvp==="attesa").map(g=>g.id));
   // Tavoli
   if(d.seatCap>0&&d.head>d.seatCap) add("s_cap","alta","Tavoli","Coperti confermati ("+d.head+") oltre la capienza dei tavoli ("+d.seatCap+").","seating");
   if((e.tables||[]).length){
     const seated=new Set(); (e.tables||[]).forEach(t=>(t.seatIds||[]).forEach(g=>{ if(g) seated.add(g); }));
-    const unseated=(e.guests||[]).filter(g=>g.rsvp==="conf"&&!seated.has(g.id)).length;
-    if(unseated>0) add("s_unseated","info","Tavoli",unseated+" ospiti confermati senza posto assegnato.","seating");
+    const unseated=(e.guests||[]).filter(g=>g.rsvp==="conf"&&!seated.has(g.id));
+    if(unseated.length) add("s_unseated","info","Tavoli",unseated.length+" ospiti confermati senza posto assegnato.","seating",unseated.map(g=>g.id));
   }
   // Fornitori
   const keyCats=["Location","Catering","Foto/Video","Musica/DJ"];
@@ -541,8 +543,8 @@ function alertsCompute(){
   (e.vendors||[]).forEach(v=>{
     if(v.optionUntil&&v.status!=="confermato"&&v.status!=="scartato"){
       const n=daysTo(v.optionUntil);
-      if(n<0) add("v_opt_"+v.id,"alta","Fornitori","Opzione \""+v.name+"\" scaduta il "+fdate(v.optionUntil)+".","vendors");
-      else if(n<=30) add("v_opt_"+v.id,"media","Fornitori","Opzione \""+v.name+"\" scade tra "+n+" giorni ("+fdate(v.optionUntil)+").","vendors");
+      if(n<0) add("v_opt_"+v.id,"alta","Fornitori","Opzione \""+v.name+"\" scaduta il "+fdate(v.optionUntil)+".","vendors",[v.id]);
+      else if(n<=30) add("v_opt_"+v.id,"media","Fornitori","Opzione \""+v.name+"\" scade tra "+n+" giorni ("+fdate(v.optionUntil)+").","vendors",[v.id]);
     }
   });
   const muted=cfg.muted||[];
@@ -564,7 +566,7 @@ function openAlerts(){
   const A=alertsCompute(), cfg=alertsPrefs();
   const rows=A.length?A.map(a=>`<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--line)">
       <span class="pill ${ALERT_PILL[a.sev]}" style="flex:0 0 auto">${ALERT_LABEL[a.sev]}</span>
-      <button class="lnkbtn" data-act="goAlert" data-target="${a.tab}" style="flex:1;text-align:left;background:none;border:none;padding:0;font-size:13px;color:var(--ink);cursor:pointer;min-height:auto">${esc(a.text)}<span class="muted" style="font-size:11px"> · ${esc(a.area)} →</span></button>
+      <button class="lnkbtn" data-act="goAlert" data-target="${a.tab}" data-ref="${esc((a.ref||[]).join(","))}" style="flex:1;text-align:left;background:none;border:none;padding:0;font-size:13px;color:var(--ink);cursor:pointer;min-height:auto">${esc(a.text)}<span class="muted" style="font-size:11px"> · ${esc(a.area)} →</span></button>
       <button class="btn sm ghost" data-act="muteAlert" data-id="${esc(a.id)}" aria-label="Silenzia" title="Silenzia questo avviso">Ignora</button>
     </div>`).join("")
     :'<p class="muted" style="font-size:13px">Nessun avviso: tutto in ordine.</p>';
@@ -577,6 +579,25 @@ function openAlerts(){
          <div class="field"><label>Attività: giorni di preavviso</label><input class="inp" type="number" id="al_task" min="1" max="90" value="${cfg.taskDays}"></div>
        </div><div class="btnbar"><button class="btn sm" data-act="alertsCfgSave">Salva soglie</button></div></details>`;
   _alertsModal=modal("Avvisi ("+A.length+")", body, [{label:"Chiudi"}]);
+}
+/* Dopo il salto da un avviso: evidenzia con una sfumatura le righe interessate
+   e porta in vista la prima. Le righe si trovano tramite i pulsanti/tag con
+   data-id gia' presenti in ogni vista (riga tabella, card fornitore, tag ospite). */
+function flashRows(ids){
+  try{
+    const acts=["editPayment","editBudget","editTask","toggleTask","editVendor","cycleRsvp"];
+    let first=null;
+    (ids||[]).forEach(rid=>{
+      const cid=(window.CSS&&CSS.escape)?CSS.escape(rid):rid;
+      const sel=acts.map(x=>'#view [data-act="'+x+'"][data-id="'+cid+'"]').join(",")+',#view [data-drag-guest="'+cid+'"]';
+      const el=document.querySelector(sel); if(!el) return;
+      const row=el.closest("tr")||(el.hasAttribute("data-drag-guest")?el:el.closest(".card"))||el;
+      row.classList.remove("rowflash"); void row.offsetWidth; row.classList.add("rowflash");
+      row.addEventListener("animationend",()=>row.classList.remove("rowflash"),{once:true});
+      if(!first) first=row;
+    });
+    if(first){ const f=first; setTimeout(()=>{ try{ f.scrollIntoView({behavior:"smooth",block:"center"}); }catch(e){ f.scrollIntoView(); } },60); }
+  }catch(e){}
 }
 
 /* ---- Migrazione budget v2: colonna Stima rimossa dalla UI. I valori di stima
@@ -691,8 +712,28 @@ function render(){
   if(active==="aperitivo") wireAperitivo();
   if(active==="seating") wireSeating();
   if(active==="guests") wireGuests();
+  if(active==="budget") wireBudget();
   updateSyncChip();
   try{ updateAlertBell(); }catch(e){}
+}
+// Swipe sulle voci di spesa: scorri a sinistra per far apparire "Elimina",
+// a destra (o tocca un'altra riga) per richiudere. I listener stanno sulla
+// tabella, ricreata a ogni render: niente accumulo su #view.
+function wireBudget(){
+  const host=document.getElementById('view'); if(!host) return;
+  const first=host.querySelector('tr[data-brow]'); if(!first) return;
+  const tbl=first.closest('table'); if(!tbl) return;
+  let sx=0, sy=0, row=null;
+  tbl.addEventListener('touchstart',e=>{ const t=e.touches[0]; sx=t.clientX; sy=t.clientY; row=e.target.closest('tr[data-brow]'); },{passive:true});
+  tbl.addEventListener('touchend',e=>{
+    if(!row) return;
+    const t=e.changedTouches[0], dx=t.clientX-sx, dy=t.clientY-sy;
+    if(Math.abs(dy)<40&&Math.abs(dx)>40){
+      tbl.querySelectorAll('tr.swiped').forEach(r=>{ if(r!==row) r.classList.remove('swiped'); });
+      row.classList.toggle('swiped', dx<0);
+    }
+    row=null;
+  },{passive:true});
 }
 // Filtri (chip RSVP) + ricerca ospiti (G7), lato client per non perdere il focus.
 let GUESTVIEW={filter:'all', q:''};
@@ -800,7 +841,7 @@ function viewDash(){
   </div>
 
   <div class="sec-title"><h2>Avvisi</h2><span>${alerts.length?`<button class="btn sm ghost" data-act="openAlerts">Apri centro avvisi</button>`:""}</span></div>
-  <div class="card">${alerts.length?alerts.map(a=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line)"><span class="pill ${ALERT_PILL[a.sev]}">${ALERT_LABEL[a.sev]}</span><button data-act="goAlert" data-target="${a.tab}" style="flex:1;text-align:left;background:none;border:none;padding:0;font-size:13px;color:var(--ink);cursor:pointer;min-height:auto">${esc(a.text)}</button></div>`).join(""):'<span class="muted">Tutto in ordine.</span>'}</div>
+  <div class="card">${alerts.length?alerts.map(a=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line)"><span class="pill ${ALERT_PILL[a.sev]}">${ALERT_LABEL[a.sev]}</span><button data-act="goAlert" data-target="${a.tab}" data-ref="${esc((a.ref||[]).join(","))}" style="flex:1;text-align:left;background:none;border:none;padding:0;font-size:13px;color:var(--ink);cursor:pointer;min-height:auto">${esc(a.text)}</button></div>`).join(""):'<span class="muted">Tutto in ordine.</span>'}</div>
   `;
 }
 
@@ -814,11 +855,11 @@ function viewBudget(){
     if(!items.length) continue;
     rows+=`<tr class="row-group"><td colspan="4">${TIER[t]}</td></tr>`;
     items.forEach(b=>{
-      rows+=`<tr>
+      rows+=`<tr data-brow="${b.id}">
         <td>${esc(b.item)}${b.paid?' <span class="pill ok">pagata</span>':''}</td>
         <td class="num">${b.quote?money(b.quote):'<span class="muted">—</span>'}</td>
         <td class="num">${b.actual?money(b.actual):'<span class="muted">—</span>'}</td>
-        <td class="num"><button class="btn sm ghost" data-act="editBudget" data-id="${b.id}" aria-label="Modifica ${esc(b.item)}" title="Modifica">&#9998;</button></td>
+        <td class="num"><button class="btn sm ghost" data-act="editBudget" data-id="${b.id}" aria-label="Modifica ${esc(b.item)}" title="Modifica">&#9998;</button><button class="btn sm danger swdel" data-act="delBudget" data-id="${b.id}" aria-label="Elimina ${esc(b.item)}" title="Elimina">&times;</button></td>
       </tr>`;
     });
   }
@@ -2252,10 +2293,23 @@ function editBudget(id){
        <div class="field"><label>Effettivo (€)</label><input class="inp" type="number" id="f_act" value="${b.actual||0}"></div>
      </div>
      <div class="field"><label>Stato</label><select class="inp" id="f_paid"><option value="0"${!b.paid?" selected":""}>Da pagare</option><option value="1"${b.paid?" selected":""}>Pagata</option></select></div>`,
-    [{label:"Annulla"},{label:"Salva",cls:"",fn:()=>{
+    [{label:"Annulla"},
+     // setTimeout: la conferma va aperta DOPO che close() ha svuotato #modalRoot.
+     {label:"Elimina",cls:"danger",fn:()=>{ setTimeout(()=>delBudget(id),0); }},
+     {label:"Salva",cls:"",fn:()=>{
       b.item=$("#f_item").value.trim()||b.item;
       b.quote=+$("#f_quote").value||0; b.actual=+$("#f_act").value||0; b.paid=$("#f_paid").value==="1";
       commit("Voce aggiornata");
+    }}]);
+}
+function delBudget(id){
+  const e=ev(), b=(e.budget||[]).find(x=>x.id===id); if(!b) return;
+  const amt=(+b.actual||0)||(+b.quote||0);
+  modal("Eliminare la voce?",`<p>Rimuovo <b>${esc(b.item)}</b>${amt?" ("+money(amt)+")":""} dal budget. L'azione non è reversibile.</p>`,
+    [{label:"Annulla"},{label:"Elimina",cls:"danger",fn:()=>{
+      e.budget=e.budget.filter(x=>x.id!==id);
+      (e.vendors||[]).forEach(v=>{ if(v.budgetLineId===id) v.budgetLineId=null; });
+      commit("Voce eliminata");
     }}]);
 }
 function addBudget(){
@@ -2836,6 +2890,7 @@ document.addEventListener("click",e=>{ try{
   const act=a.getAttribute("data-act"), id=a.getAttribute("data-id");
   if(permBlocks(act)){ toast("Sola lettura: non hai i permessi di modifica"); return; }
   if(act==="editBudget") editBudget(id);
+  else if(act==="delBudget") delBudget(id);
   else if(act==="addBudget") addBudget();
   else if(act==="togglePay"){ const p=ev().payments.find(x=>x.id===id); if(p){p.paid=!p.paid; commit(p.paid?"Rata segnata pagata":"Rata riaperta");} }
   else if(act==="addPayment") editPayment(null);
@@ -2885,7 +2940,14 @@ document.addEventListener("click",e=>{ try{
   else if(act==="assignSeat") assignSeat(a.getAttribute("data-table"), a.getAttribute("data-idx"));
   else if(act==="editHeader") editEventHeader();
   else if(act==="openAlerts") openAlerts();
-  else if(act==="goAlert"){ if(_alertsModal){ _alertsModal.close(); _alertsModal=null; } active=a.getAttribute("data-target")||"dash"; render(); }
+  else if(act==="goAlert"){
+    if(_alertsModal){ _alertsModal.close(); _alertsModal=null; }
+    active=a.getAttribute("data-target")||"dash";
+    const ref=(a.getAttribute("data-ref")||"").split(",").filter(Boolean);
+    if(active==="guests"&&ref.length) GUESTVIEW={filter:'all',q:''}; // il filtro attivo nasconderebbe le righe da evidenziare
+    render();
+    if(ref.length) flashRows(ref);
+  }
   else if(act==="muteAlert"){ alertsPrefs().muted.push(id); commit("Avviso silenziato"); openAlerts(); }
   else if(act==="unmuteAlerts"){ alertsPrefs().muted=[]; commit("Avvisi riattivati"); openAlerts(); }
   else if(act==="alertsCfgSave"){ const c=alertsPrefs(); c.payDays=Math.max(1,Math.min(90,+$("#al_pay").value||14)); c.taskDays=Math.max(1,Math.min(90,+$("#al_task").value||14)); commit("Soglie avvisi salvate"); openAlerts(); }

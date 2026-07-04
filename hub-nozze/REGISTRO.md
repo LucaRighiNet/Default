@@ -1038,3 +1038,36 @@ sw.js v13->v14; dist rigenerato. Deploy verificato verde.
 
 Lezione: ogni migrazione di stato deve girare sul "vincitore" del merge
 locale/cloud, non solo al boot locale.
+
+## Giro 37 (Claude Code) — Evidenzia riga da avviso + swipe-elimina voci di spesa
+
+Due richieste utente:
+1. Cliccando un avviso, con molte righe non si capiva quale fosse quella
+   interessata. Ora ogni avviso porta con sé gli id delle righe coinvolte
+   (campo ref in alertsCompute: rate scadute/imminenti, attività, scostamenti
+   per voce, opzioni fornitore, inviti in attesa, ospiti senza posto) e goAlert,
+   dopo il cambio scheda, evidenzia le righe con una sfumatura oro (classe
+   .rowflash, ~2,4s, si rimuove da sola) e porta in vista la prima
+   (scrollIntoView). Vale per righe di tabella, card fornitore e tag ospite.
+   Se l'avviso punta a Ospiti, il filtro attivo viene azzerato (una riga
+   filtrata non si potrebbe evidenziare). Avvisi senza riga specifica (es.
+   budget oltre il massimo) navigano e basta.
+2. Slider per cancellare le voci di spesa: scorri a sinistra su una riga e la
+   matita lascia il posto a una X rossa (riga tinta di rosa); scorri a destra o
+   apri un'altra riga per richiudere. La X apre la conferma "Eliminare la
+   voce?" (coerente con rate/fornitori); l'eliminazione sgancia anche il
+   collegamento budgetLineId dei fornitori. Per chi usa il mouse, "Elimina" è
+   anche nella modale di modifica (via setTimeout per non farsi svuotare
+   #modalRoot dal close della prima modale).
+
+Dettagli tecnici: listener touch sulla tabella (ricreata a ogni render, niente
+accumulo su #view); pulsante X invece di "Elimina" testuale perché a 375px il
+testo faceva sbordare la tabella di 6px (e attenzione alla specificità: .btn.sm
+batteva .swdel, servito .btn.sm.swdel).
+
+Verifica: suite verde (alerts 16 casi, +3 sui ref); Playwright a 390 e 375px:
+flash su pagamenti/attività/ospiti/fornitori-card, da campanella e da
+dashboard, ref vuoto innocuo, classe rimossa a fine animazione, filtro ospiti
+azzerato; swipe apre/chiude, una riga sola aperta, tabella sempre dentro lo
+schermo, eliminazione persistita dopo reload, zero errori JS, screenshot
+controllati. sw.js v14->v15; APP_BUILD 2026-07-04.2; dist rigenerato.

@@ -4,7 +4,7 @@
      nuovo arriva da solo al prossimo avvio, senza dover svuotare la cache.
    - Asset statici (icone, manifest): cache-first (veloci, cambiano di rado).
    Bump CACHE a ogni release per ripulire le versioni vecchie. */
-const CACHE = "hub-nozze-v14"; // bump: fix migrazione budget con cloud
+const CACHE = "hub-nozze-v15"; // bump: evidenziazione riga dagli avvisi
 const ASSETS = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting())); });
 self.addEventListener("activate", e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
