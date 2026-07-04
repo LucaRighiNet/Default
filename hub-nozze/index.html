@@ -678,15 +678,18 @@ function recompute(){
   conf.forEach(x=>{ meals[x.meal]=(meals[x.meal]||0)+1; if(x.plusOne){meals["adulto"]=(meals["adulto"]||0)+(+x.plusOne);} });
   const intoll=conf.filter(x=>x.intolerances).map(x=>x.name+": "+x.intolerances);
   const shuttle=conf.filter(x=>x.shuttle).reduce((s,x)=>s+1+(+x.plusOne||0),0);
-  // seating
+  const kidsN=conf.filter(x=>x.meal==="bambino").length;
+  const accessList=conf.filter(x=>x.accessibility).map(x=>x.name+": "+x.accessibility);
+  // seating (modello nativo: posti in tables[].seatIds, capienza in t.seats)
   const tablesArr=e.tables||[];
-  const assignedHead=conf.reduce((s,x)=>s+(x.table?1+(+x.plusOne||0):0),0);
-  const seatCap=tablesArr.reduce((s,t)=>s+(+t.capacity||0),0);
+  const gids=new Set(e.guests.map(x=>x.id));
+  const assignedHead=tablesArr.reduce((s,t)=>s+((t.seatIds||[]).filter(x=>x&&gids.has(x)).length),0);
+  const seatCap=tablesArr.reduce((s,t)=>s+(+t.seats||0),0);
   const vendorsArr=e.vendors||[];
   const vConf=vendorsArr.filter(v=>v.status==="confermato").length;
   const tk=e.tasks||[]; const todayISO=new Date().toISOString().slice(0,10);
   const tasksTotal=tk.length, tasksDone=tk.filter(taskDone).length, overdue=tk.filter(t=>!taskDone(t)&&t.due&&t.due<todayISO).length;
-  DERIVED={est,quo,act,cont,ceiling,committed,variance:committed-ceiling,cf,paidSum,dueSum,head,counts,meals,intoll,shuttle,plannedGuests:g,tablesN:tablesArr.length,assignedHead,seatCap,vendorsN:vendorsArr.length,vConf,tasksTotal,tasksDone,overdue};
+  DERIVED={est,quo,act,cont,ceiling,committed,variance:committed-ceiling,cf,paidSum,dueSum,head,counts,meals,intoll,shuttle,kidsN,accessList,plannedGuests:g,tablesN:tablesArr.length,assignedHead,seatCap,vendorsN:vendorsArr.length,vConf,tasksTotal,tasksDone,overdue};
 }
 
 /* ============ HELPERS ============ */
@@ -1024,10 +1027,16 @@ function viewGuests(){
   </table></div>
   <div id="guestEmpty" class="muted" style="display:none;padding:10px;font-size:13px">Nessun ospite corrisponde al filtro.</div>
 
-  <div class="sec-title"><h2>Report catering</h2><span class="pill ok">pronto</span></div>
+  <div class="sec-title"><h2>Report catering</h2><span class="pill ok">solo confermati</span></div>
+  <div class="grid cards" style="grid-template-columns:1fr 1fr">
+    <div class="card kpi"><div class="v">${d.head}</div><div class="l">Coperti totali (confermati + accompagnatori)</div></div>
+    <div class="card kpi"><div class="v">${d.kidsN}</div><div class="l">Bambini / menù bambino</div></div>
+    <div class="card kpi"><div class="v">${d.shuttle}</div><div class="l">Posti navetta</div></div>
+    <div class="card kpi"><div class="v">${d.intoll.length}</div><div class="l">Con intolleranze</div></div>
+  </div>
   <div class="grid" style="grid-template-columns:1fr 1fr;gap:14px">
-    <div class="card"><h3>Pasti</h3><table class="tbl"><tbody>${mealRows}</tbody></table></div>
-    <div class="card"><h3>Intolleranze</h3>${d.intoll.length?d.intoll.map(x=>`<div style="padding:4px 0">${esc(x)}</div>`).join(""):'<span class="muted">Nessuna.</span>'}<div style="margin-top:8px"><span class="pill">Navetta: ${d.shuttle}</span></div></div>
+    <div class="card"><h3>Pasti</h3><table class="tbl"><tbody>${mealRows}</tbody></table><p class="muted" style="font-size:12px;margin-top:6px">Gli accompagnatori (+1) contano come menù adulto.</p></div>
+    <div class="card"><h3>Intolleranze</h3>${d.intoll.length?d.intoll.map(x=>`<div style="padding:4px 0">${esc(x)}</div>`).join(""):'<span class="muted">Nessuna.</span>'}${d.accessList.length?`<div style="margin-top:8px"><h3 style="font-size:14px">Accessibilità</h3>${d.accessList.map(x=>`<div style="padding:4px 0">${esc(x)}</div>`).join("")}</div>`:""}</div>
   </div>
   `;
 }
@@ -1132,9 +1141,22 @@ const SEAT_VARS_DEF=[
   {id:'lingua',   name:'Lingua',            on:false, weight:7,  mode:'cluster', values:['','Italiano','Inglese','Spagnolo','Francese','Tedesco']},
   {id:'uscita',   name:"Vicino all'uscita", on:false, weight:3,  mode:'cluster', values:['','Sì','No']},
   {id:'fumatori', name:'Fumatori',          on:false, weight:2,  mode:'separate', values:['','Sì','No']},
-  {id:'sposi',    name:'Vicino agli sposi', on:false, weight:8,  mode:'cluster', values:['','Sì','No']}
+  {id:'sposi',    name:'Vicino agli sposi', on:false, weight:8,  mode:'cluster', values:['','Sì','No']},
+  {id:'stato',    name:'Stato (single/coppia)', on:true, weight:5, mode:'cluster', values:['','Single','In coppia','Famiglia']}
 ];
-function seatVars(){ const e=ev(); e.seating=e.seating||{rules:[]}; if(!e.seating.vars) e.seating.vars=JSON.parse(JSON.stringify(SEAT_VARS_DEF)); return e.seating.vars; }
+const SEAT_VARS_VER=2; // v2: aggiunta 'stato' (single/coppia/famiglia)
+function seatVars(){
+  const e=ev(); e.seating=e.seating||{rules:[]};
+  if(!e.seating.vars){ e.seating.vars=JSON.parse(JSON.stringify(SEAT_VARS_DEF)); e.seating.varsVer=SEAT_VARS_VER; return e.seating.vars; }
+  // Migrazione a versioni: integra SOLO le variabili nuove di questa versione,
+  // una volta sola (così una default eliminata dall'utente non riappare).
+  if((e.seating.varsVer||1)<2){
+    const have=new Set(e.seating.vars.map(v=>v.id));
+    ['stato'].forEach(id=>{ if(!have.has(id)){ const def=SEAT_VARS_DEF.find(v=>v.id===id); if(def) e.seating.vars.push(JSON.parse(JSON.stringify(def))); } });
+    e.seating.varsVer=2;
+  }
+  return e.seating.vars;
+}
 function seatActiveVars(){ return seatVars().filter(v=>v.on); }
 function seatVarById(id){ return seatVars().find(v=>v.id===id); }
 // Similarità pesata con segno (G2): stesso valore -> +peso (unisci) o -peso (separa).
@@ -1562,6 +1584,17 @@ function seatPrefillAttrs(){
     const map={"Amici":"Amici","Colleghi":"Colleghi","Parenti":"Parenti","Vicini":"Vicini","Compagni di scuola":"Scuola"};
     if(g.group&&map[g.group]&&!g.attr.ambiente){ g.attr.ambiente=map[g.group]; n++; }
   });
+  // Stato (single/coppia/famiglia) dedotto dal nucleo: con bambini o 3+ = Famiglia,
+  // 2 = In coppia; senza nucleo: +1 = In coppia, da solo = Single. Correggibile.
+  (function(){
+    const hhs={}; (e.guests||[]).forEach(g=>{ const h=g.household; if(h&&h!=="Senza nucleo"){ (hhs[h]=hhs[h]||[]).push(g); } });
+    (e.guests||[]).forEach(g=>{
+      g.attr=g.attr||{}; if(g.attr.stato) return;
+      const fam=hhs[g.household];
+      if(fam){ const kids=fam.some(x=>x.meal==="bambino"); g.attr.stato=(kids||fam.length>=3)?"Famiglia":(fam.length===2?"In coppia":"Single"); n++; }
+      else { g.attr.stato=(+g.plusOne>0)?"In coppia":"Single"; n++; }
+    });
+  })();
   const nv=seatVarById("nucleo"); if(nv){ (e.guests||[]).forEach(g=>{ if(g.attr&&g.attr.nucleo&&nv.values.indexOf(g.attr.nucleo)<0) nv.values.push(g.attr.nucleo); }); }
   Store.save(STATE); toast("Precompilate "+n+" caratteristiche");
 }
