@@ -34,5 +34,13 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: hub-nozze
+      # Il backend Pages a volte risponde "Deployment failed, try again later"
+      # (transitorio): primo tentativo tollerante, pausa, secondo tentativo.
       - id: deployment
+        uses: actions/deploy-pages@v4
+        continue-on-error: true
+      - if: steps.deployment.outcome == 'failure'
+        run: sleep 90
+      - id: deployment_retry
+        if: steps.deployment.outcome == 'failure'
         uses: actions/deploy-pages@v4
