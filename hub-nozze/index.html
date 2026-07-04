@@ -662,8 +662,10 @@ function recompute(){
     b._total = (b.costType==="perGuest") ? Math.round((b.perHead||0)*g) : b.estimated;
     est+=b._total; quo+=(+b.quote||0); act+=(+b.actual||0);
   });
-  const cont=Math.round(est*(m.contingencyPct||0)/100);
-  const ceiling=est+cont;
+  // Base del budget = PREVENTIVI (la colonna Stima e' stata rimossa: i valori
+  // sono migrati nei preventivi, vedi migrateBudgetV2).
+  const cont=Math.round(quo*(m.contingencyPct||0)/100);
+  const ceiling=quo+cont;
   const committed = act||quo; // impegnato
   // payments cash-flow by month
   const cf={};
@@ -706,7 +708,6 @@ function alertsCompute(){
   // Budget: scostamenti
   if(d.variance>0) add("bud_over","alta","Budget","Impegnato oltre il budget massimo di "+money(d.variance)+".","budget");
   (e.budget||[]).forEach(b=>{ if((+b.quote)>0&&(+b.actual)>(+b.quote)) add("bud_var_"+b.id,"media","Budget","\""+b.item+"\": effettivo "+money(b.actual)+" sopra il preventivo "+money(b.quote)+".","budget"); });
-  if((e.budget||[]).some(b=>b.costType==="perGuest"&&!b.perHead)) add("bud_perhead","info","Budget","Alcune voci a persona sono senza tariffa.","budget");
   // Pagamenti: scaduti e imminenti
   const late=(e.payments||[]).filter(p=>!p.paid&&p.dueDate&&p.dueDate<today);
   if(late.length) add("pay_late","alta","Pagamenti",late.length+" rate scadute ("+money(late.reduce((s,p)=>s+(+p.amount||0),0))+") da saldare.","budget");
@@ -772,6 +773,26 @@ function openAlerts(){
          <div class="field"><label>Attività: giorni di preavviso</label><input class="inp" type="number" id="al_task" min="1" max="90" value="${cfg.taskDays}"></div>
        </div><div class="btnbar"><button class="btn sm" data-act="alertsCfgSave">Salva soglie</button></div></details>`;
   _alertsModal=modal("Avvisi ("+A.length+")", body, [{label:"Chiudi"}]);
+}
+
+/* ---- Migrazione budget v2: colonna Stima rimossa dalla UI. I valori di stima
+   (per le voci a persona: tariffa x ospiti previsti) passano nel PREVENTIVO
+   dove il preventivo e' vuoto, cosi' non si perde nulla. Una tantum per evento
+   (flag budgetV2); idempotente comunque grazie alla condizione quote==0. ---- */
+function migrateBudgetV2(){
+  try{
+    Object.keys((STATE&&STATE.events)||{}).forEach(k=>{
+      const e=STATE.events[k]; if(!e||e.budgetV2) return;
+      const g=(e.meta&&e.meta.plannedGuests)||0;
+      (e.budget||[]).forEach(b=>{
+        if((+b.quote||0)>0) return;
+        const tot=(b.costType==="perGuest") ? Math.round((+b.perHead||0)*g) : (+b.estimated||0);
+        if(tot>0) b.quote=tot;
+      });
+      e.budgetV2=true;
+    });
+    Store.save(STATE);
+  }catch(err){ Diag.log("budget","migrazione v2 fallita", err&&err.message); }
 }
 
 /* ============ HELPERS ============ */
@@ -952,7 +973,7 @@ function viewDash(){
   const pct=d.ceiling?Math.min(100,Math.round(d.committed/d.ceiling*100)):0;
   return `
   <div class="grid cards">
-    <div class="card kpi"><div class="v">${money(d.ceiling)}</div><div class="l">Budget massimo (stima + ${m.contingencyPct}% imprevisti)</div></div>
+    <div class="card kpi"><div class="v">${money(d.ceiling)}</div><div class="l">Budget massimo (preventivi + ${m.contingencyPct}% imprevisti)</div></div>
     <div class="card kpi"><div class="v">${money(d.committed)}</div><div class="l">Impegnato (spese o preventivi accettati)</div>
       <div class="barwrap"><div class="bar ${d.variance>0?'over':''}" style="width:${pct}%"></div></div></div>
     <div class="card kpi"><div class="v">${money(d.dueSum)}</div><div class="l">Da pagare (${e.payments.filter(p=>!p.paid).length} rate)</div></div>
@@ -987,31 +1008,28 @@ function viewBudget(){
   for(let t=1;t<=5;t++){
     const items=e.budget.filter(b=>b.tier===t);
     if(!items.length) continue;
-    rows+=`<tr class="row-group"><td colspan="6">${TIER[t]}</td></tr>`;
+    rows+=`<tr class="row-group"><td colspan="4">${TIER[t]}</td></tr>`;
     items.forEach(b=>{
-      const stato=b.paid?'<span class="pill ok">pagata</span>':(b.quote?'<span class="pill warn">preventivo</span>':'<span class="pill todo">da stimare</span>');
       rows+=`<tr>
-        <td>${esc(b.item)} ${b.costType==="perGuest"?'<span class="tag">a persona</span>':''}</td>
-        <td class="num">${b._total?money(b._total):'<span class="muted">—</span>'}</td>
+        <td>${esc(b.item)}${b.paid?' <span class="pill ok">pagata</span>':''}</td>
         <td class="num">${b.quote?money(b.quote):'<span class="muted">—</span>'}</td>
         <td class="num">${b.actual?money(b.actual):'<span class="muted">—</span>'}</td>
-        <td>${stato}</td>
-        <td class="num"><button class="btn sm ghost" data-act="editBudget" data-id="${b.id}">Modifica</button></td>
+        <td class="num"><button class="btn sm ghost" data-act="editBudget" data-id="${b.id}" aria-label="Modifica ${esc(b.item)}" title="Modifica">&#9998;</button></td>
       </tr>`;
     });
   }
   return `
   <div class="grid cards">
-    <div class="card kpi"><div class="v">${money(d.est)}</div><div class="l">Stima totale</div></div>
-    <div class="card kpi"><div class="v">${money(d.quo)}</div><div class="l">Preventivi</div></div>
+    <div class="card kpi"><div class="v">${money(d.quo)}</div><div class="l">Preventivi totali</div></div>
     <div class="card kpi"><div class="v">${money(d.act)}</div><div class="l">Effettivo</div></div>
-    <div class="card kpi"><div class="v">${money(d.ceiling)}</div><div class="l">Tetto + contingenza ${m.contingencyPct}%</div></div>
+    <div class="card kpi"><div class="v">${money(d.act-d.quo)}</div><div class="l">Scostamento (effettivo − preventivi)</div></div>
+    <div class="card kpi"><div class="v">${money(d.ceiling)}</div><div class="l">Budget massimo (preventivi + ${m.contingencyPct}% imprevisti)</div></div>
   </div>
 
   <div class="sec-title"><h2>Pianificazione</h2><span class="pill">${dnum(m.plannedGuests)} ospiti previsti</span></div>
   <div class="card">
     <div class="two">
-      <div class="field"><label>Ospiti previsti (ricalcola voci a persona)</label><input class="inp" type="number" id="plg" value="${m.plannedGuests}" min="0"></div>
+      <div class="field"><label>Ospiti previsti (per catering e aperitivo)</label><input class="inp" type="number" id="plg" value="${m.plannedGuests}" min="0"></div>
       <div class="field"><label>Contingenza %</label><input class="inp" type="number" id="cpct" value="${m.contingencyPct}" min="0" max="30"></div>
     </div>
     <div class="btnbar"><button class="btn" data-act="applyPlan">Applica</button>
@@ -1020,7 +1038,7 @@ function viewBudget(){
 
   <div class="sec-title"><h2>Voci di spesa</h2><button class="btn sm" data-act="addBudget">+ Voce</button></div>
   <div class="scroll-x"><table class="tbl">
-    <thead><tr><th>Voce</th><th class="num">Stima</th><th class="num">Preventivo</th><th class="num">Effettivo</th><th>Stato</th><th></th></tr></thead>
+    <thead><tr><th>Voce</th><th class="num">Preventivo</th><th class="num">Effettivo</th><th></th></tr></thead>
     <tbody>${rows}</tbody>
   </table></div>
 
@@ -2426,19 +2444,13 @@ function editBudget(id){
   modal("Modifica voce",
     `<div class="field"><label>Voce</label><input class="inp" id="f_item" value="${esc(b.item)}"></div>
      <div class="two">
-       <div class="field"><label>Tipo costo</label><select class="inp" id="f_ct"><option value="fixed"${b.costType==="fixed"?" selected":""}>Fisso</option><option value="perGuest"${b.costType==="perGuest"?" selected":""}>A persona</option></select></div>
-       <div class="field"><label>${b.costType==="perGuest"?"Tariffa a persona (€)":"Stima (€)"}</label><input class="inp" type="number" id="f_est" value="${b.costType==="perGuest"?(b.perHead||0):b.estimated}"></div>
-     </div>
-     <div class="two">
        <div class="field"><label>Preventivo (€)</label><input class="inp" type="number" id="f_quote" value="${b.quote||0}"></div>
        <div class="field"><label>Effettivo (€)</label><input class="inp" type="number" id="f_act" value="${b.actual||0}"></div>
-     </div>`,
+     </div>
+     <div class="field"><label>Stato</label><select class="inp" id="f_paid"><option value="0"${!b.paid?" selected":""}>Da pagare</option><option value="1"${b.paid?" selected":""}>Pagata</option></select></div>`,
     [{label:"Annulla"},{label:"Salva",cls:"",fn:()=>{
       b.item=$("#f_item").value.trim()||b.item;
-      b.costType=$("#f_ct").value;
-      const val=+$("#f_est").value||0;
-      if(b.costType==="perGuest"){ b.perHead=val; } else { b.estimated=val; }
-      b.quote=+$("#f_quote").value||0; b.actual=+$("#f_act").value||0;
+      b.quote=+$("#f_quote").value||0; b.actual=+$("#f_act").value||0; b.paid=$("#f_paid").value==="1";
       commit("Voce aggiornata");
     }}]);
 }
@@ -2446,10 +2458,10 @@ function addBudget(){
   modal("Nuova voce",
     `<div class="field"><label>Voce</label><input class="inp" id="n_item" placeholder="Es. Noleggio lounge"></div>
      <div class="two"><div class="field"><label>Tier</label><select class="inp" id="n_tier">${[1,2,3,4,5].map(t=>`<option value="${t}">${TIER[t]}</option>`).join("")}</select></div>
-     <div class="field"><label>Stima (€)</label><input class="inp" type="number" id="n_est" value="0"></div></div>`,
+     <div class="field"><label>Preventivo (€)</label><input class="inp" type="number" id="n_est" value="0"></div></div>`,
     [{label:"Annulla"},{label:"Aggiungi",cls:"",fn:()=>{
       const item=$("#n_item").value.trim(); if(!item) return;
-      ev().budget.push({id:"b"+Date.now(),tier:+$("#n_tier").value,item,estimated:+$("#n_est").value||0,quote:0,actual:0,costType:"fixed",perHead:0,vendorId:null,dueDate:null,paid:false});
+      ev().budget.push({id:"b"+Date.now(),tier:+$("#n_tier").value,item,estimated:0,quote:+$("#n_est").value||0,actual:0,costType:"fixed",perHead:0,vendorId:null,dueDate:null,paid:false});
       commit("Voce aggiunta");
     }}]);
 }
@@ -3121,6 +3133,7 @@ document.addEventListener("keydown", function(e){
   if(rsvpParam()){ renderPublicRSVP(rsvpParam()); return; }
   STATE=await Store.load();
   if(!STATE||!STATE.events){ STATE=seedState(); Store.save(STATE); }
+  migrateBudgetV2(); // stima -> preventivo (una tantum, vedi funzione)
   recompute(); render();
   // Bootstrap cloud: attivo solo se la build fornisce config + supabase-js.
   // Assente per ora -> Cloud resta dormiente e l'app è puramente locale.
