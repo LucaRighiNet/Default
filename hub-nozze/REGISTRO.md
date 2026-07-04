@@ -1109,3 +1109,28 @@ troncature, conferme Annulla/Elimina su attivita' e momenti, etichette nuove,
 bottoni fornitori in ordine, testo aperitivo; regressioni: avvisi con flash
 (tutte le aree, da campanella e dashboard), swipe voci budget, tabella budget.
 Zero errori JS. sw.js v15->v16; APP_BUILD 2026-07-04.3; dist rigenerato.
+
+## Giro 39 (Claude Code) — Cosmetici dell'audit: matita ovunque, header, liste seed
+
+I tre punti rimandati dal Giro 38, autorizzati dall'utente:
+
+1. Matita di modifica estesa: Ospiti (editGuest), Checklist (editTask) e
+   Scaletta (editRs) usano il glifo &#9998; con aria-label/title, come il
+   budget. In Ospiti le due celle azione (matita, X) sono state unite in una
+   sola; in Checklist il testo "Confermato: <fornitore>" ora va a capo
+   (white-space:normal, max-width:120px) invece di allargare la cella .num.
+   Risultato misurato: le tabelle Ospiti e Timeline entrano nello schermo
+   SENZA scroll orizzontale a 390 e 375px (prima 352/345 e 474/360).
+2. Header uniforme: l'ingranaccio ha ora presentazione emoji (&#9881;&#xFE0F;)
+   come la campanella; niente piu' mix glifo monocromo / emoji colorata.
+3. Liste seed in italiano: "Musica — must play/do not play" -> "da suonare /
+   da evitare" nel seed, piu' migrateSeedLabels() per i dati gia' salvati:
+   rinomina SOLO i titoli esattamente uguali al seed (se l'utente li ha
+   modificati non tocca nulla), idempotente, richiamata al boot E dopo ogni
+   pull dal cloud (stessa regola imparata col budget al Giro 36).
+
+Verifica: suite verde; Playwright 390/375px: migrazione titoli (esatti
+rinominati, personalizzato intatto), matite aprono gli editor giusti, fit
+tabelle senza scroll, header con VS16, zero overflow su tutte le schede;
+regressioni giro38 + avvisi/flash + swipe budget + tabella budget tutte OK.
+Zero errori JS. sw.js v16->v17; APP_BUILD 2026-07-04.4; dist rigenerato.
