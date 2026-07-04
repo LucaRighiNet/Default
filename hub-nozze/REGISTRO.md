@@ -946,3 +946,38 @@ zero overflow, zero errori JS. sw.js v8->v9; dist rigenerato.
 Verifica: suite verde; Playwright: report con i 4 numeri, dashboard con
 assegnati reali, Stato nel wizard e in editGuest, precompila 113/113, zero
 errori JS. sw.js v10->v11; dist rigenerato.
+
+## Giro 34 (Claude Code) — centro avvisi, navetta separata, label dashboard
+
+Feedback utente: navetta e intolleranze insieme non hanno senso; dashboard con
+valori poco chiari; procedere col piano avvisi; verificare sempre il deploy.
+
+- Report ospiti: Navetta ora e una sezione propria con l'ELENCO di chi la usa
+  (+1 inclusi nei posti) — serve per organizzare il trasporto; il report
+  catering resta cucina-only (coperti, bambini, intolleranze, accessibilita).
+- Dashboard: "Tetto" -> "Budget massimo (stima + X% imprevisti)"; "Impegnato"
+  -> "(spese o preventivi accettati)"; card Navetta rimossa dalla sezione RSVP
+  (vive nel report); "Assegnati a tavolo X/coperti" -> "Posti assegnati /
+  capienza tavoli" (denominatori omogenei).
+- CENTRO AVVISI (Fase 1 piano): motore centrale alertsCompute() -> avvisi
+  tipizzati {id, sev alta/media/info, area, testo, tab} ordinati per gravita.
+  13 regole: budget oltre massimo, scostamento effettivo>preventivo per voce,
+  tariffe a persona mancanti, rate scadute/imminenti (soglia configurabile),
+  task scadute/imminenti/stagnanti 30gg, coperti sotto minimo, attese a <=60gg
+  dalle nozze, coperti oltre capienza, confermati senza posto, categorie chiave
+  senza confermato a <=180gg, opzioni fornitore in scadenza/scadute.
+  UI: campanella in header con badge (rosso se critici), pannello con salto
+  alla scheda (goAlert), Ignora per avviso + Riattiva tutti (persistiti in
+  alertsCfg.muted), soglie giorni configurabili. La card Avvisi in Dashboard
+  riusa lo stesso motore.
+- Fase 2 dati: fornitori con "Opzione valida fino al" (optionUntil) che alimenta
+  gli avvisi opzione; task nuove con createdAt per la regola "stagnanti".
+- BUG trovato dal collaudo: il bottone degli avvisi usava data-tab, intercettato
+  dalla delega delle schede prima del handler (navigava senza chiudere il
+  modale). Rinominato data-target.
+- Nuova suite tests/alerts_test.js (13 casi, motore isolato con DERIVED stub).
+
+Verifica: suite verde (190 casi); Playwright: badge campanella, centro avvisi
+con critico, goAlert naviga e chiude, Ignora/Riattiva, soglie salvate e
+persistenti dopo reload, dashboard e report coerenti, zero overflow, zero
+errori JS. sw.js v11->v12; dist rigenerato. Deploy verificato verde (run).
