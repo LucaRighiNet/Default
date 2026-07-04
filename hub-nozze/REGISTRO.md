@@ -904,3 +904,23 @@ diventa illeggibile.
 Verifica: suite 177 verde; Playwright: filtro attivo leggibile anche con hover
 (avorio su teal), filtro funzionante; app carica senza errori. sw.js v7->v8;
 dist rigenerato.
+
+## Giro 32 (Claude Code) — pagamenti gestiti, timeline guidata, login all'avvio
+
+Richieste utente in blocco.
+
+- Login all'avvio come PRIMA cosa: bootstrap mostra promptLoginStart prima della
+  guida quando cloud configurato e non loggato; cloudDoLogin ritorna promise e
+  la guida parte dopo login/bypass (onDone). Tasto "Lavora in locale".
+- Timeline: editRs con input type=time (selettore nativo) e menu gestiti per
+  momento (RUNSHOW_SUGGEST) e responsabile; nuovo "Scaletta standard" (genRunShow)
+  che aggiunge i momenti tipici mancanti con orario suggerito (dedup per titolo).
+- Pagamenti (prima grezzi/fissi/scollegati): CRUD rate (editPayment/delPayment,
+  + Rata), collegamento fornitore (vendorId) mostrato in riga, stato pagata/da
+  pagare/scaduta (scaduta = non pagata e scadenza passata), riepilogo (Pagato,
+  Da pagare con scaduto, barra avanzamento %, prossima scadenza) e connessione
+  al budget (rate pianificate vs preventivi impegnati d.committed).
+
+Verifica: suite 177 verde; Playwright: rata add/paid/del, barra+prossima+riga
+fornitore, scaletta standard (6 momenti, dedup), editRs type=time + select,
+zero overflow, zero errori JS. sw.js v8->v9; dist rigenerato.

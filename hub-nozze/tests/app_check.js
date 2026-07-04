@@ -745,15 +745,38 @@ function viewBudget(){
     <tbody>${rows}</tbody>
   </table></div>
 
-  <div class="sec-title"><h2>Pagamenti</h2><span class="pill">${money(d.paidSum)} pagati · ${money(d.dueSum)} da pagare</span></div>
+  ${(function(){
+    const today=new Date().toISOString().slice(0,10);
+    const pays=[...e.payments].sort((a,b)=>(a.dueDate||"").localeCompare(b.dueDate||""));
+    const overdueSum=pays.filter(p=>!p.paid&&p.dueDate&&p.dueDate<today).reduce((s,p)=>s+(+p.amount||0),0);
+    const next=pays.filter(p=>!p.paid&&(!p.dueDate||p.dueDate>=today))[0];
+    const planned=d.paidSum+d.dueSum, pct=planned?Math.round(d.paidSum*100/planned):0;
+    const rows=pays.length?pays.map(p=>{
+      const over=!p.paid&&p.dueDate&&p.dueDate<today;
+      const stato=p.paid?'<span class="pill ok">pagata</span>':(over?'<span class="pill no">scaduta</span>':'<span class="pill warn">da pagare</span>');
+      const vn=pmVendorName(p.vendorId);
+      return `<tr><td>${esc(p.label)}${vn?`<div class="muted" style="font-size:12px">${esc(vn)}</div>`:""}</td>
+        <td>${fdate(p.dueDate)}</td><td class="num">${money(p.amount)}</td><td>${stato}</td>
+        <td class="num"><button class="btn sm ${p.paid?'ghost':''}" data-act="togglePay" data-id="${p.id}">${p.paid?'riapri':'segna pagata'}</button> <button class="btn sm ghost" data-act="editPayment" data-id="${p.id}">Modifica</button> <button class="btn sm danger" data-act="delPayment" data-id="${p.id}">&times;</button></td></tr>`;
+    }).join(""):'<tr><td colspan="5" class="muted">Nessuna rata. Aggiungine una o collegala a un fornitore.</td></tr>';
+    return `
+  <div class="sec-title"><h2>Pagamenti</h2><button class="btn sm" data-act="addPayment">+ Rata</button></div>
+  <div class="grid cards" style="grid-template-columns:1fr 1fr">
+    <div class="card kpi"><div class="v">${money(d.paidSum)}</div><div class="l">Pagato</div></div>
+    <div class="card kpi"><div class="v">${money(d.dueSum)}</div><div class="l">Da pagare${overdueSum>0?` · <span style="color:var(--no)">${money(overdueSum)} scaduto</span>`:""}</div></div>
+  </div>
+  <div class="card" style="margin-bottom:10px">
+    <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px"><span>Avanzamento pagamenti</span><b>${pct}%</b></div>
+    <div style="height:8px;background:var(--line);border-radius:6px;overflow:hidden"><div style="height:100%;width:${pct}%;background:var(--sea)"></div></div>
+    <div class="muted" style="font-size:12px;margin-top:8px">Prossima: ${next?`${esc(next.label)} · ${fdate(next.dueDate)} · ${money(next.amount)}`:"nessuna in sospeso"}</div>
+    <div class="muted" style="font-size:12px;margin-top:2px">Rate pianificate ${money(planned)} · preventivi impegnati ${money(d.committed)}${planned<d.committed?` · <span style="color:var(--gold)">${money(d.committed-planned)} non ancora messo a rata</span>`:""}</div>
+  </div>
   <div class="scroll-x"><table class="tbl">
-    <thead><tr><th>Voce</th><th>Scadenza</th><th class="num">Importo</th><th>Stato</th></tr></thead>
-    <tbody>${e.payments.sort((a,b)=>(a.dueDate||"").localeCompare(b.dueDate||"")).map(p=>`
-      <tr><td>${esc(p.label)}</td><td>${fdate(p.dueDate)}</td><td class="num">${money(p.amount)}</td>
-      <td><button class="btn sm ${p.paid?'ghost':''}" data-act="togglePay" data-id="${p.id}">${p.paid?'pagata':'segna pagata'}</button></td></tr>`).join("")}
-    </tbody>
+    <thead><tr><th>Rata</th><th>Scadenza</th><th class="num">Importo</th><th>Stato</th><th></th></tr></thead>
+    <tbody>${rows}</tbody>
   </table></div>
-  <p class="muted" style="font-size:13px;margin-top:8px">Cash-flow mensile: ${Object.keys(DERIVED.cf).sort().map(k=>k+" → "+money(DERIVED.cf[k])).join(" · ")||"—"}</p>
+  <p class="muted" style="font-size:13px;margin-top:8px">Cash-flow mensile: ${Object.keys(DERIVED.cf).sort().map(k=>k+" → "+money(DERIVED.cf[k])).join(" · ")||"—"}</p>`;
+  })()}
   `;
 }
 
@@ -1998,7 +2021,7 @@ function viewTimeline(){
   </div>
   <div class="sec-title"><h2>Checklist</h2><span><button class="btn sm ghost" data-act="genChecklist">Genera standard</button> <button class="btn sm" data-act="addTask">+ Task</button></span></div>
   <div class="scroll-x"><table class="tbl"><thead><tr><th></th><th>Attività</th><th>Scadenza</th><th></th></tr></thead><tbody>${trows||'<tr><td colspan="4" class="muted">Nessuna attività. Usa Genera standard.</td></tr>'}</tbody></table></div>
-  <div class="sec-title"><h2>Run-of-show</h2><button class="btn sm" data-act="addRs">+ Momento</button></div>
+  <div class="sec-title"><h2>Run-of-show</h2><span><button class="btn sm ghost" data-act="genRunShow">Scaletta standard</button> <button class="btn sm" data-act="addRs">+ Momento</button></span></div>
   <div class="card" style="margin-bottom:10px"><div class="field"><label>Filtra per responsabile</label><select class="inp" id="rs_filter"><option value="">Tutti</option>${responsibles.map(w=>`<option value="${esc(w)}"${rsFilter===w?" selected":""}>${esc(w)}</option>`).join("")}</select></div></div>
   <div class="scroll-x"><table class="tbl"><thead><tr><th>Ora</th><th>Momento</th><th>Responsabile</th><th></th></tr></thead><tbody>${rsrows||'<tr><td colspan="4" class="muted">Nessun momento.</td></tr>'}</tbody></table></div>
   `;
@@ -2023,15 +2046,26 @@ function editRs(id){
   const e=ev(), r=e.runshow.find(x=>x.id===id), isNew=!r;
   const x=r||{time:"",title:"",who:""};
   modal(isNew?"Nuovo momento":"Modifica momento",
-    `<div class="two"><div class="field"><label>Ora</label><input class="inp" id="r_time" value="${esc(x.time||"")}" placeholder="20:00"></div>
-     <div class="field"><label>Responsabile</label><input class="inp" id="r_who" value="${esc(x.who||"")}"></div></div>
-     <div class="field"><label>Momento</label><input class="inp" id="r_title" value="${esc(x.title||"")}"></div>`,
+    `<div class="two"><div class="field"><label>Ora</label><input class="inp" type="time" id="r_time" value="${esc(x.time||"")}"></div>
+     <div class="field"><label>Responsabile</label>${managedSelect("r_who", x.who||"", [""].concat(runShowWho()))}</div></div>
+     <div class="field"><label>Momento</label>${managedSelect("r_title", x.title||"", [""].concat(RUNSHOW_SUGGEST))}</div>`,
     [{label:"Annulla"},{label:"Salva",cls:"",fn:()=>{
-      const title=$("#r_title").value.trim(); if(!title) return;
-      const data={time:$("#r_time").value.trim(),title,who:$("#r_who").value.trim()};
+      const title=(managedValue("r_title")||"").trim(); if(!title){ toast("Scegli o scrivi il momento"); return; }
+      const data={time:($("#r_time").value||"").trim(),title,who:(managedValue("r_who")||"").trim()};
       if(isNew){ e.runshow.push(Object.assign({id:"r"+Date.now()},data)); } else Object.assign(r,data);
       commit(isNew?"Momento aggiunto":"Momento aggiornato");
     }}]);
+}
+// Suggerimenti guidati per il run-of-show.
+const RUNSHOW_SUGGEST=["Arrivo invitati","Cerimonia","Aperitivo","Ingresso sposi","Cena","Taglio torta","Primo ballo","Bouquet","Open bar","Chiusura e navetta"];
+function runShowWho(){ const s=new Set(); (ev().runshow||[]).forEach(r=>{ if(r.who) s.add(r.who); }); return Array.from(s); }
+// Scaletta standard: aggiunge i momenti tipici mancanti con un orario suggerito.
+function genRunShow(){
+  const e=ev(); e.runshow=e.runshow||[];
+  const std=[["16:00","Cerimonia","Officiante"],["17:30","Aperitivo","Catering"],["20:00","Cena","Catering"],["22:30","Taglio torta","Catering"],["23:00","Primo ballo","DJ"],["01:00","Chiusura e navetta","Navetta"]];
+  const have=new Set(e.runshow.map(r=>(r.title||"").toLowerCase()));
+  let n=0; std.forEach(s=>{ if(!have.has(s[1].toLowerCase())){ e.runshow.push({id:"r"+Date.now()+"_"+(n++),time:s[0],title:s[1],who:s[2]}); } });
+  commit(n?("Aggiunti "+n+" momenti alla scaletta"):"Scaletta già completa");
 }
 function delRs(id){ ev().runshow=ev().runshow.filter(x=>x.id!==id); commit("Momento rimosso"); }
 
@@ -2101,6 +2135,36 @@ function addBudget(){
       ev().budget.push({id:"b"+Date.now(),tier:+$("#n_tier").value,item,estimated:+$("#n_est").value||0,quote:0,actual:0,costType:"fixed",perHead:0,vendorId:null,dueDate:null,paid:false});
       commit("Voce aggiunta");
     }}]);
+}
+/* ---- Pagamenti / rate: CRUD + collegamento fornitore ---- */
+function pmVendorName(id){ if(!id) return ""; const v=(ev().vendors||[]).find(x=>x.id===id); return v?v.name:""; }
+const PM_METHODS=["Bonifico","Contanti","Carta","Assegno","Altro"];
+function editPayment(id){
+  const e=ev(); e.payments=e.payments||[];
+  const p=id?e.payments.find(x=>x.id===id):null, isNew=!p;
+  const x=p||{label:"",amount:0,dueDate:"",method:"Bonifico",vendorId:null,paid:false};
+  const vopts='<option value="">— nessuno —</option>'+(e.vendors||[]).map(v=>`<option value="${esc(v.id)}"${x.vendorId===v.id?" selected":""}>${esc(v.name)}</option>`).join("");
+  modal(isNew?"Nuova rata":"Modifica rata",
+    `<div class="field"><label>Descrizione</label><input class="inp" id="pm_label" value="${esc(x.label||"")}" placeholder="Es. Acconto catering"></div>
+     <div class="two">
+       <div class="field"><label>Importo (€)</label><input class="inp" type="number" id="pm_amount" value="${x.amount||0}" min="0"></div>
+       <div class="field"><label>Scadenza</label><input class="inp" type="date" id="pm_due" value="${esc(x.dueDate||"")}"></div>
+     </div>
+     <div class="two">
+       <div class="field"><label>Metodo</label><select class="inp" id="pm_method">${PM_METHODS.map(mt=>`<option${x.method===mt?" selected":""}>${mt}</option>`).join("")}</select></div>
+       <div class="field"><label>Fornitore</label><select class="inp" id="pm_vendor">${vopts}</select></div>
+     </div>
+     <div class="field"><label>Stato</label><select class="inp" id="pm_paid"><option value="0"${!x.paid?" selected":""}>Da pagare</option><option value="1"${x.paid?" selected":""}>Pagata</option></select></div>`,
+    [{label:"Annulla"},{label:isNew?"Aggiungi":"Salva",cls:"",fn:()=>{
+       const data={label:($("#pm_label").value||"").trim()||"Rata", amount:+$("#pm_amount").value||0, dueDate:($("#pm_due").value||"").trim(), method:$("#pm_method").value, vendorId:$("#pm_vendor").value||null, paid:$("#pm_paid").value==="1"};
+       if(isNew){ e.payments.push(Object.assign({id:"p"+Date.now()},data)); } else Object.assign(p,data);
+       commit(isNew?"Rata aggiunta":"Rata aggiornata");
+    }}]);
+}
+function delPayment(id){
+  const e=ev(); const p=(e.payments||[]).find(x=>x.id===id); if(!p) return;
+  modal("Eliminare la rata?",`<p>Rimuovo <b>${esc(p.label)}</b> (${money(p.amount)}).</p>`,
+    [{label:"Annulla"},{label:"Elimina",cls:"danger",fn:()=>{ e.payments=e.payments.filter(x=>x.id!==id); commit("Rata eliminata"); }}]);
 }
 /* ============ IMPORT GUIDATO LISTE (motore nativo, E1) ============ */
 function impNorm(s){ return String(s==null?'':s).toLowerCase().trim().replace(/[àáâ]/g,'a').replace(/[èéê]/g,'e').replace(/[ìí]/g,'i').replace(/[òóô]/g,'o').replace(/[ùú]/g,'u').replace(/\s+/g,' '); }
@@ -2464,23 +2528,26 @@ function openBilling(){
 // Account e sync cloud (P1). Dormiente finché il backend non è configurato
 // (window.HUB_CLOUD + supabase-js). Lo strato client è già pronto e testato.
 function cloudDoLogin(email, pw){
-  if(!email||!pw){ toast("Inserisci email e password"); return; }
-  Cloud.login(email, pw).then(function(res){
+  if(!email||!pw){ toast("Inserisci email e password"); return Promise.resolve(false); }
+  return Cloud.login(email, pw).then(function(res){
     if(res.cloudState){ STATE=res.cloudState; recompute(); render(); toast("Accesso ok · dati dal cloud"); }
     else { Sync.notify(STATE); toast("Accesso ok · questo dispositivo diventa la copia madre"); }
-  }).catch(function(e){ toast("Accesso non riuscito: "+(e&&e.message||"")); Diag.log("cloud","login fallito", e&&e.message); });
+    return true;
+  }).catch(function(e){ toast("Accesso non riuscito: "+(e&&e.message||"")); Diag.log("cloud","login fallito", e&&e.message); return false; });
 }
-// All'avvio: se il cloud è disponibile e non sei loggato, chiedi l'accesso;
-// "Lavora in locale" bypassa e usa solo questo dispositivo (senza sincronizzazione).
-function promptLoginStart(){
-  if(typeof Cloud==="undefined" || !Cloud.configured()) return; // niente cloud -> resta locale, nessun prompt
-  if(Cloud.currentUser()) return;                                // già loggato (sessione ripresa)
-  modal("Accedi per sincronizzare",
+// All'avvio (PRIMA cosa): se il cloud è disponibile e non sei loggato, chiedi
+// l'accesso; "Lavora in locale" bypassa. onDone() prosegue (es. mostra la guida).
+function promptLoginStart(onDone){
+  onDone=onDone||function(){};
+  if(typeof Cloud==="undefined" || !Cloud.configured() || Cloud.currentUser()){ onDone(); return; }
+  const mo=modal("Accedi per sincronizzare",
     `<p style="font-size:13px">Accedi con email e password per ritrovare gli stessi dati su tutti i tuoi dispositivi. Oppure continua solo su questo dispositivo.</p>
      <div class="field"><label>Email</label><input class="inp" id="cl_email" type="email" autocomplete="username" placeholder="tu@esempio.it"></div>
      <div class="field"><label>Password</label><input class="inp" id="cl_pw" type="password" autocomplete="current-password" placeholder="la tua password"></div>`,
-    [{label:"Lavora in locale",cls:"ghost"},
-     {label:"Accedi",cls:"",fn:function(){ cloudDoLogin(($("#cl_email").value||"").trim(), ($("#cl_pw").value||"")); }}]);
+    [{label:"Lavora in locale",cls:"ghost",fn:function(){ onDone(); }},
+     {label:"Accedi",cls:"",close:false,fn:function(){
+        cloudDoLogin(($("#cl_email").value||"").trim(), ($("#cl_pw").value||"")).then(function(ok){ if(ok){ mo.close(); onDone(); } });
+     }}]);
 }
 function openAccount(){
   if(!Cloud.configured()){
@@ -2638,6 +2705,9 @@ document.addEventListener("click",e=>{ try{
   if(act==="editBudget") editBudget(id);
   else if(act==="addBudget") addBudget();
   else if(act==="togglePay"){ const p=ev().payments.find(x=>x.id===id); if(p){p.paid=!p.paid; commit(p.paid?"Rata segnata pagata":"Rata riaperta");} }
+  else if(act==="addPayment") editPayment(null);
+  else if(act==="editPayment") editPayment(id);
+  else if(act==="delPayment") delPayment(id);
   else if(act==="applyPlan"){ const g=+$("#plg").value||0, c=+$("#cpct").value||0; meta().plannedGuests=g; meta().contingencyPct=c; commit("Pianificazione aggiornata"); }
   else if(act==="importGuests") importWizard();
   else if(act==="exportGuestsCsv") exportGuestsCsv();
@@ -2655,6 +2725,7 @@ document.addEventListener("click",e=>{ try{
   else if(act==="editTask") editTask(id);
   else if(act==="delTask") delTask(id);
   else if(act==="genChecklist") genChecklist();
+  else if(act==="genRunShow") genRunShow();
   else if(act==="addRs") editRs(null);
   else if(act==="editRs") editRs(id);
   else if(act==="delRs") delRs(id);
@@ -2741,8 +2812,10 @@ document.addEventListener("keydown", function(e){
     }
   }catch(e){ Diag.log("cloud","bootstrap fallito", e&&e.message); }
   updateSyncChip(); // il bootstrap gira dopo render(): aggiorna subito l'indicatore
-  if(!STATE.onboarded) openGuide(0);
-  else promptLoginStart(); // già onboardato ma non loggato -> chiedi accesso (con bypass locale)
+  // Login come PRIMA cosa quando il cloud è pronto e non sei loggato; poi la guida.
+  if(typeof Cloud!=="undefined" && Cloud.configured() && !Cloud.currentUser()){
+    promptLoginStart(function(){ if(!STATE.onboarded) openGuide(0); });
+  } else if(!STATE.onboarded){ openGuide(0); }
   // PWA: registra il service worker (solo su http(s); su file:// fallisce silenziosamente)
   try{ if(typeof navigator!=="undefined" && navigator.serviceWorker && location.protocol.indexOf("http")===0){ navigator.serviceWorker.register("sw.js").catch(function(e){ Diag.log("pwa","SW register fallita", e&&e.message); }); } }catch(e){}
 })();
