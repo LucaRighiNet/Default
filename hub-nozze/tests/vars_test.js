@@ -12,15 +12,28 @@ let evState = { guests: [], tables: [], seating: { rules: [] } };
 const S = sandbox(SEAT_START, SEAT_END, EXPORTS, { ev: () => evState });
 const r = runner("vars_test");
 
-function setVars(vars){ evState = { guests: [], tables: [], seating: { rules: [], vars: vars } }; }
+function setVars(vars){ evState = { guests: [], tables: [], seating: { rules: [], vars: vars, varsVer: 2 } }; }
 
-r.ok("SEAT_VARS_DEF: 8 variabili, 4 attive di default", () => {
-  assert.strictEqual(S.SEAT_VARS_DEF.length, 8);
-  assert.strictEqual(S.SEAT_VARS_DEF.filter(v=>v.on).length, 4);
+r.ok("SEAT_VARS_DEF: 9 variabili, 5 attive di default (con Stato single/coppia)", () => {
+  assert.strictEqual(S.SEAT_VARS_DEF.length, 9);
+  assert.strictEqual(S.SEAT_VARS_DEF.filter(v=>v.on).length, 5);
+  assert(S.SEAT_VARS_DEF.some(v=>v.id==="stato"));
 });
 r.ok("seatVars: inizializza da default se assenti", () => {
   evState = { guests: [], tables: [], seating: { rules: [] } };
-  assert.strictEqual(S.seatVars().length, 8);
+  assert.strictEqual(S.seatVars().length, 9);
+});
+r.ok("seatVars: migrazione v2 aggiunge solo 'stato' alle liste vecchie", () => {
+  evState = { guests: [], tables: [], seating: { rules: [], vars: [{id:"nucleo",name:"N",on:true,weight:10,mode:"cluster",values:[""]}] } };
+  const vs=S.seatVars();
+  assert.strictEqual(vs.length, 2);
+  assert(vs.some(v=>v.id==="stato"));
+  // seconda chiamata: non duplica
+  assert.strictEqual(S.seatVars().length, 2);
+});
+r.ok("seatVars: default eliminata dall'utente NON riappare (varsVer gia 2)", () => {
+  evState = { guests: [], tables: [], seating: { rules: [], vars: [{id:"nucleo",name:"N",on:true,weight:10,mode:"cluster",values:[""]}], varsVer: 2 } };
+  assert.strictEqual(S.seatVars().length, 1);
 });
 r.ok("seatActiveVars: solo on", () => {
   setVars([{id:"a",name:"A",on:true,weight:5,mode:"cluster",values:["","x"]},

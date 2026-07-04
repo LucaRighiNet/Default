@@ -924,3 +924,25 @@ Richieste utente in blocco.
 Verifica: suite 177 verde; Playwright: rata add/paid/del, barra+prossima+riga
 fornitore, scaletta standard (6 momenti, dedup), editRs type=time + select,
 zero overflow, zero errori JS. sw.js v8->v9; dist rigenerato.
+
+## Giro 33 (Claude Code) — report catering completo, variabile Stato, fix dato stantio
+
+- Report catering (Ospiti): card riepilogo con Coperti totali, Bambini/menù
+  bambino, Posti navetta, Con intolleranze; nota "+1 = menù adulto"; sezione
+  Accessibilità. Etichetta "solo confermati" (era gia la semantica, ora e detta).
+- BUG di coerenza trovato: la dashboard calcolava "Assegnati a tavolo" da
+  x.table e la capienza da t.capacity, campi del vecchio modello iframe: sempre
+  0 dal passaggio alla planimetria nativa. Ora conta i posti occupati in
+  tables[].seatIds (con guardia sugli id orfani) e capienza da t.seats.
+- Nuova variabile ottimizzatore "Stato (single/coppia)" (Single/In coppia/
+  Famiglia), on di default, peso 5: entra automaticamente in attributi ospite,
+  wizard Compila, similarita -> assegnazione tavoli e vicinati. Migrazione a
+  versioni (SEAT_VARS_VER=2): la nuova default si aggiunge alle liste salvate
+  UNA volta sola, senza resuscitare variabili eliminate dall'utente.
+  Precompila: Stato dedotto da nucleo (bambini o 3+ = Famiglia, 2 = In coppia)
+  e, senza nucleo, da +1 (In coppia) o da solo (Single). Correggibile a mano.
+- vars_test 11->13 (migrazione v2, no-resurrezione).
+
+Verifica: suite verde; Playwright: report con i 4 numeri, dashboard con
+assegnati reali, Stato nel wizard e in editGuest, precompila 113/113, zero
+errori JS. sw.js v10->v11; dist rigenerato.
