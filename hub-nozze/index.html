@@ -179,6 +179,7 @@ input[type=checkbox]{accent-color:var(--sea); width:18px; height:18px}
     </div>
     <div class="count"><b id="cd">—</b><span>giorni</span></div>
     <button id="syncChip" data-act="openAccount" aria-label="Stato sincronizzazione" style="display:none;align-self:center;font-size:11px;padding:4px 9px;border-radius:11px;border:1px solid rgba(255,255,255,0.35);background:transparent;color:#fff;cursor:pointer"></button>
+    <button class="gear" id="alertBell" data-act="openAlerts" aria-label="Avvisi" style="position:relative">&#128276;<span id="alertBadge" style="display:none;position:absolute;top:1px;right:1px;background:var(--no);color:#fff;border-radius:9px;font-size:10px;line-height:1;padding:3px 5px"></span></button>
     <button class="gear" id="gearBtn" aria-label="Gestione evento">⚙</button>
   </header>
   <nav class="tabs" id="tabs" role="tablist" aria-label="Sezioni"></nav>
@@ -692,6 +693,87 @@ function recompute(){
   DERIVED={est,quo,act,cont,ceiling,committed,variance:committed-ceiling,cf,paidSum,dueSum,head,counts,meals,intoll,shuttle,kidsN,accessList,plannedGuests:g,tablesN:tablesArr.length,assignedHead,seatCap,vendorsN:vendorsArr.length,vConf,tasksTotal,tasksDone,overdue};
 }
 
+/* ============ CENTRO AVVISI (motore centrale) ============ */
+// Un'unica fonte di verità per gli avvisi: regole -> lista tipizzata
+// {id stabile, sev: alta|media|info, area, testo, tab}. La campanella, il
+// pannello e la card in Dashboard leggono tutti da qui.
+function alertsPrefs(){ const e=ev(); if(!e.alertsCfg) e.alertsCfg={payDays:14, taskDays:14, muted:[]}; if(!e.alertsCfg.muted) e.alertsCfg.muted=[]; return e.alertsCfg; }
+function alertsCompute(){
+  const e=ev(), d=DERIVED, m=meta(), cfg=alertsPrefs();
+  const today=new Date().toISOString().slice(0,10);
+  const soon=(dt,days)=>{ if(!dt) return false; const n=daysTo(dt); return n>=0&&n<=days; };
+  const A=[]; const add=(id,sev,area,text,tab)=>A.push({id,sev,area,text,tab});
+  // Budget: scostamenti
+  if(d.variance>0) add("bud_over","alta","Budget","Impegnato oltre il budget massimo di "+money(d.variance)+".","budget");
+  (e.budget||[]).forEach(b=>{ if((+b.quote)>0&&(+b.actual)>(+b.quote)) add("bud_var_"+b.id,"media","Budget","\""+b.item+"\": effettivo "+money(b.actual)+" sopra il preventivo "+money(b.quote)+".","budget"); });
+  if((e.budget||[]).some(b=>b.costType==="perGuest"&&!b.perHead)) add("bud_perhead","info","Budget","Alcune voci a persona sono senza tariffa.","budget");
+  // Pagamenti: scaduti e imminenti
+  const late=(e.payments||[]).filter(p=>!p.paid&&p.dueDate&&p.dueDate<today);
+  if(late.length) add("pay_late","alta","Pagamenti",late.length+" rate scadute ("+money(late.reduce((s,p)=>s+(+p.amount||0),0))+") da saldare.","budget");
+  const due=(e.payments||[]).filter(p=>!p.paid&&soon(p.dueDate,cfg.payDays));
+  if(due.length) add("pay_due","media","Pagamenti",due.length+" rate in scadenza entro "+cfg.payDays+" giorni ("+money(due.reduce((s,p)=>s+(+p.amount||0),0))+").","budget");
+  // Attività: scadute, imminenti, in sospeso da troppo
+  if(d.overdue>0) add("task_late","alta","Attività",d.overdue+" attività scadute da recuperare.","timeline");
+  const tsoon=(e.tasks||[]).filter(t=>!taskDone(t)&&soon(t.due,cfg.taskDays));
+  if(tsoon.length) add("task_due","media","Attività",tsoon.length+" attività in scadenza entro "+cfg.taskDays+" giorni.","timeline");
+  const stale=(e.tasks||[]).filter(t=>!taskDone(t)&&!t.due&&t.createdAt&&daysTo(t.createdAt)<=-30);
+  if(stale.length) add("task_stale","info","Attività",stale.length+" attività senza scadenza ferme da oltre 30 giorni.","timeline");
+  // Ospiti
+  if(d.head&&m.minGuaranteed&&d.head<m.minGuaranteed) add("g_min","media","Ospiti","Coperti confermati ("+d.head+") sotto il minimo garantito ("+m.minGuaranteed+").","guests");
+  if(d.counts.attesa>0&&m.date&&daysTo(m.date)<=60) add("g_attesa","media","Ospiti",d.counts.attesa+" inviti ancora in attesa a "+daysTo(m.date)+" giorni dalle nozze.","guests");
+  // Tavoli
+  if(d.seatCap>0&&d.head>d.seatCap) add("s_cap","alta","Tavoli","Coperti confermati ("+d.head+") oltre la capienza dei tavoli ("+d.seatCap+").","seating");
+  if((e.tables||[]).length){
+    const seated=new Set(); (e.tables||[]).forEach(t=>(t.seatIds||[]).forEach(g=>{ if(g) seated.add(g); }));
+    const unseated=(e.guests||[]).filter(g=>g.rsvp==="conf"&&!seated.has(g.id)).length;
+    if(unseated>0) add("s_unseated","info","Tavoli",unseated+" ospiti confermati senza posto assegnato.","seating");
+  }
+  // Fornitori
+  const keyCats=["Location","Catering","Foto/Video","Musica/DJ"];
+  if(m.date&&daysTo(m.date)<=180){
+    keyCats.forEach(c=>{ if(!(e.vendors||[]).some(v=>v.category===c&&v.status==="confermato")) add("v_key_"+c,"media","Fornitori","Nessun fornitore confermato per \""+c+"\" a "+daysTo(m.date)+" giorni dalle nozze.","vendors"); });
+  }
+  (e.vendors||[]).forEach(v=>{
+    if(v.optionUntil&&v.status!=="confermato"&&v.status!=="scartato"){
+      const n=daysTo(v.optionUntil);
+      if(n<0) add("v_opt_"+v.id,"alta","Fornitori","Opzione \""+v.name+"\" scaduta il "+fdate(v.optionUntil)+".","vendors");
+      else if(n<=30) add("v_opt_"+v.id,"media","Fornitori","Opzione \""+v.name+"\" scade tra "+n+" giorni ("+fdate(v.optionUntil)+").","vendors");
+    }
+  });
+  const muted=cfg.muted||[];
+  const order={alta:0,media:1,info:2};
+  return A.filter(a=>!muted.includes(a.id)).sort((x,y)=>order[x.sev]-order[y.sev]);
+}
+function alertsMutedCount(){ return (alertsPrefs().muted||[]).length; }
+const ALERT_PILL={alta:"no",media:"warn",info:"todo"};
+const ALERT_LABEL={alta:"critico",media:"attenzione",info:"info"};
+let _alertsModal=null;
+function updateAlertBell(){
+  const el=document.getElementById("alertBell"); if(!el) return;
+  let A=[]; try{ A=alertsCompute(); }catch(e){ el.style.display="none"; return; }
+  const badge=document.getElementById("alertBadge");
+  el.style.display="";
+  if(badge){ if(A.length){ badge.textContent=A.length; badge.style.display=""; badge.style.background=A.some(a=>a.sev==="alta")?"var(--no)":"var(--gold)"; } else badge.style.display="none"; }
+}
+function openAlerts(){
+  const A=alertsCompute(), cfg=alertsPrefs();
+  const rows=A.length?A.map(a=>`<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--line)">
+      <span class="pill ${ALERT_PILL[a.sev]}" style="flex:0 0 auto">${ALERT_LABEL[a.sev]}</span>
+      <button class="lnkbtn" data-act="goAlert" data-target="${a.tab}" style="flex:1;text-align:left;background:none;border:none;padding:0;font-size:13px;color:var(--ink);cursor:pointer;min-height:auto">${esc(a.text)}<span class="muted" style="font-size:11px"> · ${esc(a.area)} →</span></button>
+      <button class="btn sm ghost" data-act="muteAlert" data-id="${esc(a.id)}" aria-label="Silenzia" title="Silenzia questo avviso">Ignora</button>
+    </div>`).join("")
+    :'<p class="muted" style="font-size:13px">Nessun avviso: tutto in ordine.</p>';
+  const mutedN=alertsMutedCount();
+  const body=rows
+    +(mutedN?`<p class="muted" style="font-size:12px;margin-top:8px">${mutedN} avvisi silenziati. <button class="btn sm ghost" data-act="unmuteAlerts">Riattiva tutti</button></p>`:"")
+    +`<details style="margin-top:10px"><summary class="muted" style="cursor:pointer;font-size:12px">Soglie di preavviso</summary>
+       <div class="two" style="margin-top:6px">
+         <div class="field"><label>Rate: giorni di preavviso</label><input class="inp" type="number" id="al_pay" min="1" max="90" value="${cfg.payDays}"></div>
+         <div class="field"><label>Attività: giorni di preavviso</label><input class="inp" type="number" id="al_task" min="1" max="90" value="${cfg.taskDays}"></div>
+       </div><div class="btnbar"><button class="btn sm" data-act="alertsCfgSave">Salva soglie</button></div></details>`;
+  _alertsModal=modal("Avvisi ("+A.length+")", body, [{label:"Chiudi"}]);
+}
+
 /* ============ HELPERS ============ */
 const $=s=>document.querySelector(s);
 function money(n){ return new Intl.NumberFormat(meta().locale,{style:"currency",currency:meta().currency,maximumFractionDigits:0}).format(n||0); }
@@ -785,6 +867,7 @@ function render(){
   if(active==="seating") wireSeating();
   if(active==="guests") wireGuests();
   updateSyncChip();
+  try{ updateAlertBell(); }catch(e){}
 }
 // Filtri (chip RSVP) + ricerca ospiti (G7), lato client per non perdere il focus.
 let GUESTVIEW={filter:'all', q:''};
@@ -865,16 +948,12 @@ function updateSyncChip(){
 function viewDash(){
   const d=DERIVED, m=meta(), e=ev();
   const next=e.payments.filter(p=>!p.paid).sort((a,b)=>(a.dueDate||"").localeCompare(b.dueDate||"")).slice(0,3);
-  const alerts=[];
-  if(d.head && d.head<m.minGuaranteed) alerts.push("Numerica confermata ("+d.head+") sotto il minimo garantito ("+m.minGuaranteed+").");
-  if(d.variance>0) alerts.push("Impegnato oltre il tetto di "+money(d.variance)+".");
-  if(e.budget.some(b=>b.costType==="perGuest"&&!b.perHead)) alerts.push("Alcune voci a persona non hanno tariffa (es. Bomboniere).");
-  if(d.overdue>0) alerts.push(d.overdue+" attività scadute da recuperare.");
+  const alerts=alertsCompute(); // stessa fonte della campanella
   const pct=d.ceiling?Math.min(100,Math.round(d.committed/d.ceiling*100)):0;
   return `
   <div class="grid cards">
-    <div class="card kpi"><div class="v">${money(d.ceiling)}</div><div class="l">Tetto (stima + ${m.contingencyPct}% contingenza)</div></div>
-    <div class="card kpi"><div class="v">${money(d.committed)}</div><div class="l">Impegnato</div>
+    <div class="card kpi"><div class="v">${money(d.ceiling)}</div><div class="l">Budget massimo (stima + ${m.contingencyPct}% imprevisti)</div></div>
+    <div class="card kpi"><div class="v">${money(d.committed)}</div><div class="l">Impegnato (spese o preventivi accettati)</div>
       <div class="barwrap"><div class="bar ${d.variance>0?'over':''}" style="width:${pct}%"></div></div></div>
     <div class="card kpi"><div class="v">${money(d.dueSum)}</div><div class="l">Da pagare (${e.payments.filter(p=>!p.paid).length} rate)</div></div>
     <div class="card kpi"><div class="v">${d.counts.conf} <span class="muted" style="font-size:16px">/ ${e.guests.length}</span></div><div class="l">RSVP confermati · ${d.head} a tavola</div></div>
@@ -892,12 +971,11 @@ function viewDash(){
     <div class="card kpi"><div class="v">${d.counts.conf}</div><div class="l">Confermati</div></div>
     <div class="card kpi"><div class="v">${d.counts.attesa}</div><div class="l">In attesa</div></div>
     <div class="card kpi"><div class="v">${d.counts.no}</div><div class="l">Non vengono</div></div>
-    <div class="card kpi"><div class="v">${d.shuttle}</div><div class="l">Navetta</div></div>
-    <div class="card kpi"><div class="v">${d.assignedHead}/${d.head}</div><div class="l">Assegnati a tavolo</div></div>
+    <div class="card kpi"><div class="v">${d.assignedHead}/${d.seatCap||0}</div><div class="l">Posti assegnati / capienza tavoli</div></div>
   </div>
 
-  <div class="sec-title"><h2>Avvisi</h2></div>
-  <div class="card">${alerts.length?alerts.map(a=>`<div style="padding:6px 0;border-bottom:1px solid var(--line)"><span class="pill warn">!</span> ${esc(a)}</div>`).join(""):'<span class="muted">Tutto in ordine.</span>'}</div>
+  <div class="sec-title"><h2>Avvisi</h2><span>${alerts.length?`<button class="btn sm ghost" data-act="openAlerts">Apri centro avvisi</button>`:""}</span></div>
+  <div class="card">${alerts.length?alerts.map(a=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line)"><span class="pill ${ALERT_PILL[a.sev]}">${ALERT_LABEL[a.sev]}</span><button data-act="goAlert" data-target="${a.tab}" style="flex:1;text-align:left;background:none;border:none;padding:0;font-size:13px;color:var(--ink);cursor:pointer;min-height:auto">${esc(a.text)}</button></div>`).join(""):'<span class="muted">Tutto in ordine.</span>'}</div>
   `;
 }
 
@@ -1028,16 +1106,23 @@ function viewGuests(){
   <div id="guestEmpty" class="muted" style="display:none;padding:10px;font-size:13px">Nessun ospite corrisponde al filtro.</div>
 
   <div class="sec-title"><h2>Report catering</h2><span class="pill ok">solo confermati</span></div>
-  <div class="grid cards" style="grid-template-columns:1fr 1fr">
+  <div class="grid cards" style="grid-template-columns:1fr 1fr 1fr">
     <div class="card kpi"><div class="v">${d.head}</div><div class="l">Coperti totali (confermati + accompagnatori)</div></div>
     <div class="card kpi"><div class="v">${d.kidsN}</div><div class="l">Bambini / menù bambino</div></div>
-    <div class="card kpi"><div class="v">${d.shuttle}</div><div class="l">Posti navetta</div></div>
     <div class="card kpi"><div class="v">${d.intoll.length}</div><div class="l">Con intolleranze</div></div>
   </div>
   <div class="grid" style="grid-template-columns:1fr 1fr;gap:14px">
     <div class="card"><h3>Pasti</h3><table class="tbl"><tbody>${mealRows}</tbody></table><p class="muted" style="font-size:12px;margin-top:6px">Gli accompagnatori (+1) contano come menù adulto.</p></div>
     <div class="card"><h3>Intolleranze</h3>${d.intoll.length?d.intoll.map(x=>`<div style="padding:4px 0">${esc(x)}</div>`).join(""):'<span class="muted">Nessuna.</span>'}${d.accessList.length?`<div style="margin-top:8px"><h3 style="font-size:14px">Accessibilità</h3>${d.accessList.map(x=>`<div style="padding:4px 0">${esc(x)}</div>`).join("")}</div>`:""}</div>
   </div>
+
+  <div class="sec-title"><h2>Navetta</h2><span class="pill">${d.shuttle} posti</span></div>
+  <div class="card">${(function(){
+    const sh=e.guests.filter(x=>x.rsvp==="conf"&&x.shuttle);
+    if(!sh.length) return '<span class="muted">Nessun confermato ha chiesto la navetta.</span>';
+    return sh.map(x=>`<div style="padding:4px 0;border-bottom:1px solid var(--line)">${esc(x.name)}${(+x.plusOne)?` <span class="tag">+${x.plusOne}</span>`:""}</div>`).join("")
+      +'<p class="muted" style="font-size:12px;margin-top:6px">I posti contano anche gli accompagnatori.</p>';
+  })()}</div>
   `;
 }
 
@@ -1793,12 +1878,13 @@ function editVendor(id){
        <div class="field"><label>Rating</label><input class="inp" id="v_rt" value="${esc(x.rating)}"></div>
        <div class="field"><label>Voce di budget collegata</label><select class="inp" id="v_bl">${blOpts}</select></div>
      </div>
+     <div class="field"><label>Opzione valida fino al <span class="muted" style="font-size:11px">(se hai bloccato una data)</span></label><input class="inp" type="date" id="v_opt" value="${esc(x.optionUntil||"")}"></div>
      <div class="field"><label>Recensioni (sintesi)</label><input class="inp" id="v_rev" value="${esc(x.reviews)}"></div>
      <div class="field"><label>Eventi passati</label><input class="inp" id="v_pe" value="${esc(x.pastEvents)}"></div>
      <div class="field"><label>Note / log</label><input class="inp" id="v_nt" value="${esc(x.notes)}"></div>`,
     [{label:"Annulla"},{label:"Salva",cls:"",fn:()=>{
       const name=$("#v_name").value.trim(); if(!name) return;
-      const data={name,category:$("#v_cat").value,status:$("#v_st").value,contact:$("#v_ref").value.trim(),phone:$("#v_ph").value.trim(),email:$("#v_em").value.trim(),website:$("#v_web").value.trim(),quote:+$("#v_q").value||0,rating:$("#v_rt").value.trim(),budgetLineId:$("#v_bl").value,reviews:$("#v_rev").value.trim(),pastEvents:$("#v_pe").value.trim(),notes:$("#v_nt").value.trim()};
+      const data={name,category:$("#v_cat").value,status:$("#v_st").value,contact:$("#v_ref").value.trim(),phone:$("#v_ph").value.trim(),email:$("#v_em").value.trim(),website:$("#v_web").value.trim(),quote:+$("#v_q").value||0,rating:$("#v_rt").value.trim(),budgetLineId:$("#v_bl").value,optionUntil:$("#v_opt").value||"",reviews:$("#v_rev").value.trim(),pastEvents:$("#v_pe").value.trim(),notes:$("#v_nt").value.trim()};
       let vv;
       if(isNew){ vv=Object.assign({id:"v"+Date.now(),source:"",updated:""},data); e.vendors.push(vv); }
       else { Object.assign(v,data); vv=v; }
@@ -2268,7 +2354,7 @@ function editTask(id){
     [{label:"Annulla"},{label:"Salva",cls:"",fn:()=>{
       const title=$("#t_title").value.trim(); if(!title) return;
       const data={title,category:$("#t_cat").value.trim(),due:$("#t_due").value,assignee:$("#t_as").value};
-      if(isNew){ e.tasks.push(Object.assign({id:"k"+Date.now(),done:false},data)); } else Object.assign(t,data);
+      if(isNew){ e.tasks.push(Object.assign({id:"k"+Date.now(),done:false,createdAt:new Date().toISOString().slice(0,10)},data)); } else Object.assign(t,data);
       commit(isNew?"Task aggiunto":"Task aggiornato");
     }}]);
 }
@@ -2831,7 +2917,7 @@ const Session=(function(){ let role="owner"; return {
   canEdit(){ return role==="owner"||role==="editor"; }
 }; })();
 // Azioni non-mutanti sempre permesse (navigazione/aiuto/account/diagnostica).
-const READONLY_ACTS={ openGuide:1, openAccount:1, openDiag:1, hideTip:1, exportGuestsCsv:1, printTables:1, seatZoomIn:1, seatZoomOut:1, seatZoomReset:1 };
+const READONLY_ACTS={ openGuide:1, openAccount:1, openDiag:1, hideTip:1, exportGuestsCsv:1, printTables:1, seatZoomIn:1, seatZoomOut:1, seatZoomReset:1, openAlerts:1, goAlert:1 };
 function actIsMutating(act){ return !READONLY_ACTS[act]; }
 function permBlocks(act){ return !Session.canEdit() && actIsMutating(act); }
 /* ==== fine blocco permessi ==== */
@@ -2893,7 +2979,7 @@ function openInvite(){
 function revokeInvite(id){ const e=ev(); e.invites=(e.invites||[]).filter(function(x){return x.id!==id;}); commit("Invito revocato"); }
 function renderPublicRSVP(token){
   try{ const tb=document.getElementById("tabs"); if(tb) tb.style.display="none"; }catch(e){}
-  try{ const gb=document.getElementById("gearBtn"); if(gb) gb.style.display="none"; const sc=document.getElementById("syncChip"); if(sc) sc.style.display="none"; }catch(e){}
+  try{ const gb=document.getElementById("gearBtn"); if(gb) gb.style.display="none"; const sc=document.getElementById("syncChip"); if(sc) sc.style.display="none"; const ab=document.getElementById("alertBell"); if(ab) ab.style.display="none"; }catch(e){}
   try{ const br=document.querySelector(".brand"); if(br){ br.removeAttribute("data-act"); br.style.cursor="default"; } const pn=document.getElementById("editPencil"); if(pn) pn.style.display="none"; }catch(e){}
   try{ const et=document.getElementById("evTitle"); if(et) et.textContent="Le nostre nozze"; const es=document.getElementById("evSub"); if(es) es.textContent="Conferma la tua presenza"; const cd=document.getElementById("cd"); if(cd&&cd.parentNode) cd.parentNode.style.display="none"; }catch(e){}
   const meals=(typeof MEALS!=="undefined")?MEALS:["adulto","bambino","vegetariano","celiaco","vegano"];
@@ -2982,6 +3068,11 @@ document.addEventListener("click",e=>{ try{
   else if(act==="delRule") delSeatRule(id);
   else if(act==="assignSeat") assignSeat(a.getAttribute("data-table"), a.getAttribute("data-idx"));
   else if(act==="editHeader") editEventHeader();
+  else if(act==="openAlerts") openAlerts();
+  else if(act==="goAlert"){ if(_alertsModal){ _alertsModal.close(); _alertsModal=null; } active=a.getAttribute("data-target")||"dash"; render(); }
+  else if(act==="muteAlert"){ alertsPrefs().muted.push(id); commit("Avviso silenziato"); openAlerts(); }
+  else if(act==="unmuteAlerts"){ alertsPrefs().muted=[]; commit("Avvisi riattivati"); openAlerts(); }
+  else if(act==="alertsCfgSave"){ const c=alertsPrefs(); c.payDays=Math.max(1,Math.min(90,+$("#al_pay").value||14)); c.taskDays=Math.max(1,Math.min(90,+$("#al_task").value||14)); commit("Soglie avvisi salvate"); openAlerts(); }
   else if(act==="openGuide") openGuide(0);
   else if(act==="openAccount") openAccount();
   else if(act==="revokeInvite") revokeInvite(id);
