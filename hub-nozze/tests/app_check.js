@@ -3,7 +3,7 @@
 (function(){
 // Versione visibile della build (ingranaggio -> prima riga). Serve a capire al
 // volo quale versione sta girando su un dispositivo (cache vs deploy).
-const APP_BUILD="2026-07-04.2";
+const APP_BUILD="2026-07-04.3";
 
 /* ============ DIAGNOSTICA / ERROR TRACKING (P0) ============ */
 // Senza backend gli errori di produzione sarebbero invisibili. Diag li cattura in
@@ -969,8 +969,8 @@ function viewGuests(){
   <div id="guestEmpty" class="muted" style="display:none;padding:10px;font-size:13px">Nessun ospite corrisponde al filtro.</div>
 
   <div class="sec-title"><h2>Report catering</h2><span class="pill ok">solo confermati</span></div>
-  <div class="grid cards" style="grid-template-columns:1fr 1fr 1fr">
-    <div class="card kpi"><div class="v">${d.head}</div><div class="l">Coperti totali (confermati + accompagnatori)</div></div>
+  <div class="grid cards" style="grid-template-columns:repeat(3,minmax(0,1fr))">
+    <div class="card kpi"><div class="v">${d.head}</div><div class="l">Coperti totali</div></div>
     <div class="card kpi"><div class="v">${d.kidsN}</div><div class="l">Bambini / menù bambino</div></div>
     <div class="card kpi"><div class="v">${d.intoll.length}</div><div class="l">Con intolleranze</div></div>
   </div>
@@ -1686,8 +1686,8 @@ function vendorCard(v){
       ${v.updated?`<div class="muted" style="font-size:12px">Aggiornato ${esc(v.updated)} · fonte: ${esc(v.source||"—")}</div>`:""}
     </div>
     <div class="btnbar">
-      <button class="btn sm" data-act="webVendor" data-id="${v.id}">Aggiorna dal web</button>
-      <button class="btn sm ghost" data-act="editVendor" data-id="${v.id}">Modifica</button>
+      <button class="btn sm" data-act="editVendor" data-id="${v.id}">Modifica</button>
+      <button class="btn sm ghost" data-act="webVendor" data-id="${v.id}">Aggiorna dal web</button>
       <button class="btn sm danger" data-act="delVendor" data-id="${v.id}">Elimina</button>
     </div>
   </div>`;
@@ -1713,7 +1713,7 @@ function viewVendors(){
     <div class="card kpi"><div class="v">${new Set(e.vendors.map(v=>v.category)).size}</div><div class="l">Categorie coperte</div></div>
     <div class="card kpi"><div class="v">${VCATS.length}</div><div class="l">Categorie totali</div></div>
   </div>
-  <div class="card" style="margin-top:14px"><span class="pill todo">web</span> "Aggiorna dal web" funziona dentro Claude.ai: cerca e sintetizza contatti e recensioni pubbliche. Sul file autonomo la chiamata non parte e resta l'inserimento manuale. Gli eventi passati sono marcati non verificati.</div>
+  <p class="muted" style="margin-top:12px;font-size:12px">I dati dei fornitori si inseriscono con Modifica. "Aggiorna dal web" è attivo solo nella versione integrata in Claude.ai; su questo sito mostra un avviso e non modifica nulla.</p>
   <div class="btnbar" style="margin-top:12px"><button class="btn" data-act="addVendor">+ Fornitore</button></div>
   ${html||'<div class="placeholder"><div class="ic">&#9742;</div><p>Nessun fornitore.</p></div>'}
   `;
@@ -1758,7 +1758,7 @@ function editVendor(id){
 function delVendor(id){ const v=ev().vendors.find(x=>x.id===id); if(!v) return; modal("Eliminare il fornitore?",`<p>Rimuovo <b>${esc(v.name)}</b>.</p>`,[{label:"Annulla"},{label:"Elimina",cls:"danger",fn:()=>{ ev().vendors=ev().vendors.filter(x=>x.id!==id); commit("Fornitore eliminato"); }}]); }
 async function webVendor(id){
   const v=ev().vendors.find(x=>x.id===id); if(!v) return;
-  const loading=modal("Aggiornamento dal web",`<p>Ricerca in corso per <b>${esc(v.name)}</b>…</p><p class="muted">Solo dentro Claude.ai.</p>`,[{label:"Annulla"}]);
+  const loading=modal("Aggiornamento dal web",`<p>Ricerca in corso per <b>${esc(v.name)}</b>…</p><p class="muted">Disponibile solo nella versione integrata in Claude.ai.</p>`,[{label:"Annulla"}]);
   const q=`Cerca sul web informazioni pubbliche aggiornate sul fornitore per matrimoni "${v.name}"${v.category?(" ("+v.category+")"):""} in Italia, zona Emilia-Romagna/Rimini se pertinente. Rispondi SOLO con un oggetto JSON valido, senza testo né markdown, con chiavi: phone, email, website, rating, reviews_summary, past_events, source. Stringhe vuote se non trovi. Indica reviews_summary e past_events come non verificati se incerti.`;
   try{
     const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1000,messages:[{role:"user",content:q}],tools:[{type:"web_search_20250305",name:"web_search"}]})});
@@ -1881,7 +1881,7 @@ function viewAperitivo(){
   ];
   const ctrls=ctrlDefs.map(d=>'<div class="field"><label>'+d[1]+' <b id="simv_'+d[0]+'">'+simCtrlFmt(d[0],d[5])+'</b></label><input type="range" id="simr_'+d[0]+'" min="'+d[2]+'" max="'+d[3]+'" step="'+d[4]+'" value="'+d[5]+'"></div>').join("");
   return `
-  <div class="card"><span class="pill todo">come funziona</span> Dimensiona l'aperitivo partendo da ${meta().plannedGuests} invitati (dal modulo Ospiti). Muovi i controlli, aggiungi o togli stazioni, leggi attese e consigli. I valori variano un po' a ogni ricalcolo perché gli arrivi sono casuali. Tieni le stazioni a coda lunga lontane dall'ingresso unico del Castello.</div>
+  <div class="card"><span class="pill todo">come funziona</span> Dimensiona l'aperitivo partendo da ${meta().plannedGuests} invitati (dal modulo Ospiti). Muovi i controlli, aggiungi o togli stazioni, leggi attese e consigli. I valori variano un po' a ogni ricalcolo perché gli arrivi sono casuali. Tieni le stazioni a coda lunga lontane dall'ingresso della location.</div>
   <div id="simVerdict" class="card"></div>
   <div class="sec-title"><h2>Scenario d'arrivo</h2></div>
   <div class="card">
@@ -2199,9 +2199,9 @@ function viewTimeline(){
     <div class="card kpi"><div class="v">${d.tasksDone}/${d.tasksTotal}</div><div class="l">Completate</div></div>
     <div class="card kpi"><div class="v">${d.overdue}</div><div class="l">Scadute</div></div>
   </div>
-  <div class="sec-title"><h2>Checklist</h2><span><button class="btn sm ghost" data-act="genChecklist">Genera standard</button> <button class="btn sm" data-act="addTask">+ Task</button></span></div>
+  <div class="sec-title"><h2>Checklist</h2><span><button class="btn sm ghost" data-act="genChecklist">Genera standard</button> <button class="btn sm" data-act="addTask">+ Attività</button></span></div>
   <div class="scroll-x"><table class="tbl"><thead><tr><th></th><th>Attività</th><th>Scadenza</th><th></th></tr></thead><tbody>${trows||'<tr><td colspan="4" class="muted">Nessuna attività. Usa Genera standard.</td></tr>'}</tbody></table></div>
-  <div class="sec-title"><h2>Run-of-show</h2><span><button class="btn sm ghost" data-act="genRunShow">Scaletta standard</button> <button class="btn sm" data-act="addRs">+ Momento</button></span></div>
+  <div class="sec-title"><h2>Scaletta</h2><span><button class="btn sm ghost" data-act="genRunShow">Scaletta standard</button> <button class="btn sm" data-act="addRs">+ Momento</button></span></div>
   <div class="card" style="margin-bottom:10px"><div class="field"><label>Filtra per responsabile</label><select class="inp" id="rs_filter"><option value="">Tutti</option>${responsibles.map(w=>`<option value="${esc(w)}"${rsFilter===w?" selected":""}>${esc(w)}</option>`).join("")}</select></div></div>
   <div class="scroll-x"><table class="tbl"><thead><tr><th>Ora</th><th>Momento</th><th>Responsabile</th><th></th></tr></thead><tbody>${rsrows||'<tr><td colspan="4" class="muted">Nessun momento.</td></tr>'}</tbody></table></div>
   `;
@@ -2209,7 +2209,7 @@ function viewTimeline(){
 function editTask(id){
   const e=ev(), t=e.tasks.find(x=>x.id===id), isNew=!t;
   const x=t||{title:"",category:"",due:"",assignee:"Sposi",done:false};
-  modal(isNew?"Nuovo task":"Modifica task",
+  modal(isNew?"Nuova attività":"Modifica attività",
     `<div class="field"><label>Attività</label><input class="inp" id="t_title" value="${esc(x.title)}"></div>
      <div class="two"><div class="field"><label>Categoria</label><input class="inp" id="t_cat" value="${esc(x.category||"")}"></div>
      <div class="field"><label>Scadenza</label><input class="inp" type="date" id="t_due" value="${esc(x.due||"")}"></div></div>
@@ -2221,7 +2221,11 @@ function editTask(id){
       commit(isNew?"Task aggiunto":"Task aggiornato");
     }}]);
 }
-function delTask(id){ ev().tasks=ev().tasks.filter(x=>x.id!==id); commit("Task rimosso"); }
+function delTask(id){
+  const t=ev().tasks.find(x=>x.id===id); if(!t) return;
+  modal("Eliminare l'attività?",`<p>Rimuovo <b>${esc(t.title)}</b> dalla checklist.</p>`,
+    [{label:"Annulla"},{label:"Elimina",cls:"danger",fn:()=>{ ev().tasks=ev().tasks.filter(x=>x.id!==id); commit("Attività rimossa"); }}]);
+}
 function editRs(id){
   const e=ev(), r=e.runshow.find(x=>x.id===id), isNew=!r;
   const x=r||{time:"",title:"",who:""};
@@ -2247,7 +2251,11 @@ function genRunShow(){
   let n=0; std.forEach(s=>{ if(!have.has(s[1].toLowerCase())){ e.runshow.push({id:"r"+Date.now()+"_"+(n++),time:s[0],title:s[1],who:s[2]}); } });
   commit(n?("Aggiunti "+n+" momenti alla scaletta"):"Scaletta già completa");
 }
-function delRs(id){ ev().runshow=ev().runshow.filter(x=>x.id!==id); commit("Momento rimosso"); }
+function delRs(id){
+  const r=ev().runshow.find(x=>x.id===id); if(!r) return;
+  modal("Eliminare il momento?",`<p>Rimuovo <b>${esc(r.title)}</b>${r.time?" ("+esc(r.time)+")":""} dalla scaletta.</p>`,
+    [{label:"Annulla"},{label:"Elimina",cls:"danger",fn:()=>{ ev().runshow=ev().runshow.filter(x=>x.id!==id); commit("Momento rimosso"); }}]);
+}
 
 /* ============ NOTE & LISTE ============ */
 function viewLists(){
@@ -2272,7 +2280,7 @@ function delItem(id,i){ const l=ev().lists.find(x=>x.id===id); if(l){ l.items.sp
 
 /* ============ STRUMENTI ORIGINALI (embed via iframe, lazy) ============ */
 /* ============ PLACEHOLDER (stadi successivi) ============ */
-const STAGE={vendors:"S4 — CRM fornitori con aggiornamento dal web (solo in Claude.ai; fuori degrada a inserimento manuale).",
+const STAGE={vendors:"S4 — CRM fornitori: inserimento e confronto preventivi; l'aggiornamento dal web e' attivo solo nella versione integrata in Claude.ai.",
   seating:"S3 — inglobamento del Tableau esistente, con gli ospiti letti da questa sorgente unica.",
   floor:"S3/S5 — planimetria e flussi dall'ingresso unico.",
   aperitivo:"S5 — inglobamento del simulatore Monte Carlo, rivestito con questo shell.",
@@ -2767,7 +2775,7 @@ const TAB_TIP={
   vendors:"Censisci i fornitori. 'Confermato' spunta i task collegati in Timeline.",
   seating:"Crea i tavoli, poi \"Genera (guidato)\" dispone gli ospiti in 4 passi.",
   aperitivo:"Simula le code dell'aperitivo e confronta scenari di personale.",
-  timeline:"Checklist a ritroso e scaletta; i task da fornitore si spuntano da soli.",
+  timeline:"Checklist a ritroso e scaletta; le attività da fornitore si spuntano da sole.",
   lists:"Liste pronte per musica, processione, foto e packing."
 };
 let tipHidden={};
