@@ -981,3 +981,7 @@ Verifica: suite verde (190 casi); Playwright: badge campanella, centro avvisi
 con critico, goAlert naviga e chiude, Ignora/Riattiva, soglie salvate e
 persistenti dopo reload, dashboard e report coerenti, zero overflow, zero
 errori JS. sw.js v11->v12; dist rigenerato. Deploy verificato verde (run).
+
+Decisione utente (2026-07-04): Fase 3 avvisi (digest email via Supabase) NON si
+fa. Il sistema avvisi resta solo in-app (campanella + centro avvisi). Non
+riproporre senza richiesta esplicita.
