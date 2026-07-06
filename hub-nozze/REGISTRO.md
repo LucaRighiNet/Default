@@ -1198,3 +1198,22 @@ NB: la verifica end-to-end sui due dispositivi reali richiede Supabase, che nel
 sandbox e' bloccato dalla rete: la logica e' coperta dai test unit contro il
 mock che rispecchia esattamente il contratto Supabase. sw.js v18->v19;
 APP_BUILD 2026-07-04.6.
+
+## Giro 42 (Claude Code) — Task 4: export lista invitati completo
+
+Segnalazione utente: esportando i nomi, non tutti i dati finiscono nel file.
+
+Causa: exportGuestsCsv includeva anagrafica, RSVP/menu, logistica e le variabili
+personalizzate, ma OMETTEVA tre campi presenti nel modello ospite e/o visibili
+in app: il Tavolo assegnato (derivato dai Tavoli, mostrato come tag nella riga
+ospite), Regalo (gift) e Ringraziato (thanked).
+
+Fix: aggiunte le colonne "Tavolo", "Regalo", "Ringraziato" (dopo Accompagnatori,
+prima delle variabili). Tavolo = seatTableOf(g.id).name; Ringraziato = Sì/No.
+Quoting CSV e BOM UTF-8 invariati; le variabili personalizzate restano in coda.
+
+Verifica: suite verde; E2E Playwright con download reale del CSV: header con
+tutti e 13 i campi base + variabili, ospite seduto -> "Tavolo Rosa" nella
+colonna Tavolo, Regalo e Ringraziato valorizzati, intolleranze/accessibilita'
+corrette, numero colonne header == riga, zero errori JS. sw.js v19->v20;
+APP_BUILD 2026-07-04.7.
