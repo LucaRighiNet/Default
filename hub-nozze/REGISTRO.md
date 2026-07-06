@@ -1134,3 +1134,25 @@ rinominati, personalizzato intatto), matite aprono gli editor giusti, fit
 tabelle senza scroll, header con VS16, zero overflow su tutte le schede;
 regressioni giro38 + avvisi/flash + swipe budget + tabella budget tutte OK.
 Zero errori JS. sw.js v16->v17; APP_BUILD 2026-07-04.4; dist rigenerato.
+
+## Giro 40 (Claude Code) — Privacy: cifre economiche sfocate in Dashboard
+
+Richiesta utente: all'apertura le macro cifre di budget/spesa in Dashboard
+devono essere appannate; solo toccandole diventano visibili.
+
+Implementazione: helper blurMoney(key,html) avvolge la cifra in uno <span
+class="blurval"> con data-act="togglePrivacy". CSS filter:blur(8px) di default,
+.revealed toglie il blur (transizione .25s). Applicato a: Budget massimo,
+Impegnato, Da pagare e agli importi dei "Prossimi pagamenti". Lo stato dei
+valori rivelati vive in un Set runtime (PRIVACY_REVEALED), NON persistito: a
+ogni riavvio dell'app si riparte tutti sfocati. Il toggle agisce solo sulla
+classe dell'elemento (classList.toggle) senza rifare il render -> non perde lo
+scroll. togglePrivacy aggiunto a READONLY_ACTS (anche in sola lettura si puo'
+sbirciare). I conteggi non economici (RSVP, fornitori, attivita') restano in
+chiaro.
+
+Verifica: suite verde; Playwright 390px: tutte sfocate all'avvio, il tocco
+rivela SOLO la cifra toccata, secondo tocco ri-sfoca, lo stato regge il cambio
+scheda ma si azzera al reload, KPI non sensibili in chiaro, goAlert da
+dashboard ancora funzionante (delega click intatta), zero overflow, zero
+errori JS, screenshot controllato. sw.js v17->v18; APP_BUILD 2026-07-04.5.
