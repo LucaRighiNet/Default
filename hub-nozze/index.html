@@ -215,7 +215,7 @@ input[type=checkbox]{accent-color:var(--sea); width:18px; height:18px}
 (function(){
 // Versione visibile della build (ingranaggio -> prima riga). Serve a capire al
 // volo quale versione sta girando su un dispositivo (cache vs deploy).
-const APP_BUILD="2026-07-04.5";
+const APP_BUILD="2026-07-04.6";
 
 /* ============ DIAGNOSTICA / ERROR TRACKING (P0) ============ */
 // Senza backend gli errori di produzione sarebbero invisibili. Diag li cattura in
@@ -289,6 +289,9 @@ const Store={
     try{ if(typeof localStorage!=="undefined") localStorage.setItem(BAK_KEY, raw); }catch(e){}
   },
   save(state){
+    // Timbro affidabile per il Last-Write-Wins tra dispositivi: la modifica piu'
+    // recente (questo _savedAt) vince in caso di conflitto. Vedi Sync._push.
+    try{ if(state) state._savedAt=Date.now(); }catch(e){}
     memState=state;
     clearTimeout(saveTimer);
     const self=this;
@@ -312,17 +315,32 @@ const Store={
 // v1: sync dell'intero documento evento con versione + last-writer-wins (policy
 // pluggabile via onConflict). Multi-editor concorrente fitto -> per-entità/CRDT (P2).
 const Sync=(function(){
-  let remote=null, enabled=false, baseVersion=0, pushTimer=null, onConflict=null, onStatus=null;
-  let status="local", pendingStr=null;   // status: local|synced|syncing|offline|conflict
+  let remote=null, enabled=false, baseVersion=0, pushTimer=null, onConflict=null, onStatus=null, onRemoteWin=null;
+  let status="local", pendingStr=null;   // status: local|synced|syncing|offline (niente "conflict" persistente)
   function setStatus(s){ status=s; if(onStatus){ try{ onStatus(s); }catch(e){} } }
+  // Timestamp affidabile per la risoluzione dei conflitti: lo stato porta _savedAt
+  // (impostato da Store.save a ogni modifica). Chi ha salvato piu' di recente vince.
+  function savedAt(str){ try{ const o=JSON.parse(str); return (o&&+o._savedAt)||0; }catch(e){ return 0; } }
   function _push(str){
     if(!enabled||!remote) return Promise.resolve();
     pendingStr=str; setStatus("syncing");
     return Promise.resolve(remote.push(baseVersion, str)).then(function(res){
       if(res&&res.ok){ baseVersion=res.version; pendingStr=null; setStatus("synced"); }
       else if(res&&res.conflict){
-        // Politica v1: last-writer-wins (il locale vince), MA l'utente viene avvisato.
-        baseVersion=res.version; setStatus("conflict"); if(onConflict){ try{ onConflict(res); }catch(e){} }
+        // CONFLITTO = un altro dispositivo ha avanzato la versione. Politica:
+        // Last-Write-Wins DETERMINISTICO sul timestamp _savedAt (non "l'ultimo che
+        // pusha"). Se il remoto e' piu' recente -> lo adotto (niente sovrascrittura).
+        // Se il locale e' piu' recente (o il remoto non e' confrontabile) -> ripubblico.
+        baseVersion=res.version;
+        const localTs=savedAt(str), remoteTs=savedAt(res.data);
+        if(onConflict){ try{ onConflict(res); }catch(e){} }
+        if(remoteTs>localTs){
+          // il remoto vince: applico lo stato remoto e non ripubblico il mio
+          pendingStr=null; setStatus("synced");
+          if(onRemoteWin){ try{ const st=JSON.parse(res.data); onRemoteWin(st, res.version); }catch(e){ Diag.log("sync","remote win parse", e&&e.message); } }
+          return;
+        }
+        // il locale vince: ripubblico sopra la versione avanzata
         return Promise.resolve(remote.push(baseVersion, str)).then(function(r2){ if(r2&&r2.ok){ baseVersion=r2.version; pendingStr=null; setStatus("synced"); } });
       }
     }).catch(function(e){ Diag.log("sync","push fallita (offline?)", e&&e.message); setStatus("offline"); }); // resta in coda per il retry
@@ -332,7 +350,7 @@ const Sync=(function(){
     version(){ return baseVersion; },
     getStatus(){ return enabled?status:"local"; },
     hasPending(){ return pendingStr!=null; },
-    enable(r, opts){ remote=r; enabled=!!r; opts=opts||{}; onConflict=opts.onConflict||null; onStatus=opts.onStatus||null; baseVersion=opts.version||0; pendingStr=null; setStatus("synced"); return this; },
+    enable(r, opts){ remote=r; enabled=!!r; opts=opts||{}; onConflict=opts.onConflict||null; onStatus=opts.onStatus||null; onRemoteWin=opts.onRemoteWin||null; baseVersion=opts.version||0; pendingStr=null; setStatus("synced"); return this; },
     disable(){ enabled=false; remote=null; pendingStr=null; setStatus("local"); },
     pull(){
       if(!enabled||!remote) return Promise.resolve(null);
@@ -342,6 +360,21 @@ const Sync=(function(){
         if(res){ baseVersion=res.version; try{ return JSON.parse(res.data); }catch(e){ Diag.log("sync","pull JSON illeggibile"); return null; } }
         return null;
       }).catch(function(e){ Diag.log("sync","pull fallita", e&&e.message); setStatus("offline"); return null; });
+    },
+    // Sincronizzazione al ritorno in primo piano: se ho modifiche locali in coda le
+    // pubblico (il LWW decide), altrimenti scarico e, se il remoto e' piu' avanti,
+    // lo adotto. E' il fix multi-dispositivo: senza reload la app riallinea da sola.
+    syncNow(){
+      if(!enabled||!remote) return Promise.resolve();
+      if(pendingStr!=null) return this.retry();
+      setStatus("syncing");
+      return Promise.resolve(remote.pull()).then(function(res){
+        setStatus("synced");
+        if(res && Number(res.version)>baseVersion){
+          baseVersion=Number(res.version);
+          if(onRemoteWin){ try{ const st=JSON.parse(res.data); onRemoteWin(st, res.version); }catch(e){ Diag.log("sync","syncNow parse", e&&e.message); } }
+        }
+      }).catch(function(e){ Diag.log("sync","syncNow fallita", e&&e.message); setStatus("offline"); });
     },
     notify(state){ if(!enabled||!remote) return; clearTimeout(pushTimer); const str=JSON.stringify(state); pushTimer=setTimeout(function(){ _push(str); }, 400); },
     // Riprova un push rimasto in sospeso (es. dopo che la rete torna).
@@ -416,7 +449,21 @@ const Cloud=(function(){
     _enableSync(){
       Sync.enable(remote, {
         onStatus:function(){ if(typeof updateSyncChip==="function") updateSyncChip(); },
-        onConflict:function(){ if(typeof toast==="function") toast("Modifica concorrente: ho applicato la tua versione"); }
+        // Conflitto risolto: toast temporaneo, nessun elemento persistente nella UI.
+        onConflict:function(){ if(typeof toast==="function") toast("Sincronizzazione: allineo con l'altra modifica"); },
+        // Il remoto e' piu' recente (LWW) o e' arrivato in foreground: adotto lo
+        // stato del cloud come fa il resume, con le migrazioni, e ridisegno.
+        onRemoteWin:function(st){
+          try{
+            if(!st) return;
+            STATE=st;
+            if(typeof migrateBudgetV2==="function") migrateBudgetV2();
+            if(typeof migrateSeedLabels==="function") migrateSeedLabels();
+            if(typeof recompute==="function") recompute();
+            if(typeof render==="function") render();
+            if(typeof toast==="function") toast("Aggiornato dalle modifiche sull'altro dispositivo");
+          }catch(e){ if(typeof Diag!=="undefined") Diag.log("sync","applica stato remoto", e&&e.message); }
+        }
       });
     },
     async login(email, password){
@@ -446,7 +493,13 @@ const Cloud=(function(){
 // visibilitychange sono gli eventi affidabili; 'unload' non è garantito su Safari).
 if(typeof window!=="undefined"){
   window.addEventListener("pagehide", function(){ Store.flush(); if(typeof Sync!=="undefined") Sync.flush(memState); });
-  document.addEventListener("visibilitychange", function(){ if(document.visibilityState==="hidden"){ Store.flush(); if(typeof Sync!=="undefined") Sync.flush(memState); } });
+  document.addEventListener("visibilitychange", function(){
+    if(document.visibilityState==="hidden"){ Store.flush(); if(typeof Sync!=="undefined") Sync.flush(memState); }
+    // Ritorno in primo piano (riapertura app senza reload, tipico su iPhone):
+    // riscarico dal cloud le modifiche fatte sull'altro dispositivo.
+    else if(document.visibilityState==="visible"){ if(typeof Sync!=="undefined" && Sync.isEnabled()) Sync.syncNow(); }
+  });
+  window.addEventListener("focus", function(){ if(typeof Sync!=="undefined" && Sync.isEnabled()) Sync.syncNow(); });
   window.addEventListener("online", function(){ if(typeof Sync!=="undefined") Sync.retry(); }); // ripubblica ciò che era rimasto offline
 }
 
@@ -1031,7 +1084,7 @@ function updateSyncChip(){
   if(typeof Cloud==="undefined" || !Cloud.configured()){ el.style.display="none"; return; }
   el.style.display="";
   if(!Sync.isEnabled()){ el.textContent="Accedi per sincronizzare"; return; }
-  const map={synced:"☁ Sincronizzato", syncing:"☁ Sincronizzo…", offline:"☁ Offline", conflict:"☁ Conflitto risolto", local:"☁ —"};
+  const map={synced:"☁ Sincronizzato", syncing:"☁ Sincronizzo…", offline:"☁ Offline", local:"☁ —"};
   let txt=map[Sync.getStatus()]||("☁ "+Sync.getStatus());
   if(typeof Session!=="undefined" && Session.role()==="viewer") txt+=" · sola lettura";
   el.textContent=txt;
@@ -2987,7 +3040,7 @@ function openAccount(){
   }
   const u=Cloud.currentUser();
   if(u){
-    const stLabel={synced:"sincronizzato",syncing:"sincronizzazione in corso",offline:"offline (riprovo al ritorno della rete)",conflict:"conflitto risolto (ha vinto la tua versione)",local:"locale"};
+    const stLabel={synced:"sincronizzato",syncing:"sincronizzazione in corso",offline:"offline (riprovo al ritorno della rete)",local:"locale"};
     modal("Account", `<p>Connesso come <b>${esc(u.email||u.id)}</b>.</p><p class="muted" style="font-size:13px">Stato sync: ${esc(stLabel[Sync.getStatus()]||Sync.getStatus())}. Le modifiche si sincronizzano tra i tuoi dispositivi.</p>`,
       [{label:"Invita collaboratore",cls:"ghost",fn:()=>{ openInvite(); },close:false},
        {label:"Link RSVP ospiti",cls:"ghost",fn:()=>{ const t=eventRsvpToken(); commit("Link RSVP pronto"); showShareLink("Link RSVP per gli ospiti", rsvpURL(location.origin, location.pathname, t)); },close:false},

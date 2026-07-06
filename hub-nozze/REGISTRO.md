@@ -1156,3 +1156,45 @@ rivela SOLO la cifra toccata, secondo tocco ri-sfoca, lo stato regge il cambio
 scheda ma si azzera al reload, KPI non sensibili in chiaro, goAlert da
 dashboard ancora funzionante (delega click intatta), zero overflow, zero
 errori JS, screenshot controllato. sw.js v17->v18; APP_BUILD 2026-07-04.5.
+
+## Giro 41 (Claude Code) — Task 1+2: sincronizzazione bidirezionale affidabile
+
+Segnalazione utente: usando l'app da due dispositivi, le modifiche si allineano
+"sempre su una versione" e le modifiche del secondo dispositivo non si
+propagano, anche ad app chiusa. Chiesto anche: strategia conflitti chiara e
+niente banner permanente "Conflitto risolto".
+
+DIAGNOSI (due difetti):
+1. La app faceva pull SOLO al boot (Cloud.resume al caricamento). Su iPhone
+   "chiudere" la PWA spesso la mette in background: alla riapertura NON c'e'
+   reload, quindi il dispositivo non riscaricava le modifiche dell'altro e
+   continuava a ripubblicare la propria versione.
+2. In conflitto vinceva SEMPRE il locale ("l'ultimo che pusha"), non la
+   modifica piu' recente: perdita silenziosa dei dati dell'altro dispositivo.
+
+FIX:
+- Conflitti: Last-Write-Wins DETERMINISTICO sul timestamp _savedAt (Store.save
+  timbra lo stato a ogni modifica; il timbro viaggia nel blob). In conflitto si
+  confrontano i timestamp: se il remoto e' piu' recente lo si ADOTTA
+  (onRemoteWin: STATE=remoto + migrazioni + recompute + render), senza
+  sovrascriverlo; se il locale e' piu' recente si ripubblica. Regola prevedibile
+  e consistente, documentata nel codice.
+- Multi-dispositivo: Sync.syncNow() al ritorno in primo piano
+  (visibilitychange->visible e focus): se ci sono modifiche locali in coda le
+  pubblica (LWW decide), altrimenti scarica e, se il remoto e' piu' avanti, lo
+  adotta. Cosi' la riapertura dell'app riallinea da sola, senza reload.
+- UI: rimosso lo stato/banner persistente "Conflitto risolto" dalla chip e dal
+  pannello Account; la risoluzione mostra solo un toast temporaneo
+  ("allineo con l'altra modifica" / "aggiornato dalle modifiche sull'altro
+  dispositivo").
+
+Contratto invariato tra mock in memoria e adapter Supabase (guardia di versione
+ottimistica + updated_at). Retry offline e flush su pagehide invariati.
+
+Verifica: suite verde, sync_test 12->16 (LWW remoto-vince, locale-vince,
+syncNow adotta/ignora). Smoke test browser: boot pulito, zero errori JS, la
+chip non mostra piu' "Conflitto risolto"; privacy Dashboard non regredita.
+NB: la verifica end-to-end sui due dispositivi reali richiede Supabase, che nel
+sandbox e' bloccato dalla rete: la logica e' coperta dai test unit contro il
+mock che rispecchia esattamente il contratto Supabase. sw.js v18->v19;
+APP_BUILD 2026-07-04.6.
