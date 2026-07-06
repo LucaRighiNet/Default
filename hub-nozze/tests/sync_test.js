@@ -108,6 +108,49 @@ ok("Sync: conflitto -> status 'conflict' + onConflict, poi 'synced' (LWW)", asyn
   assert(JSON.parse((await r.pull()).data).events.x === 1);
   S.Sync.disable();
 });
+// --- LWW deterministico per timestamp (_savedAt) ---
+ok("Conflitto: il remoto PIU' RECENTE vince (onRemoteWin, niente sovrascrittura)", async () => {
+  const r = S.makeMemoryRemote();
+  await r.push(0, JSON.stringify({ _savedAt: 2000, events: { src: "remoto" } })); // remote v1, recente
+  let won = null;
+  S.Sync.enable(r, { version: 0, onRemoteWin: (st) => { won = st; } });
+  await S.Sync.flush({ _savedAt: 1000, events: { src: "locale" } });               // locale piu' vecchio
+  assert(won && won.events.src === "remoto", "doveva vincere il remoto piu' recente");
+  const got = await r.pull();
+  assert.strictEqual(JSON.parse(got.data).events.src, "remoto", "il remoto non deve essere sovrascritto");
+  assert.strictEqual(S.Sync.getStatus(), "synced");
+  S.Sync.disable();
+});
+ok("Conflitto: il locale PIU' RECENTE vince (ripubblica)", async () => {
+  const r = S.makeMemoryRemote();
+  await r.push(0, JSON.stringify({ _savedAt: 1000, events: { src: "remoto" } })); // remote v1, vecchio
+  let won = null;
+  S.Sync.enable(r, { version: 0, onRemoteWin: (st) => { won = st; } });
+  await S.Sync.flush({ _savedAt: 2000, events: { src: "locale" } });               // locale piu' recente
+  assert.strictEqual(won, null, "onRemoteWin non deve scattare se vince il locale");
+  const got = await r.pull();
+  assert.strictEqual(JSON.parse(got.data).events.src, "locale", "il locale piu' recente deve vincere");
+  S.Sync.disable();
+});
+ok("syncNow: adotta lo stato remoto se la versione e' avanzata", async () => {
+  const r = S.makeMemoryRemote();
+  let won = null;
+  S.Sync.enable(r, { version: 0, onRemoteWin: (st) => { won = st; } });
+  await r.push(0, JSON.stringify({ _savedAt: 5, events: { m: 42 } }));  // un altro device pubblica v1
+  await S.Sync.syncNow();
+  assert(won && won.events.m === 42, "syncNow deve adottare il remoto piu' avanti");
+  assert.strictEqual(S.Sync.version(), 1);
+  S.Sync.disable();
+});
+ok("syncNow: senza avanzamenti non tocca nulla", async () => {
+  const r = S.makeMemoryRemote();
+  await r.push(0, JSON.stringify({ _savedAt: 5, events: { m: 1 } }));   // v1
+  let won = null;
+  S.Sync.enable(r, { version: 1, onRemoteWin: (st) => { won = st; } }); // gia' allineato a v1
+  await S.Sync.syncNow();
+  assert.strictEqual(won, null, "nessun avanzamento -> nessuna adozione");
+  S.Sync.disable();
+});
 ok("Sync: push fallita -> 'offline' + pending, retry ripubblica", async () => {
   let failNext = true;
   const remote = {
