@@ -3,7 +3,7 @@
 (function(){
 // Versione visibile della build (ingranaggio -> prima riga). Serve a capire al
 // volo quale versione sta girando su un dispositivo (cache vs deploy).
-const APP_BUILD="2026-07-04.6";
+const APP_BUILD="2026-07-04.7";
 
 /* ============ DIAGNOSTICA / ERROR TRACKING (P0) ============ */
 // Senza backend gli errori di produzione sarebbero invisibili. Diag li cattura in
@@ -2272,7 +2272,11 @@ function viewTimeline(){
   }).join("");
   const responsibles=[...new Set(e.runshow.map(r=>r.who).filter(Boolean))];
   const rs=[...e.runshow].sort((a,b)=>(a.time||"").localeCompare(b.time||"")).filter(r=>!rsFilter||r.who===rsFilter);
-  const rsrows=rs.map(r=>`<tr><td class="num">${esc(r.time||"")}</td><td>${esc(r.title)}</td><td>${esc(r.who||"")}</td><td class="num"><button class="btn sm ghost" data-act="editRs" data-id="${r.id}" aria-label="Modifica ${esc(r.title)}" title="Modifica">&#9998;</button> <button class="btn sm danger" data-act="delRs" data-id="${r.id}" aria-label="Elimina ${esc(r.title)}" title="Elimina">×</button></td></tr>`).join("");
+  const rsrows=rs.map(r=>{
+    const pl=musicUrl(r.playlist);
+    const plLink=pl?`<div style="margin-top:2px"><a href="${esc(pl)}" target="_blank" rel="noopener" class="pill todo" style="text-decoration:none;display:inline-block">&#9654; ${esc(musicLabel(pl))}</a></div>`:"";
+    return `<tr><td class="num">${esc(r.time||"")}</td><td>${esc(r.title)}${plLink}</td><td>${esc(r.who||"")}</td><td class="num"><button class="btn sm ghost" data-act="editRs" data-id="${r.id}" aria-label="Modifica ${esc(r.title)}" title="Modifica">&#9998;</button> <button class="btn sm danger" data-act="delRs" data-id="${r.id}" aria-label="Elimina ${esc(r.title)}" title="Elimina">×</button></td></tr>`;
+  }).join("");
   return `
   <div class="grid cards">
     <div class="card kpi"><div class="v">${d.tasksDone}/${d.tasksTotal}</div><div class="l">Completate</div></div>
@@ -2311,16 +2315,29 @@ function editRs(id){
   modal(isNew?"Nuovo momento":"Modifica momento",
     `<div class="two"><div class="field"><label>Ora</label><input class="inp" type="time" id="r_time" value="${esc(x.time||"")}"></div>
      <div class="field"><label>Responsabile</label>${managedSelect("r_who", x.who||"", [""].concat(runShowWho()))}</div></div>
-     <div class="field"><label>Momento</label>${managedSelect("r_title", x.title||"", [""].concat(RUNSHOW_SUGGEST))}</div>`,
+     <div class="field"><label>Momento</label>${managedSelect("r_title", x.title||"", [""].concat(RUNSHOW_SUGGEST))}</div>
+     <div class="field"><label>Link playlist <span class="muted" style="font-size:11px">(Spotify, Apple/YouTube Music, Amazon, Deezer o qualsiasi URL)</span></label><input class="inp" id="r_pl" value="${esc(x.playlist||"")}" placeholder="https://open.spotify.com/playlist/…" inputmode="url"></div>`,
     [{label:"Annulla"},{label:"Salva",cls:"",fn:()=>{
       const title=(managedValue("r_title")||"").trim(); if(!title){ toast("Scegli o scrivi il momento"); return; }
-      const data={time:($("#r_time").value||"").trim(),title,who:(managedValue("r_who")||"").trim()};
+      const rawpl=($("#r_pl").value||"").trim(), pl=musicUrl(rawpl);
+      if(rawpl && !pl){ toast("Link non valido: usa un URL http/https"); return; }
+      const data={time:($("#r_time").value||"").trim(),title,who:(managedValue("r_who")||"").trim(),playlist:pl};
       if(isNew){ e.runshow.push(Object.assign({id:"r"+Date.now()},data)); } else Object.assign(r,data);
       commit(isNew?"Momento aggiunto":"Momento aggiornato");
     }}]);
 }
 // Suggerimenti guidati per il run-of-show.
-const RUNSHOW_SUGGEST=["Arrivo invitati","Cerimonia","Aperitivo","Ingresso sposi","Cena","Taglio torta","Primo ballo","Bouquet","Open bar","Chiusura e navetta"];
+const RUNSHOW_SUGGEST=["Arrivo invitati","Cerimonia","Aperitivo","Ingresso sposi","Cena","Taglio torta","Primo ballo","Bouquet","Open bar","Dopocena / party","Saluti finali","Chiusura e navetta"];
+// Link playlist per momento (Spotify, Apple Music, YouTube Music, Amazon, Deezer,
+// o qualsiasi URL). Accetta SOLO http/https (niente javascript: o altro), e
+// completa "spotify.com/..." aggiungendo https://. Vuoto se non valido.
+function musicUrl(raw){
+  let s=(raw||"").trim(); if(!s) return "";
+  if(!/^[a-z][a-z0-9+.\-]*:\/\//i.test(s)){ if(/^[\w.\-]+\.[a-z]{2,}(\/|$)/i.test(s)) s="https://"+s; else return ""; }
+  try{ const u=new URL(s); return (u.protocol==="http:"||u.protocol==="https:")?u.href:""; }catch(e){ return ""; }
+}
+// Etichetta breve del servizio, dal dominio del link.
+function musicLabel(url){ try{ const h=new URL(url).hostname.replace(/^www\./,""); const m={"open.spotify.com":"Spotify","spotify.com":"Spotify","music.apple.com":"Apple Music","music.youtube.com":"YouTube Music","youtube.com":"YouTube","youtu.be":"YouTube","music.amazon.com":"Amazon Music","music.amazon.it":"Amazon Music","deezer.com":"Deezer","deezer.page.link":"Deezer"}; return m[h]||"Playlist"; }catch(e){ return "Playlist"; } }
 function runShowWho(){ const s=new Set(); (ev().runshow||[]).forEach(r=>{ if(r.who) s.add(r.who); }); return Array.from(s); }
 // Scaletta standard: aggiunge i momenti tipici mancanti con un orario suggerito.
 function genRunShow(){

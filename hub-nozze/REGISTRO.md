@@ -1217,3 +1217,31 @@ tutti e 13 i campi base + variabili, ospite seduto -> "Tavolo Rosa" nella
 colonna Tavolo, Regalo e Ringraziato valorizzati, intolleranze/accessibilita'
 corrette, numero colonne header == riga, zero errori JS. sw.js v19->v20;
 APP_BUILD 2026-07-04.7.
+
+## Giro 43 (Claude Code) — Task 5: playlist per momento della scaletta
+
+Richiesta utente: nella sezione musica poter inserire un link (Spotify, Apple
+Music, YouTube Music, Amazon, Deezer o qualsiasi URL) e associarlo ai vari
+momenti dell'evento (ingresso sposi, aperitivo, cena, taglio torta, primo
+ballo, party, dopocena, ecc.), con playlist diversa per ogni momento.
+
+Implementazione: i momenti della scaletta (run-of-show) sono gia' esattamente
+quei momenti. Aggiunto un campo opzionale playlist (URL) su ogni momento:
+- editRs: nuovo campo "Link playlist"; salva su r.playlist.
+- musicUrl(raw): validazione/normalizzazione — accetta SOLO http/https (blocca
+  javascript:, data:, ecc.), aggiunge https:// a "dominio.com/..." senza schema,
+  vuoto se non e' un URL. Un link non valido viene ignorato (il momento si salva
+  lo stesso, con un toast di avviso): niente perdita dati, niente link pericoloso.
+- musicLabel(url): etichetta breve dal dominio (Spotify/Apple Music/YouTube
+  Music/Amazon Music/Deezer/Playlist).
+- viewTimeline: se il momento ha un link, mostra un chip "▶ <servizio>"
+  (anchor target=_blank rel=noopener) sotto il titolo.
+Ampliati anche i suggerimenti momenti con "Dopocena / party" e "Saluti finali".
+Il link e' nello stato -> si sincronizza tra dispositivi come il resto.
+
+Verifica: suite verde + nuovo playlist_test (8 casi: parsing, schema
+pericoloso, etichette). E2E: link senza schema -> https:// aggiunto, apertura
+in nuova scheda sicura, etichetta Spotify, persistenza dopo reload, salvato nel
+momento, link javascript: scartato (nessun anchor pericoloso, non salvato),
+zero overflow, zero errori JS, screenshot controllato. sw.js v20->v21;
+APP_BUILD 2026-07-04.8.
