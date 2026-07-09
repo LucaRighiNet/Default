@@ -1505,3 +1505,33 @@ Verifica: 19 suite verdi; sync_test 16->20 (head senza novita' NON scarica,
 head avanzato scarica e adotta, anti-doppione su 3 chiamate parallele -> 1
 controllo, contenuto identico -> nessun upload ma il push reale passa);
 merge/flow fuzz invariati (520 scenari). sw.js v30->v31; APP_BUILD 2026-07-09.8.
+
+## Giro 54 (Claude Code) — "Sincronizzo..." infinito dopo una modifica: bug e cura
+
+Segnalazione utente: dopo una modifica il chip resta "in sincronizzazione"
+continuamente o molto a lungo.
+
+DIAGNOSI — un BUG vero, non solo inefficienza: _push non aveva guardia "in
+volo". Con upload lenti (45KB su mobile), una seconda modifica durante il volo
+faceva partire un secondo push con versione ormai vecchia -> il server
+rispondeva CONFLITTO (con se stessi) -> merge -> nuovo upload -> se intanto
+arrivava un'altra modifica, di nuovo... raffica di upload e chip perennemente
+su "Sincronizzo...".
+
+CURA (tre pezzi):
+1. Guardia in volo + COALESCING: mai due push sovrapposti; il contenuto nuovo
+   si accoda e a fine volo parte UN solo upload con l'ULTIMA versione (e se nel
+   frattempo il contenuto e' tornato uguale all'ultimo sincronizzato, niente).
+   Eliminati i conflitti-con-se-stessi.
+2. Debounce 400ms -> 1200ms (configurabile via opts.debounceMs): dieci spunte
+   rapide = un solo upload. L'uscita dall'app resta protetta dal flush su
+   pagehide/visibilitychange (immediato, come prima).
+3. Chip calmo: Sync.displayStatus() mostra "Sincronizzo..." SOLO se lo stato
+   dura oltre 800ms (opts.graceMs); updateSyncChip usa displayStatus con
+   auto-refresh a soglia scaduta. I push lampo non sfarfallano piu'.
+
+Verifica: 19 suite verdi; sync_test 20->22: (a) push in volo + raffica di
+notify -> esattamente 2 upload totali, l'ultimo col contenuto finale, zero
+conflitti, stato synced, niente pending; (b) displayStatus: push lampo
+invisibile, push lungo mostrato, rientro su synced. Regressioni E2E dashboard
+e privacy verdi. sw.js v31->v32; APP_BUILD 2026-07-09.9.
