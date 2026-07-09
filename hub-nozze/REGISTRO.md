@@ -1647,3 +1647,23 @@ menu solo nei 4 valori nuovi), matrice = oracolo dallo stato (celiaco 1+1!),
 editor con 2 select e salvataggio bambina celiaca, riga con tag, export con
 Tipo; regressioni roster/catering/ricerca/privacy verdi. Zero errori JS,
 screenshot controllato. sw.js v35->v36; APP_BUILD 2026-07-09.13.
+
+## Giro 59 (Claude Code) — Import: colonna "Tipo" dedicata (round-trip completo)
+
+Domanda utente: "quindi devi aggiornare anche import ed export?" — Erano gia'
+aggiornati nel Giro 58 (export con colonna Tipo; import che scompone la
+colonna mista). MA la verifica del ROUND-TRIP completo (esporta -> reimporta)
+ha trovato un buco: il CSV esportato ha "Tipo" separato e l'import non sapeva
+mappare quella colonna -> reimportando, i bambini tornavano adulti.
+
+Fix: campo 'ptype' nell'import — sinonimi per l'auto-mappatura ('tipo',
+'tipologia', 'tipo persona', "fascia d'eta'", ...; messo DOPO 'meal' cosi'
+"tipo menu/pasto" resta al menu), voce "Tipo persona" nella UI di mappatura,
+e builder che usa la colonna dedicata se mappata, altrimenti deduce dal menu
+misto (compatibilita' con i file vecchi).
+
+Verifica: import_test 30->32 — round-trip con l'header REALE dell'export
+(Tipo mappata a col.5, Menu a col.6; "Irene bambino/celiaco" ricostruita
+identica) + legacy (colonna mista 'bambino' -> tipo bambino menu normale,
+'vegetariano' -> adulto vegetariano). E2E export invariato. Tutte le 19 suite
+verdi. sw.js v36->v37; APP_BUILD 2026-07-09.14.
