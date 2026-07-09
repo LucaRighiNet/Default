@@ -1442,3 +1442,36 @@ fallback LWW senza antenato). Nota onesta: lo smoke con page.evaluate non e'
 possibile (app IIFE, nessun global); la copertura e' data dagli unit test che
 girano sul codice REALE estratto dal file + regressioni E2E senza errori JS
 (dashnav, searchclear, roster, privacy). sw.js v28->v29; APP_BUILD 2026-07-09.6.
+
+## Giro 52 (Claude Code) — Merge P2 irrobustito + fuzzing strutturato
+
+Richiesta utente: affinare il merge per entita', renderlo piu' robusto e
+affidabile, e testarlo "in maniera pesante e strutturata".
+
+Irrobustimenti al codice:
+- merge3: stringify calcolati una volta per chiamata (meno lavoro ripetuto);
+  paracadute di profondita' (_depth>64 -> LWW) contro strutture anomale.
+- Sync: guardia di validita' sul RISULTATO del merge prima di pubblicarlo
+  (isValidState; se il merge producesse uno stato malformato -> eccezione ->
+  fallback LWW, mai un documento rotto nel cloud).
+
+Fuzzing strutturato (nuova suite merge_fuzz_test, PRNG con seed riproducibile):
+1. FUZZ DELLE PROPRIETA': per ogni caso genera uno stato realistico (fornitori,
+   pagamenti, ospiti, attivita') + script di modifiche concorrenti casuali per
+   due dispositivi (modifica campo / aggiunta / cancellazione), poi verifica
+   8 proprieta': P1 nessuna perdita, P2 cancellazione rispettata, P3 la
+   modifica vince sulla cancellazione, P4 determinismo, P5 simmetria
+   (scambiando i lati), P6 identita', P7 round-trip JSON, P8 struttura valida.
+   ORACOLO ESATTO sul diff effettivo base->documento (la prima versione a log
+   di operazioni dava 32 falsi allarmi su 400: rumore del test, non del motore).
+2. FUZZ DEL FLUSSO: 120 sequenze multi-round di conflitti reali attraverso il
+   motore Sync (A col motore+antenato, B che pusha direttamente): a ogni round
+   entrambe le modifiche presenti nel cloud, stato synced, antenato che
+   avanza correttamente.
+
+Esiti: corsa pesante una tantum 15.000/15.000 casi (3 basi di seed diverse:
+20260709, 777001, 31337) + 120/120 flussi. In suite permanente restano 400
+casi proprieta' + 120 flussi (~7s), con FUZZ_N/FUZZ_SEED per ripetere la corsa
+pesante. Tutte le 19 suite verdi. Nessun difetto del motore trovato dal fuzz:
+i fallimenti iniziali erano dell'oracolo di test, corretto.
+sw.js v29->v30; APP_BUILD 2026-07-09.7.

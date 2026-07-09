@@ -222,7 +222,7 @@ input[type=checkbox]{accent-color:var(--sea); width:18px; height:18px}
 (function(){
 // Versione visibile della build (ingranaggio -> prima riga). Serve a capire al
 // volo quale versione sta girando su un dispositivo (cache vs deploy).
-const APP_BUILD="2026-07-09.6";
+const APP_BUILD="2026-07-09.7";
 
 /* ============ DIAGNOSTICA / ERROR TRACKING (P0) ============ */
 // Senza backend gli errori di produzione sarebbero invisibili. Diag li cattura in
@@ -322,11 +322,14 @@ const Store={
      sulla cancellazione, stessa entita' modificata da entrambi -> merge ricorsivo;
    - scalari/array semplici modificati da entrambi -> vince il documento col
      timestamp (_savedAt) piu' recente (LWW deterministico, come prima). ---- */
-function merge3(base, a, b, aTs, bTs){
+function merge3(base, a, b, aTs, bTs, _depth){
+  _depth=_depth||0;
+  if(_depth>64) return (bTs>aTs)?b:a; // paracadute: profondita' anomala -> LWW
   const J=x=>JSON.stringify(x);
-  if(J(a)===J(b)) return a;
-  if(J(a)===J(base)) return b;   // ha cambiato solo il remoto
-  if(J(b)===J(base)) return a;   // ha cambiato solo il locale
+  const Ja=J(a), Jb=J(b), J0=J(base);
+  if(Ja===Jb) return a;
+  if(Ja===J0) return b;   // ha cambiato solo il remoto
+  if(Jb===J0) return a;   // ha cambiato solo il locale
   const isObj=x=>x&&typeof x==="object"&&!Array.isArray(x);
   const isIdArr=x=>Array.isArray(x)&&x.length>0&&x.every(e=>e&&typeof e==="object"&&!Array.isArray(e)&&e.id!=null);
   if(isObj(a)&&isObj(b)){
@@ -335,7 +338,7 @@ function merge3(base, a, b, aTs, bTs){
     keys.forEach(function(k){
       const inA=Object.prototype.hasOwnProperty.call(a,k), inB=Object.prototype.hasOwnProperty.call(b,k);
       const bk=Object.prototype.hasOwnProperty.call(b0,k)?b0[k]:undefined;
-      if(inA&&inB){ out[k]=merge3(bk,a[k],b[k],aTs,bTs); }
+      if(inA&&inB){ out[k]=merge3(bk,a[k],b[k],aTs,bTs,_depth+1); }
       else if(inA){ if(!(bk!==undefined && J(a[k])===J(bk))) out[k]=a[k]; } // b ha tolto: se a non l'ha toccato, resta tolto
       else if(inB){ if(!(bk!==undefined && J(b[k])===J(bk))) out[k]=b[k]; }
     });
@@ -348,7 +351,7 @@ function merge3(base, a, b, aTs, bTs){
     const put=(id,val)=>{ if(!seen.has(id)){ seen.add(id); out.push(val); } };
     mA.forEach(function(ea,id){
       const eb=mB.get(id), e0=m0.get(id);
-      if(eb!==undefined){ put(id, merge3(e0,ea,eb,aTs,bTs)); }
+      if(eb!==undefined){ put(id, merge3(e0,ea,eb,aTs,bTs,_depth+1)); }
       else if(e0===undefined){ put(id, ea); }              // aggiunta locale
       else if(J(ea)!==J(e0)){ put(id, ea); }               // remoto ha cancellato ma locale ha modificato -> vince la modifica
       /* else: cancellata dal remoto e non toccata qui -> resta cancellata */
@@ -402,6 +405,7 @@ const Sync=(function(){
         if(BASE && BASE.v===myBase){
           try{
             const merged=merge3(JSON.parse(BASE.data), JSON.parse(str), JSON.parse(res.data), localTs, remoteTs);
+            if(typeof isValidState==="function" && !isValidState(merged)) throw new Error("merge non valido");
             const mstr=JSON.stringify(merged);
             pendingStr=mstr; // se il push del merge fallisse, il retry ripubblica il MERGE
             return Promise.resolve(remote.push(baseVersion, mstr)).then(function(r2){
