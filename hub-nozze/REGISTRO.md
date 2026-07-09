@@ -1647,3 +1647,51 @@ menu solo nei 4 valori nuovi), matrice = oracolo dallo stato (celiaco 1+1!),
 editor con 2 select e salvataggio bambina celiaca, riga con tag, export con
 Tipo; regressioni roster/catering/ricerca/privacy verdi. Zero errori JS,
 screenshot controllato. sw.js v35->v36; APP_BUILD 2026-07-09.13.
+
+## Giro 59 (Claude Code) — Import: colonna "Tipo" dedicata (round-trip completo)
+
+Domanda utente: "quindi devi aggiornare anche import ed export?" — Erano gia'
+aggiornati nel Giro 58 (export con colonna Tipo; import che scompone la
+colonna mista). MA la verifica del ROUND-TRIP completo (esporta -> reimporta)
+ha trovato un buco: il CSV esportato ha "Tipo" separato e l'import non sapeva
+mappare quella colonna -> reimportando, i bambini tornavano adulti.
+
+Fix: campo 'ptype' nell'import — sinonimi per l'auto-mappatura ('tipo',
+'tipologia', 'tipo persona', "fascia d'eta'", ...; messo DOPO 'meal' cosi'
+"tipo menu/pasto" resta al menu), voce "Tipo persona" nella UI di mappatura,
+e builder che usa la colonna dedicata se mappata, altrimenti deduce dal menu
+misto (compatibilita' con i file vecchi).
+
+Verifica: import_test 30->32 — round-trip con l'header REALE dell'export
+(Tipo mappata a col.5, Menu a col.6; "Irene bambino/celiaco" ricostruita
+identica) + legacy (colonna mista 'bambino' -> tipo bambino menu normale,
+'vegetariano' -> adulto vegetariano). E2E export invariato. Tutte le 19 suite
+verdi. sw.js v36->v37; APP_BUILD 2026-07-09.14.
+
+## Giro 60 (Claude Code) — Campi obbligatori (* rosso) + fix modale
+
+Domanda utente: quali campi rendere obbligatori per una base dati consistente?
+
+CRITERIO: obbligatorio solo cio' che, se manca, rompe conteggi o collegamenti;
+il resto ha default sensati (niente attrito inutile su mobile). Scelte:
+- Ospite: Nome. Voce di spesa: Voce. Rata: Descrizione + Importo>0 (una rata
+  senza importo falsa cash-flow e "da pagare"; via il fallback "Rata").
+- Fornitore: Nome (la Categoria e' una select con default, sempre valorizzata).
+- Attivita': Titolo. Momento scaletta: Momento. Lista: Titolo.
+
+UX: label con * rosso (label.req::after); al salvataggio con campi mancanti ->
+bordo rosso sul campo (.inp.invalid), toast "Compila i campi obbligatori (*)"
+e focus sul primo mancante (helper reqOk).
+
+BUG VERO trovato dal test: il motore delle modali chiamava close() ANCHE
+quando la fn di salvataggio usciva per validazione fallita -> "Salva" a vuoto
+chiudeva la finestra buttando l'input parziale (comportamento storico,
+silenzioso). Fix: la fn puo' annullare la chiusura ritornando false; tutte le
+validazioni ora lo fanno. I guard "entita' non piu' presente" continuano a
+chiudere (corretto: non c'e' piu' nulla da salvare).
+
+Verifica: 19 suite verdi; E2E dedicato sui 6 editor (asterisco presente,
+salvataggio a vuoto bloccato con modale APERTA + bordo rosso + focus + toast,
+rata bloccata anche con importo 0, poi salvataggio corretto a campo compilato);
+regressioni su tutti gli editor (budget/conferme/playlist/ospiti/attivita'/
+catering) verdi. sw.js v37->v38; APP_BUILD 2026-07-09.15.
