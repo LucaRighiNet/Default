@@ -1353,3 +1353,27 @@ eliminazione di una voce da-fornitore con conferma, scollegamento dal editor
 (vendorCat rimosso), ricollegamento (13 opzioni), tabella dentro lo schermo,
 zero errori JS, screenshot controllato. Regressioni timeline_link (auto-spunta
 intatta), giro38, roster: verdi. sw.js v24->v25; APP_BUILD 2026-07-09.2.
+
+## Giro 48 (Claude Code) — Dashboard navigabile + "Gia' pagato"
+
+Due richieste utente:
+1. Cliccando le voci della Dashboard si va nell'area dell'app collegata.
+   Tutte le card KPI sono ora cliccabili (data-act="goTab" data-target):
+   Budget massimo/Impegnato/Da pagare -> Budget & Finanze; RSVP confermati e
+   le 3 card RSVP -> Ospiti; Fornitori confermati -> Fornitori; Attivita'
+   completate -> Timeline; Posti assegnati -> Tavoli; anche le righe di
+   "Prossimi pagamenti" -> Budget. Affordance: cursor pointer, hover con
+   ombra, role="link" + title. La delega click risolve il piu' interno:
+   il tocco sulla CIFRA sfocata continua a fare solo mostra/nascondi
+   (togglePrivacy), il resto della card naviga. goTab in READONLY_ACTS.
+2. Oltre al "Da pagare", la card pagamenti mostra "Gia' pagato: <importo>
+   (<n> rate)" — caparre e acconti versati (d.paidSum) — anch'esso sfocato
+   (blurMoney k_paid).
+
+Fix di passaggio: refuso <tbody> vuoto introdotto e corretto in giornata.
+
+Verifica: suite verde; E2E 390/375px: riga "Gia' pagato" presente e sfocata,
+click su tutte le 8 card -> scheda giusta, riga prossimi pagamenti -> budget,
+tocco sulla cifra rivela senza navigare, zero overflow, zero errori JS,
+screenshot controllato. Regressioni privacy (giro40) e avvisi (forms): verdi.
+sw.js v25->v26; APP_BUILD 2026-07-09.3.
