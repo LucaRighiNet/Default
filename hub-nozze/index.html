@@ -223,7 +223,7 @@ input[type=checkbox]{accent-color:var(--sea); width:18px; height:18px}
 (function(){
 // Versione visibile della build (ingranaggio -> prima riga). Serve a capire al
 // volo quale versione sta girando su un dispositivo (cache vs deploy).
-const APP_BUILD="2026-07-09.9";
+const APP_BUILD="2026-07-09.10";
 
 /* ============ DIAGNOSTICA / ERROR TRACKING (P0) ============ */
 // Senza backend gli errori di produzione sarebbero invisibili. Diag li cattura in
@@ -1072,7 +1072,7 @@ function daysTo(d){ const t=new Date(d+"T00:00:00"), now=new Date(); now.setHour
 function fdate(d){ if(!d) return "—"; return new Date(d+"T00:00:00").toLocaleDateString("it-IT",{day:"2-digit",month:"short",year:"numeric"}); }
 function esc(s){ return (s==null?"":String(s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c])); }
 function announce(t){ $("#aria").textContent=t; }
-function toast(t){ const el=$("#toast"); el.textContent=t; el.classList.add("show"); announce(t); setTimeout(()=>el.classList.remove("show"),1800); }
+function toast(t){ const el=$("#toast"); el.textContent=t; el.classList.add("show"); announce(t); clearTimeout(toast._t); toast._t=setTimeout(()=>el.classList.remove("show"),1800); }
 function commit(msg){ recompute(); Store.save(STATE); render(); if(msg) toast(msg); }
 
 let _modalKey=null; // keydown handler del modale corrente (per pulizia su annidamento)
@@ -1860,6 +1860,9 @@ function wireSeating(){
     // sopprimi il click che segue il pointerup per non aprire la modale dopo un drag
     const sup=ce=>{ ce.stopPropagation(); ce.preventDefault(); document.removeEventListener("click",sup,true); };
     document.addEventListener("click",sup,true);
+    // se il click post-drag non arriva mai (capita su touch), il soppressore
+    // NON deve restare armato a mangiare il prossimo tocco legittimo
+    setTimeout(()=>document.removeEventListener("click",sup,true), 350);
     const el=document.elementFromPoint(e.clientX,e.clientY); if(!el||!el.closest) return;
     const seat=el.closest("[data-seat-target]");
     if(seat){ seatAssignCore(seat.getAttribute("data-table"), seat.getAttribute("data-idx"), s.gid); return; }
@@ -2213,8 +2216,9 @@ function editVendor(id){
       const name=$("#v_name").value.trim(); if(!name) return;
       const data={name,category:$("#v_cat").value,status:$("#v_st").value,contact:$("#v_ref").value.trim(),phone:$("#v_ph").value.trim(),email:$("#v_em").value.trim(),website:$("#v_web").value.trim(),quote:+$("#v_q").value||0,rating:$("#v_rt").value.trim(),budgetLineId:$("#v_bl").value,optionUntil:$("#v_opt").value||"",reviews:$("#v_rev").value.trim(),pastEvents:$("#v_pe").value.trim(),notes:$("#v_nt").value.trim()};
       let vv;
-      if(isNew){ vv=Object.assign({id:"v"+Date.now(),source:"",updated:""},data); e.vendors.push(vv); }
-      else { Object.assign(v,data); vv=v; }
+      const E=ev();
+      if(isNew){ vv=Object.assign({id:"v"+Date.now(),source:"",updated:""},data); E.vendors.push(vv); }
+      else { vv=E.vendors.find(x=>x.id===id); if(!vv){ toast("Fornitore non più presente (aggiornato da un altro dispositivo)"); return; } Object.assign(vv,data); }
       if(vv.status==="confermato"&&vv.budgetLineId&&vv.quote){ const bl=e.budget.find(b=>b.id===vv.budgetLineId); if(bl) bl.quote=vv.quote; }
       commit(isNew?"Fornitore aggiunto":"Fornitore aggiornato");
     }}]);
@@ -2710,7 +2714,9 @@ function editTask(id){
     [{label:"Annulla"},{label:"Salva",cls:"",fn:()=>{
       const title=$("#t_title").value.trim(); if(!title) return;
       const data={title,category:$("#t_cat").value.trim(),due:$("#t_due").value,assignee:$("#t_as").value,vendorCat:$("#t_vcat").value||""};
-      if(isNew){ e.tasks.push(Object.assign({id:"k"+Date.now(),done:false,createdAt:new Date().toISOString().slice(0,10)},data)); } else Object.assign(t,data);
+      const E=ev();
+      if(isNew){ E.tasks.push(Object.assign({id:"k"+Date.now(),done:false,createdAt:new Date().toISOString().slice(0,10)},data)); }
+      else { const cur=E.tasks.find(x=>x.id===id); if(!cur){ toast("Attività non più presente (aggiornata da un altro dispositivo)"); return; } Object.assign(cur,data); }
       commit(isNew?"Attività aggiunta":"Attività aggiornata");
     }}]);
 }
@@ -2732,7 +2738,9 @@ function editRs(id){
       const rawpl=($("#r_pl").value||"").trim(), pl=musicUrl(rawpl);
       if(rawpl && !pl) toast("Link ignorato: non è un URL http/https valido"); // salvo il momento senza il link
       const data={time:($("#r_time").value||"").trim(),title,who:(managedValue("r_who")||"").trim(),playlist:pl};
-      if(isNew){ e.runshow.push(Object.assign({id:"r"+Date.now()},data)); } else Object.assign(r,data);
+      const E=ev(); E.runshow=E.runshow||[];
+      if(isNew){ E.runshow.push(Object.assign({id:"r"+Date.now()},data)); }
+      else { const cur=E.runshow.find(x=>x.id===id); if(!cur){ toast("Momento non più presente (aggiornato da un altro dispositivo)"); return; } Object.assign(cur,data); }
       commit(isNew?"Momento aggiunto":"Momento aggiornato");
     }}]);
 }
@@ -2811,8 +2819,11 @@ function editBudget(id){
      // setTimeout: la conferma va aperta DOPO che close() ha svuotato #modalRoot.
      {label:"Elimina",cls:"danger",fn:()=>{ setTimeout(()=>delBudget(id),0); }},
      {label:"Salva",cls:"",fn:()=>{
-      b.item=$("#f_item").value.trim()||b.item;
-      b.quote=+$("#f_quote").value||0; b.actual=+$("#f_act").value||0; b.paid=$("#f_paid").value==="1";
+      // ri-risolvi per id: lo stato puo' essere stato sostituito (sync) mentre la modale era aperta
+      const cur=ev().budget.find(x=>x.id===id);
+      if(!cur){ toast("Voce non più presente (aggiornata da un altro dispositivo)"); return; }
+      cur.item=$("#f_item").value.trim()||cur.item;
+      cur.quote=+$("#f_quote").value||0; cur.actual=+$("#f_act").value||0; cur.paid=$("#f_paid").value==="1";
       commit("Voce aggiornata");
     }}]);
 }
@@ -2821,8 +2832,9 @@ function delBudget(id){
   const amt=(+b.actual||0)||(+b.quote||0);
   modal("Eliminare la voce?",`<p>Rimuovo <b>${esc(b.item)}</b>${amt?" ("+money(amt)+")":""} dal budget. L'azione non è reversibile.</p>`,
     [{label:"Annulla"},{label:"Elimina",cls:"danger",fn:()=>{
-      e.budget=e.budget.filter(x=>x.id!==id);
-      (e.vendors||[]).forEach(v=>{ if(v.budgetLineId===id) v.budgetLineId=null; });
+      const E=ev(); // stato fresco: non quello catturato all'apertura
+      E.budget=E.budget.filter(x=>x.id!==id);
+      (E.vendors||[]).forEach(v=>{ if(v.budgetLineId===id) v.budgetLineId=null; });
       commit("Voce eliminata");
     }}]);
 }
@@ -2858,14 +2870,16 @@ function editPayment(id){
      <div class="field"><label>Stato</label><select class="inp" id="pm_paid"><option value="0"${!x.paid?" selected":""}>Da pagare</option><option value="1"${x.paid?" selected":""}>Pagata</option></select></div>`,
     [{label:"Annulla"},{label:isNew?"Aggiungi":"Salva",cls:"",fn:()=>{
        const data={label:($("#pm_label").value||"").trim()||"Rata", amount:+$("#pm_amount").value||0, dueDate:($("#pm_due").value||"").trim(), method:$("#pm_method").value, vendorId:$("#pm_vendor").value||null, paid:$("#pm_paid").value==="1"};
-       if(isNew){ e.payments.push(Object.assign({id:"p"+Date.now()},data)); } else Object.assign(p,data);
+       const E=ev(); E.payments=E.payments||[];
+      if(isNew){ E.payments.push(Object.assign({id:"p"+Date.now()},data)); }
+      else { const cur=E.payments.find(x=>x.id===id); if(!cur){ toast("Rata non più presente (aggiornata da un altro dispositivo)"); return; } Object.assign(cur,data); }
        commit(isNew?"Rata aggiunta":"Rata aggiornata");
     }}]);
 }
 function delPayment(id){
   const e=ev(); const p=(e.payments||[]).find(x=>x.id===id); if(!p) return;
   modal("Eliminare la rata?",`<p>Rimuovo <b>${esc(p.label)}</b> (${money(p.amount)}).</p>`,
-    [{label:"Annulla"},{label:"Elimina",cls:"danger",fn:()=>{ e.payments=e.payments.filter(x=>x.id!==id); commit("Rata eliminata"); }}]);
+    [{label:"Annulla"},{label:"Elimina",cls:"danger",fn:()=>{ const E=ev(); E.payments=(E.payments||[]).filter(x=>x.id!==id); commit("Rata eliminata"); }}]);
 }
 /* ============ IMPORT GUIDATO LISTE (motore nativo, E1) ============ */
 function impNorm(s){ return String(s==null?'':s).toLowerCase().trim().replace(/[àáâ]/g,'a').replace(/[èéê]/g,'e').replace(/[ìí]/g,'i').replace(/[òóô]/g,'o').replace(/[ùú]/g,'u').replace(/\s+/g,' '); }
@@ -3079,7 +3093,7 @@ function editGuest(id){
       const name=$("#g_name").value.trim(); if(!name) return;
       const data={name,side:$("#g_side").value,household:managedValue("g_hh")||"Senza nucleo",group:managedValue("g_group"),rsvp:$("#g_rsvp").value,meal:$("#g_meal").value,intolerances:$("#g_int").value.trim(),accessibility:$("#g_acc").value.trim(),shuttle:$("#g_sh").value==="1",plusOne:+$("#g_plus").value||0,attr:seatReadAttrFields(x.attr)};
       if(isNew){ ev().guests.push(Object.assign({id:"g"+Date.now(),gift:"",thanked:false},data)); }
-      else Object.assign(g,data);
+      else { const cur=ev().guests.find(x=>x.id===id); if(!cur){ toast("Ospite non più presente (aggiornato da un altro dispositivo)"); return; } Object.assign(cur,data); }
       commit(isNew?"Ospite aggiunto":"Ospite aggiornato");
     }}]);
 }
