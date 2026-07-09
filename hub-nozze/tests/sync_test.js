@@ -213,7 +213,7 @@ ok("notify/flush: contenuto identico all'ultimo sincronizzato -> NESSUN upload",
     head(){ return Promise.resolve({version:pushN}); },
     pull(){ return Promise.resolve(null); },
     push(b,d){ pushN++; return Promise.resolve({ok:true, version:b+1}); } };
-  S.Sync.enable(remote, { version: 0 });
+  S.Sync.enable(remote, { version: 0, debounceMs: 100 });
   await S.Sync.flush({ _savedAt: 100, events: { x: 1 } });   // primo push reale
   assert.strictEqual(pushN, 1);
   // stesso contenuto, solo il timbro cambia (l'echo dopo un'adozione/merge)
@@ -226,6 +226,44 @@ ok("notify/flush: contenuto identico all'ultimo sincronizzato -> NESSUN upload",
   await S.Sync.flush({ _savedAt: 2000, events: { x: 2 } });
   assert.strictEqual(pushN, 2, "il push reale non deve essere bloccato");
   assert.strictEqual(S.Sync.getStatus(), "synced");
+  S.Sync.disable();
+});
+
+// --- raffiche di modifiche: un solo push in volo, coalescing, chip calmo ---
+ok("push in volo + raffica di notify -> UN solo upload aggiuntivo, ultimo contenuto, zero conflitti", async () => {
+  let pushes=[], version=0;
+  const remote={ name:"slow",
+    pull(){ return Promise.resolve(null); },
+    push(base, data){ return new Promise(res=>setTimeout(()=>{ 
+      if(base!==version){ res({conflict:true, version, data:pushes[pushes.length-1]||"{}"}); return; }
+      pushes.push(data); version++; res({ok:true, version}); }, 120)); } };
+  S.Sync.enable(remote, { version: 0, debounceMs: 20 });
+  const p1=S.Sync.flush({ _savedAt: 1, events: { n: 1 } });   // parte il volo (120ms)
+  await new Promise(r=>setTimeout(r, 30));
+  S.Sync.notify({ _savedAt: 2, events: { n: 2 } });            // durante il volo
+  await new Promise(r=>setTimeout(r, 30));
+  S.Sync.notify({ _savedAt: 3, events: { n: 3 } });            // ancora durante il volo
+  await p1;
+  await new Promise(r=>setTimeout(r, 400));                    // tempo per lo sgancio della coda
+  assert.strictEqual(pushes.length, 2, "attesi 2 upload (iniziale + coalescato), fatti: "+pushes.length);
+  assert.strictEqual(JSON.parse(pushes[1]).events.n, 3, "l'upload coalescato deve portare l'ULTIMO contenuto");
+  assert.strictEqual(S.Sync.getStatus(), "synced");
+  assert.strictEqual(S.Sync.hasPending(), false);
+  S.Sync.disable();
+});
+ok("displayStatus: push lampo non mostra 'Sincronizzo', push lungo si'", async () => {
+  const remote={ name:"slow2",
+    pull(){ return Promise.resolve(null); },
+    push(base, data){ return new Promise(res=>setTimeout(()=>res({ok:true, version: base+1}), 200)); } };
+  S.Sync.enable(remote, { version: 0, graceMs: 80 });
+  const p=S.Sync.flush({ _savedAt: 1, events: { q: 1 } });
+  await new Promise(r=>setTimeout(r, 10));
+  assert.strictEqual(S.Sync.getStatus(), "syncing", "stato reale");
+  assert.strictEqual(S.Sync.displayStatus(), "synced", "sotto soglia il chip resta calmo");
+  await new Promise(r=>setTimeout(r, 120));
+  assert.strictEqual(S.Sync.displayStatus(), "syncing", "oltre soglia il chip informa");
+  await p;
+  assert.strictEqual(S.Sync.displayStatus(), "synced");
   S.Sync.disable();
 });
 

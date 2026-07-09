@@ -3,7 +3,7 @@
 (function(){
 // Versione visibile della build (ingranaggio -> prima riga). Serve a capire al
 // volo quale versione sta girando su un dispositivo (cache vs deploy).
-const APP_BUILD="2026-07-09.7";
+const APP_BUILD="2026-07-09.8";
 
 /* ============ DIAGNOSTICA / ERROR TRACKING (P0) ============ */
 // Senza backend gli errori di produzione sarebbero invisibili. Diag li cattura in
@@ -160,6 +160,9 @@ const Sync=(function(){
   let remote=null, enabled=false, baseVersion=0, pushTimer=null, onConflict=null, onStatus=null, onRemoteWin=null;
   let status="local", pendingStr=null;   // status: local|synced|syncing|offline (niente "conflict" persistente)
   let _syncBusy=false, _lastSyncNow=0;   // guardie syncNow: niente doppioni ne' raffiche
+  let _pushing=false, _queuedStr=null;   // un solo push in volo; le raffiche si fondono nell'ultimo
+  let _statusSince=0;                     // da quanto siamo nello stato corrente (per il chip)
+  let _debounceMs=1200, _graceMs=800;     // raffiche coalescate; "Sincronizzo..." solo se dura
   // Antenato comune per il merge P2: l'ultimo stato SINCRONIZZATO {v, data}.
   // Persistito per sopravvivere ai riavvii (il conflitto tipico nasce proprio
   // alla riapertura). Senza antenato valido si ricade nel LWW.
@@ -167,7 +170,7 @@ const Sync=(function(){
   let BASE=null;
   function setBase(v, data){ BASE={v:v, data:data}; try{ if(typeof localStorage!=="undefined") localStorage.setItem(BASE_KEY, JSON.stringify(BASE)); }catch(e){} }
   function loadBase(){ try{ if(typeof localStorage!=="undefined"){ const raw=localStorage.getItem(BASE_KEY); if(raw){ const o=JSON.parse(raw); if(o&&typeof o.v==="number"&&typeof o.data==="string") BASE=o; } } }catch(e){ BASE=null; } }
-  function setStatus(s){ status=s; if(onStatus){ try{ onStatus(s); }catch(e){} } }
+  function setStatus(s){ if(s!==status){ status=s; _statusSince=Date.now(); } if(onStatus){ try{ onStatus(s); }catch(e){} } }
   // Timestamp affidabile per la risoluzione dei conflitti: lo stato porta _savedAt
   // (impostato da Store.save a ogni modifica). Chi ha salvato piu' di recente vince.
   function savedAt(str){ try{ const o=JSON.parse(str); return (o&&+o._savedAt)||0; }catch(e){ return 0; } }
@@ -177,6 +180,12 @@ const Sync=(function(){
   function _sameAsBase(str){ return !!(BASE && BASE.data && _norm(BASE.data)===_norm(str)); }
   function _push(str){
     if(!enabled||!remote) return Promise.resolve();
+    // GUARDIA IN VOLO: mai due push sovrapposti. Un secondo push partirebbe con
+    // versione gia' vecchia -> conflitto con se stessi -> merge -> altro upload
+    // (era la causa del "Sincronizzo..." continuo dopo una raffica di modifiche).
+    // Il contenuto nuovo si accoda e VIAGGERA' UNA VOLTA SOLA a fine volo.
+    if(_pushing){ _queuedStr=str; pendingStr=str; return Promise.resolve(); }
+    _pushing=true;
     pendingStr=str; setStatus("syncing");
     const myBase=baseVersion; // versione da cui partono le MIE modifiche
     return Promise.resolve(remote.push(baseVersion, str)).then(function(res){
@@ -211,14 +220,17 @@ const Sync=(function(){
         }
         return Promise.resolve(remote.push(baseVersion, str)).then(function(r2){ if(r2&&r2.ok){ baseVersion=r2.version; pendingStr=null; setBase(r2.version, str); setStatus("synced"); } });
       }
-    }).catch(function(e){ Diag.log("sync","push fallita (offline?)", e&&e.message); setStatus("offline"); }); // resta in coda per il retry
+    }).catch(function(e){ Diag.log("sync","push fallita (offline?)", e&&e.message); setStatus("offline"); })
+      .then(function(r){ _pushing=false; if(_queuedStr!=null){ const q=_queuedStr; _queuedStr=null; if(!_sameAsBase(q)) return _push(q); pendingStr=null; } return r; });
   }
   return {
     isEnabled(){ return enabled; },
     version(){ return baseVersion; },
     getStatus(){ return enabled?status:"local"; },
+    // Stato per la UI: un push lampo non deve far sfarfallare "Sincronizzo...".
+    displayStatus(){ if(!enabled) return "local"; if(status==="syncing" && (Date.now()-_statusSince)<_graceMs) return "synced"; return status; },
     hasPending(){ return pendingStr!=null; },
-    enable(r, opts){ remote=r; enabled=!!r; opts=opts||{}; onConflict=opts.onConflict||null; onStatus=opts.onStatus||null; onRemoteWin=opts.onRemoteWin||null; baseVersion=opts.version||0; pendingStr=null; BASE=null; loadBase(); _syncBusy=false; _lastSyncNow=0; setStatus("synced"); return this; },
+    enable(r, opts){ remote=r; enabled=!!r; opts=opts||{}; onConflict=opts.onConflict||null; onStatus=opts.onStatus||null; onRemoteWin=opts.onRemoteWin||null; baseVersion=opts.version||0; pendingStr=null; BASE=null; loadBase(); _syncBusy=false; _lastSyncNow=0; _pushing=false; _queuedStr=null; _debounceMs=opts.debounceMs||1200; _graceMs=(opts.graceMs!=null?opts.graceMs:800); setStatus("synced"); return this; },
     disable(){ enabled=false; remote=null; pendingStr=null; setStatus("local"); },
     pull(){
       if(!enabled||!remote) return Promise.resolve(null);
@@ -258,7 +270,7 @@ const Sync=(function(){
         }
       }).catch(function(e){ _syncBusy=false; Diag.log("sync","syncNow fallita", e&&e.message); setStatus("offline"); });
     },
-    notify(state){ if(!enabled||!remote) return; clearTimeout(pushTimer); const str=JSON.stringify(state); if(_sameAsBase(str)){ pendingStr=null; setStatus("synced"); return; } pushTimer=setTimeout(function(){ _push(str); }, 400); },
+    notify(state){ if(!enabled||!remote) return; clearTimeout(pushTimer); const str=JSON.stringify(state); if(_sameAsBase(str)){ pendingStr=null; setStatus("synced"); return; } pushTimer=setTimeout(function(){ _push(str); }, _debounceMs); },
     // Riprova un push rimasto in sospeso (es. dopo che la rete torna).
     retry(){ if(enabled&&remote&&pendingStr!=null) return _push(pendingStr); return Promise.resolve(); },
     flush(state){ clearTimeout(pushTimer); if(enabled&&remote&&state!=null){ const str=JSON.stringify(state); if(_sameAsBase(str)){ pendingStr=null; return Promise.resolve(); } return _push(str); } return Promise.resolve(); }
@@ -1025,7 +1037,11 @@ function updateSyncChip(){
   el.style.display="";
   if(!Sync.isEnabled()){ el.textContent="Accedi per sincronizzare"; return; }
   const map={synced:"☁ Sincronizzato", syncing:"☁ Sincronizzo…", offline:"☁ Offline", local:"☁ —"};
-  let txt=map[Sync.getStatus()]||("☁ "+Sync.getStatus());
+  // Stato "visibile": i push lampo non mostrano "Sincronizzo…" (soglia in Sync).
+  const shown=Sync.displayStatus?Sync.displayStatus():Sync.getStatus();
+  let txt=map[shown]||("☁ "+shown);
+  // se il sync e' in corso ma sotto soglia, ricontrolla tra poco (senza accumulare timer)
+  if(Sync.getStatus()==="syncing" && shown!=="syncing"){ clearTimeout(updateSyncChip._t); updateSyncChip._t=setTimeout(updateSyncChip, 850); }
   if(typeof Session!=="undefined" && Session.role()==="viewer") txt+=" · sola lettura";
   el.textContent=txt;
 }
