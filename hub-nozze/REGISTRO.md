@@ -1742,3 +1742,24 @@ Verifica: suite verde; E2E: due fornitori stessa categoria -> tabella di
 confronto -> Apri su uno -> Elimina presente -> conferma -> rimosso da stato e
 vista; "Nuovo fornitore" senza Elimina. Zero errori JS.
 sw.js v39->v40; APP_BUILD 2026-07-09.17.
+
+## Giro 63 (Claude Code) — Nuova icona app (home screen)
+
+Richiesta utente: il logo dell'icona in home screen era "un disegno troppo
+semplificato"; voluta una forma elegante, minimalista, moderna, che richiami
+il numero 7 (17/07/2027).
+
+Design: "7" calligrafico avorio (barra + diagonale curva, tratto tondo) con
+una fede nuziale d'oro infilata sulla diagonale — intreccio reale: il 7 passa
+sopra l'anello nell'incrocio alto, l'anello ripassa sopra il 7 in quello
+basso. Fondo teal con gradiente radiale sottile, full-bleed (iOS arrotonda da
+solo, Android maschera il maskable; contenuto dentro la safe zone ~80%).
+Sorgente vettoriale salvato in icon-source.svg; PNG rasterizzati via Chromium
+headless a 512/192/180 (stessi nomi file: manifest.json e index.html invariati).
+
+Verifica: leggibilita' controllata a 120/60px (mock home iOS) e con maschera
+circolare Android; suite test verde; app boot ok. Icone in ASSETS cache-first
+-> bump obbligatorio della cache SW per propagarle.
+Nota onesta: su iPhone l'icona gia' aggiunta NON si aggiorna da sola — va
+rimossa e rifatta "Aggiungi a Home".
+sw.js v40->v41; APP_BUILD 2026-07-09.18.
