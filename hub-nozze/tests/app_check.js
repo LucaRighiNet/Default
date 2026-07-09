@@ -3,7 +3,7 @@
 (function(){
 // Versione visibile della build (ingranaggio -> prima riga). Serve a capire al
 // volo quale versione sta girando su un dispositivo (cache vs deploy).
-const APP_BUILD="2026-07-09.9";
+const APP_BUILD="2026-07-09.11";
 
 /* ============ DIAGNOSTICA / ERROR TRACKING (P0) ============ */
 // Senza backend gli errori di produzione sarebbero invisibili. Diag li cattura in
@@ -961,6 +961,8 @@ function wireBudget(){
 }
 // Filtri (chip RSVP) + ricerca ospiti (G7), lato client per non perdere il focus.
 let GUESTVIEW={filter:'all', q:''};
+// Filtro del Report catering: conf -> attesa -> all (ciclico al tocco del pill).
+let CATERING_SCOPE="conf";
 function wireGuests(){
   const host=document.getElementById('view'); if(!host) return;
   const search=host.querySelector('#guestSearch'), clear=host.querySelector('#guestSearchClear');
@@ -1187,7 +1189,6 @@ function viewGuests(){
       </tr>`;
     });
   });
-  const mealRows=Object.keys(d.meals).map(k=>`<tr><td>${esc(k)}</td><td class="num">${d.meals[k]}</td></tr>`).join("")||`<tr><td colspan="2" class="muted">Nessun confermato.</td></tr>`;
   return `
   <div class="grid cards">
     <div class="card kpi"><div class="v">${d.head}</div><div class="l">A tavola (confermati + accompagnatori)</div></div>
@@ -1212,16 +1213,30 @@ function viewGuests(){
   </table></div>
   <div id="guestEmpty" class="muted" style="display:none;padding:10px;font-size:13px">Nessun ospite corrisponde al filtro.</div>
 
-  <div class="sec-title"><h2>Report catering</h2><span class="pill ok">solo confermati</span></div>
+  ${(function(){
+    // Report catering filtrabile: il pill cicla confermati -> in attesa -> tutti.
+    const SCOPES={conf:["ok","solo confermati","Nessun confermato."], attesa:["warn","solo in attesa","Nessuno in attesa."], all:["todo","tutti in lista","Lista vuota."]};
+    const sc=SCOPES[CATERING_SCOPE]?CATERING_SCOPE:"conf", lab=SCOPES[sc];
+    const sel=e.guests.filter(x=>sc==="all"?true:x.rsvp===sc);
+    const head=sel.reduce((s,x)=>s+1+(+x.plusOne||0),0);
+    const kids=sel.filter(x=>x.meal==="bambino").length;
+    const meals={};
+    sel.forEach(x=>{ meals[x.meal]=(meals[x.meal]||0)+1; if(x.plusOne){ meals["adulto"]=(meals["adulto"]||0)+(+x.plusOne); } });
+    const intoll=sel.filter(x=>x.intolerances).map(x=>x.name+": "+x.intolerances);
+    const access=sel.filter(x=>x.accessibility).map(x=>x.name+": "+x.accessibility);
+    const mealRows=Object.keys(meals).map(k=>`<tr><td>${esc(k)}</td><td class="num">${meals[k]}</td></tr>`).join("")||`<tr><td colspan="2" class="muted">${lab[2]}</td></tr>`;
+    return `
+  <div class="sec-title"><h2>Report catering</h2><button class="pill ${lab[0]}" data-act="cycleCateringScope" title="Clic per cambiare: confermati / in attesa / tutti" aria-label="Filtro report: ${lab[1]}. Tocca per cambiare." style="cursor:pointer;border:none;font:inherit">${lab[1]} &#8635;</button></div>
   <div class="grid cards">
-    <div class="card kpi"><div class="v">${d.head}</div><div class="l">Coperti totali</div></div>
-    <div class="card kpi"><div class="v">${d.kidsN}</div><div class="l">Bambini / menù bambino</div></div>
-    <div class="card kpi"><div class="v">${d.intoll.length}</div><div class="l">Con intolleranze</div></div>
+    <div class="card kpi"><div class="v">${head}</div><div class="l">Coperti totali</div></div>
+    <div class="card kpi"><div class="v">${kids}</div><div class="l">Bambini / menù bambino</div></div>
+    <div class="card kpi"><div class="v">${intoll.length}</div><div class="l">Con intolleranze</div></div>
   </div>
   <div class="grid" style="grid-template-columns:1fr 1fr;gap:14px">
     <div class="card"><h3>Pasti</h3><table class="tbl"><tbody>${mealRows}</tbody></table><p class="muted" style="font-size:12px;margin-top:6px">Gli accompagnatori (+1) contano come menù adulto.</p></div>
-    <div class="card"><h3>Intolleranze</h3>${d.intoll.length?d.intoll.map(x=>`<div style="padding:4px 0">${esc(x)}</div>`).join(""):'<span class="muted">Nessuna.</span>'}${d.accessList.length?`<div style="margin-top:8px"><h3 style="font-size:14px">Accessibilità</h3>${d.accessList.map(x=>`<div style="padding:4px 0">${esc(x)}</div>`).join("")}</div>`:""}</div>
-  </div>
+    <div class="card"><h3>Intolleranze</h3>${intoll.length?intoll.map(x=>`<div style="padding:4px 0">${esc(x)}</div>`).join(""):'<span class="muted">Nessuna.</span>'}${access.length?`<div style="margin-top:8px"><h3 style="font-size:14px">Accessibilità</h3>${access.map(x=>`<div style="padding:4px 0">${esc(x)}</div>`).join("")}</div>`:""}</div>
+  </div>`;
+  })()}
 
   <div class="sec-title"><h2>Navetta</h2><span class="pill">${d.shuttle} posti</span></div>
   <div class="card">${(function(){
@@ -3095,7 +3110,7 @@ const Session=(function(){ let role="owner"; return {
   canEdit(){ return role==="owner"||role==="editor"; }
 }; })();
 // Azioni non-mutanti sempre permesse (navigazione/aiuto/account/diagnostica).
-const READONLY_ACTS={ openGuide:1, openAccount:1, openDiag:1, hideTip:1, exportGuestsCsv:1, printTables:1, seatZoomIn:1, seatZoomOut:1, seatZoomReset:1, openAlerts:1, goAlert:1, togglePrivacy:1, goTab:1 };
+const READONLY_ACTS={ openGuide:1, openAccount:1, openDiag:1, hideTip:1, exportGuestsCsv:1, printTables:1, seatZoomIn:1, seatZoomOut:1, seatZoomReset:1, openAlerts:1, goAlert:1, togglePrivacy:1, goTab:1, cycleCateringScope:1 };
 function actIsMutating(act){ return !READONLY_ACTS[act]; }
 function permBlocks(act){ return !Session.canEdit() && actIsMutating(act); }
 /* ==== fine blocco permessi ==== */
@@ -3260,6 +3275,7 @@ document.addEventListener("click",e=>{ try{
   else if(act==="editHeader") editEventHeader();
   else if(act==="togglePrivacy"){ const k=a.getAttribute("data-key"); if(PRIVACY_REVEALED.has(k)) PRIVACY_REVEALED.delete(k); else PRIVACY_REVEALED.add(k); a.classList.toggle("revealed", PRIVACY_REVEALED.has(k)); }
   else if(act==="goTab"){ active=a.getAttribute("data-target")||"dash"; render(); }
+  else if(act==="cycleCateringScope"){ CATERING_SCOPE=CATERING_SCOPE==="conf"?"attesa":(CATERING_SCOPE==="attesa"?"all":"conf"); render(); }
   else if(act==="openAlerts") openAlerts();
   else if(act==="goAlert"){
     if(_alertsModal){ _alertsModal.close(); _alertsModal=null; }

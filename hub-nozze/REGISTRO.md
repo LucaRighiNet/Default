@@ -1575,3 +1575,25 @@ Nota onesta: lo scenario stale-closure (stato sostituito con modale aperta)
 non e' riproducibile in E2E senza accesso all'IIFE; la correttezza e' per
 costruzione (ri-risoluzione per id al salvataggio) + regressioni sul percorso
 normale. sw.js v32->v33; APP_BUILD 2026-07-09.10.
+
+## Giro 56 (Claude Code) — Report catering filtrabile dal pill
+
+Richiesta utente: nel Report catering il campo "solo confermati" deve essere
+modificabile al clic, per vedere i totali dei confermati, dei non ancora
+confermati o di tutta la lista.
+
+Implementazione: il pill e' ora un bottone ciclico (data-act
+cycleCateringScope): solo confermati (verde) -> solo in attesa (ambra) ->
+tutti in lista (blu) -> da capo, con icona di rotazione e aria-label. Tutto il
+report si ricalcola sul gruppo scelto: Coperti totali (ospiti+accompagnatori),
+Bambini/menu' bambino, Con intolleranze, tabella Pasti, elenco Intolleranze e
+Accessibilita'. Stato runtime (CATERING_SCOPE, non persistito: si riapre sui
+confermati). In sola lettura il filtro resta usabile (READONLY_ACTS). La
+sezione Navetta resta sui confermati (dato operativo).
+
+Verifica: suite verde; E2E 390/375px con mix noto (2 confermati di cui 1
+bambino e 1 con accompagnatore, 1 non viene, resto in attesa): default
+confermati 3 coperti/1 bambino/1 intolleranza; in attesa e tutti confrontati
+con l'oracolo calcolato dallo stato reale (131+plusOne ecc.); il ciclo torna a
+confermati; zero overflow, zero errori JS, screenshot controllato.
+sw.js v33->v34; APP_BUILD 2026-07-09.11.
