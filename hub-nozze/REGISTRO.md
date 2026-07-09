@@ -1245,3 +1245,25 @@ in nuova scheda sicura, etichetta Spotify, persistenza dopo reload, salvato nel
 momento, link javascript: scartato (nessun anchor pericoloso, non salvato),
 zero overflow, zero errori JS, screenshot controllato. sw.js v20->v21;
 APP_BUILD 2026-07-04.8.
+
+## Giro 44 (Claude Code) — Task 3: "widget" iPhone per la Dashboard (deep-link)
+
+Richiesta utente: widget nella Home iPhone che apra l'app sulla Dashboard.
+
+Onesta' tecnica: una PWA ("Aggiungi a Home") NON puo' esporre un widget nativo
+iOS (WidgetKit richiede un'app Swift nell'App Store). La via realistica e
+verificabile per "un'icona/widget che apre l'app su una scheda":
+- Deep-link scheda: startTab() legge ?tab=dash (o #dash) e apre l'app su quella
+  scheda; validato contro le schede esistenti, fallback a dash.
+- Se si arriva da ?tab=, l'auto-apertura della guida viene saltata (altrimenti
+  la guida navigherebbe alla sua scheda annullando il deep-link).
+- manifest.json: aggiunte "shortcuts" (Dashboard/Budget/Ospiti) -> long-press
+  dell'icona installata e scelta nell'app Shortcuts di iOS.
+Ricetta per l'utente (Home widget reale, senza App Store): app Scorciatoie iOS
+-> nuova scorciatoia "Apri URL" con .../index.html?tab=dash -> aggiungi il
+widget Scorciatoie alla Home. Tocco = apre HubNozze sulla Dashboard.
+
+Verifica: suite verde; manifest.json valido; E2E deep-link: default->dash,
+?tab=budget->budget, ?tab=guests->guests, ?tab=dash->dash, ?tab=pippo->dash
+(fallback), #vendors->vendors, zero errori JS. Regressioni (privacy, giro38,
+playlist, export) verdi. sw.js v21->v22; APP_BUILD 2026-07-04.9.
