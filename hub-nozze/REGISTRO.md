@@ -1377,3 +1377,20 @@ click su tutte le 8 card -> scheda giusta, riga prossimi pagamenti -> budget,
 tocco sulla cifra rivela senza navigare, zero overflow, zero errori JS,
 screenshot controllato. Regressioni privacy (giro40) e avvisi (forms): verdi.
 sw.js v25->v26; APP_BUILD 2026-07-09.3.
+
+## Giro 49 (Claude Code) — Allineamento campi affiancati (Ospiti previsti / Contingenza)
+
+Segnalazione utente: in Budget > Pianificazione i riquadri "Ospiti previsti"
+e "Contingenza %" non erano allineati — l'etichetta lunga del primo va su due
+righe e spingeva l'input piu' in basso rispetto all'altro.
+
+Fix generale (non puntuale): nei blocchi a due colonne (.two) i campi sono
+ancorati in basso (justify-content:flex-end sul .field, gia' flex column):
+l'etichetta puo' salire su piu' righe ma i riquadri di input restano sempre
+sulla stessa linea. Vale per tutte le coppie di campi dell'app (editor rate,
+attivita', momenti, soglie avvisi, ecc.).
+
+Verifica: suite verde; E2E 390/375px: input di Pianificazione con top e bottom
+identici (616/663 e 635/682), scansione di tutti i .two della scheda budget
+senza disallineamenti, screenshot controllato, zero errori JS.
+sw.js v26->v27; APP_BUILD 2026-07-09.4.
