@@ -214,7 +214,7 @@ input[type=checkbox]{accent-color:var(--sea); width:18px; height:18px}
 (function(){
 // Versione visibile della build (ingranaggio -> prima riga). Serve a capire al
 // volo quale versione sta girando su un dispositivo (cache vs deploy).
-const APP_BUILD="2026-07-04.8";
+const APP_BUILD="2026-07-04.9";
 
 /* ============ DIAGNOSTICA / ERROR TRACKING (P0) ============ */
 // Senza backend gli errori di produzione sarebbero invisibili. Diag li cattura in
@@ -3121,6 +3121,17 @@ function buildRsvpPayload(token, form){
 }
 function rsvpParam(){ try{ const m=(location.search||"").match(/[?&]rsvp=([^&]+)/); return m?decodeURIComponent(m[1]):null; }catch(e){ return null; } }
 function inviteRoleParam(){ try{ const m=(location.search||"").match(/[?&]role=([^&]+)/); return m?decodeURIComponent(m[1]):null; }catch(e){ return null; } }
+// Scheda di partenza da URL: ?tab=dash (o #dash). Abilita i "widget"/scorciatoie
+// della Home iPhone (app Shortcuts o long-press dell'icona PWA) ad aprire l'app
+// direttamente su una scheda. Valida contro le schede esistenti.
+function startTab(){
+  try{
+    const valid=TABS.map(x=>x[0]);
+    let m=(location.search||"").match(/[?&]tab=([^&]+)/); let v=m?decodeURIComponent(m[1]):null;
+    if(!v && location.hash){ v=location.hash.replace(/^#/,""); }
+    return (v && valid.indexOf(v)>=0)?v:null;
+  }catch(e){ return null; }
+}
 /* ==== fine blocco condivisione ==== */
 // --- UI condivisione (usa DOM/ev/modal; dormiente per gli inviti finché il cloud non è configurato) ---
 function eventInvites(){ const e=ev(); e.invites=e.invites||[]; return e.invites; }
@@ -3317,6 +3328,7 @@ document.addEventListener("keydown", function(e){
   if(!STATE||!STATE.events){ STATE=seedState(); Store.save(STATE); }
   migrateBudgetV2(); // stima -> preventivo (una tantum, vedi funzione)
   migrateSeedLabels(); // titoli liste seed in italiano
+  active=startTab()||active; // scheda di partenza da ?tab= (widget/scorciatoie Home)
   recompute(); render();
   // Bootstrap cloud: attivo solo se la build fornisce config + supabase-js.
   // Assente per ora -> Cloud resta dormiente e l'app è puramente locale.
@@ -3333,9 +3345,12 @@ document.addEventListener("keydown", function(e){
   }catch(e){ Diag.log("cloud","bootstrap fallito", e&&e.message); }
   updateSyncChip(); // il bootstrap gira dopo render(): aggiorna subito l'indicatore
   // Login come PRIMA cosa quando il cloud è pronto e non sei loggato; poi la guida.
+  // Se si arriva da un widget/scorciatoia su una scheda precisa (?tab=), non
+  // dirottare con la guida: la guida navigherebbe alla sua scheda annullando il deep-link.
+  const deepLinked=!!startTab();
   if(typeof Cloud!=="undefined" && Cloud.configured() && !Cloud.currentUser()){
-    promptLoginStart(function(){ if(!STATE.onboarded) openGuide(0); });
-  } else if(!STATE.onboarded){ openGuide(0); }
+    promptLoginStart(function(){ if(!STATE.onboarded && !deepLinked) openGuide(0); });
+  } else if(!STATE.onboarded && !deepLinked){ openGuide(0); }
   // PWA: registra il service worker (solo su http(s); su file:// fallisce silenziosamente)
   try{ if(typeof navigator!=="undefined" && navigator.serviceWorker && location.protocol.indexOf("http")===0){ navigator.serviceWorker.register("sw.js").catch(function(e){ Diag.log("pwa","SW register fallita", e&&e.message); }); } }catch(e){}
 })();
