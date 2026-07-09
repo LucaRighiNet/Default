@@ -3,7 +3,7 @@
 (function(){
 // Versione visibile della build (ingranaggio -> prima riga). Serve a capire al
 // volo quale versione sta girando su un dispositivo (cache vs deploy).
-const APP_BUILD="2026-07-09.2";
+const APP_BUILD="2026-07-09.3";
 
 /* ============ DIAGNOSTICA / ERROR TRACKING (P0) ============ */
 // Senza backend gli errori di produzione sarebbero invisibili. Diag li cattura in
@@ -938,26 +938,27 @@ function viewDash(){
   const pct=d.ceiling?Math.min(100,Math.round(d.committed/d.ceiling*100)):0;
   return `
   <div class="grid cards">
-    <div class="card kpi"><div class="v">${blurMoney("k_ceiling",money(d.ceiling))}</div><div class="l">Budget massimo (preventivi + ${m.contingencyPct}% imprevisti)</div></div>
-    <div class="card kpi"><div class="v">${blurMoney("k_committed",money(d.committed))}</div><div class="l">Impegnato (spese o preventivi accettati)</div>
+    <div class="card kpi" data-act="goTab" data-target="budget" role="link" title="Apri Budget & Finanze"><div class="v">${blurMoney("k_ceiling",money(d.ceiling))}</div><div class="l">Budget massimo (preventivi + ${m.contingencyPct}% imprevisti)</div></div>
+    <div class="card kpi" data-act="goTab" data-target="budget" role="link" title="Apri Budget & Finanze"><div class="v">${blurMoney("k_committed",money(d.committed))}</div><div class="l">Impegnato (spese o preventivi accettati)</div>
       <div class="barwrap"><div class="bar ${d.variance>0?'over':''}" style="width:${pct}%"></div></div></div>
-    <div class="card kpi"><div class="v">${blurMoney("k_due",money(d.dueSum))}</div><div class="l">Da pagare (${e.payments.filter(p=>!p.paid).length} rate)</div></div>
-    <div class="card kpi"><div class="v">${d.counts.conf} <span class="muted" style="font-size:16px">/ ${e.guests.length}</span></div><div class="l">RSVP confermati · ${d.head} a tavola</div></div>
-    <div class="card kpi"><div class="v">${d.vConf}/${d.vendorsN}</div><div class="l">Fornitori confermati</div></div>
-    <div class="card kpi"><div class="v">${d.tasksDone}/${d.tasksTotal}</div><div class="l">Attività completate</div></div>
+    <div class="card kpi" data-act="goTab" data-target="budget" role="link" title="Apri Budget & Finanze"><div class="v">${blurMoney("k_due",money(d.dueSum))}</div><div class="l">Da pagare (${e.payments.filter(p=>!p.paid).length} rate)</div>
+      <div class="l" style="margin-top:3px">Già pagato: ${blurMoney("k_paid",money(d.paidSum))} (${e.payments.filter(p=>p.paid).length} rate)</div></div>
+    <div class="card kpi" data-act="goTab" data-target="guests" role="link" title="Apri Ospiti & RSVP"><div class="v">${d.counts.conf} <span class="muted" style="font-size:16px">/ ${e.guests.length}</span></div><div class="l">RSVP confermati · ${d.head} a tavola</div></div>
+    <div class="card kpi" data-act="goTab" data-target="vendors" role="link" title="Apri Fornitori"><div class="v">${d.vConf}/${d.vendorsN}</div><div class="l">Fornitori confermati</div></div>
+    <div class="card kpi" data-act="goTab" data-target="timeline" role="link" title="Apri Timeline"><div class="v">${d.tasksDone}/${d.tasksTotal}</div><div class="l">Attività completate</div></div>
   </div>
 
   <div class="sec-title"><h2>Prossimi pagamenti</h2><span class="pill">cash-flow</span></div>
   <div class="scroll-x"><table class="tbl"><thead><tr><th>Voce</th><th>Scadenza</th><th class="num">Importo</th></tr></thead><tbody>
-  ${next.length?next.map(p=>`<tr><td>${esc(p.label)}</td><td>${fdate(p.dueDate)} <span class="muted">(${daysTo(p.dueDate)} gg)</span></td><td class="num">${blurMoney("p_"+p.id,money(p.amount))}</td></tr>`).join(""):`<tr><td colspan="3" class="muted">Nessuna rata in sospeso.</td></tr>`}
+  ${next.length?next.map(p=>`<tr data-act="goTab" data-target="budget" role="link" title="Apri Budget & Finanze" style="cursor:pointer"><td>${esc(p.label)}</td><td>${fdate(p.dueDate)} <span class="muted">(${daysTo(p.dueDate)} gg)</span></td><td class="num">${blurMoney("p_"+p.id,money(p.amount))}</td></tr>`).join(""):`<tr><td colspan="3" class="muted">Nessuna rata in sospeso.</td></tr>`}
   </tbody></table></div>
 
   <div class="sec-title"><h2>RSVP</h2></div>
   <div class="grid cards">
-    <div class="card kpi"><div class="v">${d.counts.conf}</div><div class="l">Confermati</div></div>
-    <div class="card kpi"><div class="v">${d.counts.attesa}</div><div class="l">In attesa</div></div>
-    <div class="card kpi"><div class="v">${d.counts.no}</div><div class="l">Non vengono</div></div>
-    <div class="card kpi"><div class="v">${d.assignedHead}/${d.seatCap||0}</div><div class="l">Posti assegnati / capienza tavoli</div></div>
+    <div class="card kpi" data-act="goTab" data-target="guests" role="link" title="Apri Ospiti & RSVP"><div class="v">${d.counts.conf}</div><div class="l">Confermati</div></div>
+    <div class="card kpi" data-act="goTab" data-target="guests" role="link" title="Apri Ospiti & RSVP"><div class="v">${d.counts.attesa}</div><div class="l">In attesa</div></div>
+    <div class="card kpi" data-act="goTab" data-target="guests" role="link" title="Apri Ospiti & RSVP"><div class="v">${d.counts.no}</div><div class="l">Non vengono</div></div>
+    <div class="card kpi" data-act="goTab" data-target="seating" role="link" title="Apri Tavoli"><div class="v">${d.assignedHead}/${d.seatCap||0}</div><div class="l">Posti assegnati / capienza tavoli</div></div>
   </div>
 
   <div class="sec-title"><h2>Avvisi</h2><span>${alerts.length?`<button class="btn sm ghost" data-act="openAlerts">Apri centro avvisi</button>`:""}</span></div>
@@ -2956,7 +2957,7 @@ const Session=(function(){ let role="owner"; return {
   canEdit(){ return role==="owner"||role==="editor"; }
 }; })();
 // Azioni non-mutanti sempre permesse (navigazione/aiuto/account/diagnostica).
-const READONLY_ACTS={ openGuide:1, openAccount:1, openDiag:1, hideTip:1, exportGuestsCsv:1, printTables:1, seatZoomIn:1, seatZoomOut:1, seatZoomReset:1, openAlerts:1, goAlert:1, togglePrivacy:1 };
+const READONLY_ACTS={ openGuide:1, openAccount:1, openDiag:1, hideTip:1, exportGuestsCsv:1, printTables:1, seatZoomIn:1, seatZoomOut:1, seatZoomReset:1, openAlerts:1, goAlert:1, togglePrivacy:1, goTab:1 };
 function actIsMutating(act){ return !READONLY_ACTS[act]; }
 function permBlocks(act){ return !Session.canEdit() && actIsMutating(act); }
 /* ==== fine blocco permessi ==== */
@@ -3120,6 +3121,7 @@ document.addEventListener("click",e=>{ try{
   else if(act==="assignSeat") assignSeat(a.getAttribute("data-table"), a.getAttribute("data-idx"));
   else if(act==="editHeader") editEventHeader();
   else if(act==="togglePrivacy"){ const k=a.getAttribute("data-key"); if(PRIVACY_REVEALED.has(k)) PRIVACY_REVEALED.delete(k); else PRIVACY_REVEALED.add(k); a.classList.toggle("revealed", PRIVACY_REVEALED.has(k)); }
+  else if(act==="goTab"){ active=a.getAttribute("data-target")||"dash"; render(); }
   else if(act==="openAlerts") openAlerts();
   else if(act==="goAlert"){
     if(_alertsModal){ _alertsModal.close(); _alertsModal=null; }
