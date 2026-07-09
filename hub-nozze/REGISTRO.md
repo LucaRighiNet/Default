@@ -1597,3 +1597,20 @@ confermati 3 coperti/1 bambino/1 intolleranza; in attesa e tutti confrontati
 con l'oracolo calcolato dallo stato reale (131+plusOne ecc.); il ciclo torna a
 confermati; zero overflow, zero errori JS, screenshot controllato.
 sw.js v33->v34; APP_BUILD 2026-07-09.11.
+
+## Giro 57 (Claude Code) — Coperti totali: scomposizione autoesplicativa
+
+Domanda utente: "come fanno a esserci 131 persone in lista e 134 coperti?"
+Risposta: coperti = invitati + accompagnatori (+1). Nel file Excel 3 invitati
+hanno Accompagnatori=1 (Jessika Berardi, Federico Giannini, Roberta Marconi):
+131 nomi + 3 accompagnatori = 134 posti a tavola per il catering.
+
+La domanda pero' rivela un'etichetta poco chiara: la card "Coperti totali" del
+Report catering ora mostra la scomposizione quando ci sono accompagnatori:
+"N invitati + M accompagnatori (+1)". Vale per tutte e tre le viste del filtro
+(confermati / in attesa / tutti); senza accompagnatori la riga extra non appare.
+
+Verifica: suite verde; E2E catering invariato (4 scenari verdi); card
+verificata su "tutti": "134 / Coperti totali / 131 invitati + 3 accompagnatori
+(+1)"; screenshot controllato, zero overflow. sw.js v34->v35;
+APP_BUILD 2026-07-09.12.
