@@ -3,7 +3,7 @@
 (function(){
 // Versione visibile della build (ingranaggio -> prima riga). Serve a capire al
 // volo quale versione sta girando su un dispositivo (cache vs deploy).
-const APP_BUILD="2026-07-09.1";
+const APP_BUILD="2026-07-09.2";
 
 /* ============ DIAGNOSTICA / ERROR TRACKING (P0) ============ */
 // Senza backend gli errori di produzione sarebbero invisibili. Diag li cattura in
@@ -2331,7 +2331,7 @@ function viewTimeline(){
       <td><button class="btn sm ${done?"":"ghost"}" data-act="toggleTask" data-id="${t.id}">${done?"&#10003;":"&#9675;"}</button></td>
       <td>${esc(t.title)} ${auto?'<span class="tag">auto</span>':""}<div class="muted" style="font-size:12px">${esc(t.category||"")}${t.assignee?" · "+esc(t.assignee):""}</div></td>
       <td>${t.due?fdate(t.due):"—"} ${over?'<span class="pill no">scaduta</span>':""}</td>
-      <td class="num">${t.vendorCat?`<span class="muted" style="font-size:12px;white-space:normal;display:inline-block;max-width:120px" title="Voce derivata dai Fornitori (categoria ${esc(t.vendorCat)})">${tvendor?"Confermato: "+esc(tvendor.name):"da fornitore ("+esc(t.vendorCat)+")"}</span>`:`<button class="btn sm ghost" data-act="editTask" data-id="${t.id}" aria-label="Modifica ${esc(t.title)}" title="Modifica">&#9998;</button> <button class="btn sm danger" data-act="delTask" data-id="${t.id}" aria-label="Elimina ${esc(t.title)}" title="Elimina">×</button>`}</td>
+      <td class="num"><button class="btn sm ghost" data-act="editTask" data-id="${t.id}" aria-label="Modifica ${esc(t.title)}" title="Modifica">&#9998;</button> <button class="btn sm danger" data-act="delTask" data-id="${t.id}" aria-label="Elimina ${esc(t.title)}" title="Elimina">×</button>${t.vendorCat?`<div class="muted" style="font-size:11px;white-space:normal;max-width:120px;margin-top:3px;text-align:right" title="Si spunta da sola quando confermi un fornitore ${esc(t.vendorCat)}. Puoi comunque modificarla o eliminarla.">${tvendor?"Confermato: "+esc(tvendor.name):"da fornitore ("+esc(t.vendorCat)+")"}</div>`:""}</td>
     </tr>`;
   }).join("");
   const responsibles=[...new Set(e.runshow.map(r=>r.who).filter(Boolean))];
@@ -2355,17 +2355,18 @@ function viewTimeline(){
 }
 function editTask(id){
   const e=ev(), t=e.tasks.find(x=>x.id===id), isNew=!t;
-  const x=t||{title:"",category:"",due:"",assignee:"Sposi",done:false};
+  const x=t||{title:"",category:"",due:"",assignee:"Sposi",done:false,vendorCat:""};
   modal(isNew?"Nuova attività":"Modifica attività",
     `<div class="field"><label>Attività</label><input class="inp" id="t_title" value="${esc(x.title)}"></div>
      <div class="two"><div class="field"><label>Categoria</label><input class="inp" id="t_cat" value="${esc(x.category||"")}"></div>
      <div class="field"><label>Scadenza</label><input class="inp" type="date" id="t_due" value="${esc(x.due||"")}"></div></div>
-     <div class="field"><label>Responsabile</label><select class="inp" id="t_as">${["Sposi","Silvia","Famiglia Righi","Famiglia Biondi","Wedding planner"].map(a=>`<option${x.assignee===a?" selected":""}>${a}</option>`).join("")}</select></div>`,
+     <div class="field"><label>Responsabile</label><select class="inp" id="t_as">${["Sposi","Silvia","Famiglia Righi","Famiglia Biondi","Wedding planner"].map(a=>`<option${x.assignee===a?" selected":""}>${a}</option>`).join("")}</select></div>
+     <div class="field"><label>Si spunta da sola con fornitore confermato <span class="muted" style="font-size:11px">(vuoto = attività solo manuale)</span></label><select class="inp" id="t_vcat"><option value=""${!x.vendorCat?" selected":""}>— nessun collegamento —</option>${VCATS.map(c=>`<option value="${esc(c)}"${x.vendorCat===c?" selected":""}>${esc(c)}</option>`).join("")}</select></div>`,
     [{label:"Annulla"},{label:"Salva",cls:"",fn:()=>{
       const title=$("#t_title").value.trim(); if(!title) return;
-      const data={title,category:$("#t_cat").value.trim(),due:$("#t_due").value,assignee:$("#t_as").value};
+      const data={title,category:$("#t_cat").value.trim(),due:$("#t_due").value,assignee:$("#t_as").value,vendorCat:$("#t_vcat").value||""};
       if(isNew){ e.tasks.push(Object.assign({id:"k"+Date.now(),done:false,createdAt:new Date().toISOString().slice(0,10)},data)); } else Object.assign(t,data);
-      commit(isNew?"Task aggiunto":"Task aggiornato");
+      commit(isNew?"Attività aggiunta":"Attività aggiornata");
     }}]);
 }
 function delTask(id){

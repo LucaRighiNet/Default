@@ -1329,3 +1329,27 @@ sostituita, posti svuotati, regole azzerate, tavolo intatto; idempotenza (un
 RSVP modificato sopravvive al reload, nessuna ri-bonifica). Regressioni
 giro38/39/40 + export CSV + collegamento fornitori: verdi. Zero errori JS,
 zero overflow, screenshot controllato. sw.js v23->v24; APP_BUILD 2026-07-09.1.
+
+## Giro 47 (Claude Code) — Attivita' "da fornitore" sempre modificabili ed eliminabili
+
+Segnalazione utente (frustrazione legittima): in Timeline le voci collegate a
+un fornitore non erano cancellabili ne' modificabili — la cella azioni mostrava
+la nota "da fornitore (...)" AL POSTO dei tasti. E nella scheda Fornitori non
+c'e' nulla che spieghi o governi quel vincolo. Il fix del Giro 45, collegando
+piu' voci ai fornitori, aveva amplificato il problema.
+
+FIX:
+- viewTimeline: matita e X ora SEMPRE presenti su ogni attivita'; la nota
+  fornitore ("Confermato: <nome>" / "da fornitore (cat)") e' scesa sotto i
+  tasti, piccola, con tooltip che spiega: "Si spunta da sola quando confermi
+  un fornitore <cat>. Puoi comunque modificarla o eliminarla."
+- editTask: nuovo campo "Si spunta da sola con fornitore confermato" (select
+  con le categorie fornitore + "nessun collegamento"): il vincolo ora si vede,
+  si cambia e si toglie dall'editor. delTask (con conferma) funziona su tutte.
+- toast editor allineati ("Attivita' aggiunta/aggiornata").
+
+Verifica: suite verde; E2E a 390 e 375px: tutte le righe con matita+X,
+eliminazione di una voce da-fornitore con conferma, scollegamento dal editor
+(vendorCat rimosso), ricollegamento (13 opzioni), tabella dentro lo schermo,
+zero errori JS, screenshot controllato. Regressioni timeline_link (auto-spunta
+intatta), giro38, roster: verdi. sw.js v24->v25; APP_BUILD 2026-07-09.2.
