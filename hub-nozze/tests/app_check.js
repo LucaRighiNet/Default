@@ -3,7 +3,7 @@
 (function(){
 // Versione visibile della build (ingranaggio -> prima riga). Serve a capire al
 // volo quale versione sta girando su un dispositivo (cache vs deploy).
-const APP_BUILD="2026-07-09.11";
+const APP_BUILD="2026-07-09.12";
 
 /* ============ DIAGNOSTICA / ERROR TRACKING (P0) ============ */
 // Senza backend gli errori di produzione sarebbero invisibili. Diag li cattura in
@@ -364,6 +364,7 @@ const Cloud=(function(){
             if(typeof migrateSeedLabels==="function") migrateSeedLabels();
             if(typeof migrateTaskVendorCat==="function") migrateTaskVendorCat();
             if(typeof migrateGuestsRoster2==="function") migrateGuestsRoster2();
+            if(typeof migrateMealSplit==="function") migrateMealSplit();
             try{ Store.save(STATE); }catch(e){} // persiste subito lo stato adottato/fuso
             if(typeof recompute==="function") recompute();
             if(typeof render==="function") render();
@@ -670,10 +671,10 @@ function recompute(){
   const counts={attesa:e.guests.filter(x=>x.rsvp==="attesa").length, no:e.guests.filter(x=>x.rsvp==="no").length, conf:conf.length};
   // catering report: meals among confirmed (+plus one counts as adulto)
   const meals={};
-  conf.forEach(x=>{ meals[x.meal]=(meals[x.meal]||0)+1; if(x.plusOne){meals["adulto"]=(meals["adulto"]||0)+(+x.plusOne);} });
+  conf.forEach(x=>{ meals[x.meal||"normale"]=(meals[x.meal||"normale"]||0)+1; if(x.plusOne){meals["normale"]=(meals["normale"]||0)+(+x.plusOne);} });
   const intoll=conf.filter(x=>x.intolerances).map(x=>x.name+": "+x.intolerances);
   const shuttle=conf.filter(x=>x.shuttle).reduce((s,x)=>s+1+(+x.plusOne||0),0);
-  const kidsN=conf.filter(x=>x.meal==="bambino").length;
+  const kidsN=conf.filter(x=>x.ptype==="bambino").length;
   const accessList=conf.filter(x=>x.accessibility).map(x=>x.name+": "+x.accessibility);
   // seating (modello nativo: posti in tables[].seatIds, capienza in t.seats)
   const tablesArr=e.tables||[];
@@ -838,10 +839,32 @@ function migrateGuestsRoster2(){
       e.guests=guestsRoster2();
       (e.tables||[]).forEach(t=>{ t.seatIds=(t.seatIds||[]).map(()=>null); });
       if(e.seating) e.seating.rules=[];
+      delete e.mealSplitV1; // il roster porta il campo menu "misto": lo split deve rigirare
       e.guestsRosterV2=true; n++;
     });
     if(n) Store.save(STATE);
   }catch(err){ Diag.log("guests","bonifica lista fallita", err&&err.message); }
+}
+
+/* ---- Migrazione tipo/menu (2026-07-09): il vecchio campo Menu mischiava
+   eta' (adulto/bambino) e regime (vegetariano...). Separa: ptype = tipologia
+   persona, meal = tipologia menu. bambino/adulto -> menu "normale"; l'eta'
+   viene dedotta dal vecchio valore O dalla variabile tavoli "Fascia d'eta'"
+   (cosi' Irene, celiaca E bambina, resta entrambe le cose). Flag mealSplitV1;
+   gira a boot e dopo ogni pull dal cloud. ---- */
+function migrateMealSplit(){
+  try{
+    let n=0;
+    Object.keys((STATE&&STATE.events)||{}).forEach(k=>{
+      const e=STATE.events[k]; if(!e||e.mealSplitV1) return;
+      (e.guests||[]).forEach(g=>{
+        if(!g.ptype) g.ptype=(g.meal==="bambino"||(g.attr&&g.attr.eta==="Bambino"))?"bambino":"adulto";
+        if(g.meal==="bambino"||g.meal==="adulto"||!g.meal) g.meal="normale";
+      });
+      e.mealSplitV1=true; n++;
+    });
+    if(n) Store.save(STATE);
+  }catch(err){ Diag.log("guests","migrazione tipo/menu fallita", err&&err.message); }
 }
 
 /* ============ HELPERS ============ */
@@ -1000,11 +1023,11 @@ function exportGuestsCsv(){
   // Esporta TUTTI i campi presenti nell'app: anagrafica, RSVP/menu, logistica,
   // tavolo assegnato (derivato dai Tavoli) e regali/ringraziamenti, piu' le
   // variabili personalizzate attive.
-  const head=["Nome","Lato","Nucleo","Gruppo","RSVP","Menu","Intolleranze","Accessibilita","Navetta","Accompagnatori","Tavolo","Regalo","Ringraziato"].concat(vars.map(v=>v.name));
+  const head=["Nome","Lato","Nucleo","Gruppo","RSVP","Tipo","Menu","Intolleranze","Accessibilita","Navetta","Accompagnatori","Tavolo","Regalo","Ringraziato"].concat(vars.map(v=>v.name));
   const q=s=>{ s=(s==null?"":String(s)); return /[",\n;]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s; };
   const rows=(ev().guests||[]).map(g=>{
     const tbl=seatTableOf(g.id);
-    const base=[g.name, g.side==="A"?meta().coupleA:meta().coupleB, g.household||"", g.group||"", (RSVP[g.rsvp]&&RSVP[g.rsvp][1])||g.rsvp, g.meal||"", g.intolerances||"", g.accessibility||"", g.shuttle?"Sì":"No", g.plusOne||0, tbl?tbl.name:"", g.gift||"", g.thanked?"Sì":"No"];
+    const base=[g.name, g.side==="A"?meta().coupleA:meta().coupleB, g.household||"", g.group||"", (RSVP[g.rsvp]&&RSVP[g.rsvp][1])||g.rsvp, g.ptype||"adulto", g.meal||"normale", g.intolerances||"", g.accessibility||"", g.shuttle?"Sì":"No", g.plusOne||0, tbl?tbl.name:"", g.gift||"", g.thanked?"Sì":"No"];
     return base.concat(vars.map(v=>(g.attr&&g.attr[v.id])||"")).map(q).join(",");
   });
   const csv="﻿"+head.map(q).join(",")+"\n"+rows.join("\n");
@@ -1170,7 +1193,10 @@ function viewBudget(){
 }
 
 /* ============ GUESTS ============ */
-const MEALS=["adulto","bambino","vegetariano","celiaco","vegano"];
+// Separazione tipologia persona / tipologia menu (richiesta utente):
+// PTYPES = chi e' (adulto/bambino), MEALS = che menu mangia.
+const PTYPES=["adulto","bambino"];
+const MEALS=["normale","vegetariano","celiaco","vegano"];
 const RSVP={conf:["ok","Confermato"],attesa:["warn","In attesa"],no:["no","Non viene"]};
 function viewGuests(){
   const e=ev(), d=DERIVED;
@@ -1184,7 +1210,7 @@ function viewGuests(){
       blocks+=`<tr data-grow="1" data-rsvp="${g.rsvp}" data-name="${esc((g.name||'').toLowerCase())}">
         <td>${dot}${esc(g.name)}${g.plusOne?` <span class="tag">+${g.plusOne}</span>`:""}${g.shuttle?' <span class="tag">navetta</span>':""}${g.accessibility?` <span class="tag">${esc(g.accessibility)}</span>`:""}${(function(){var _t=seatTableOf(g.id);return _t?` <span class="tag">${esc(_t.name)}</span>`:"";})()}</td>
         <td><button class="pill ${r[0]}" data-act="cycleRsvp" data-id="${g.id}" title="Clic per cambiare stato RSVP" style="cursor:pointer;border:none;font:inherit">${r[1]}</button></td>
-        <td>${esc(g.meal)}${g.intolerances?` <span class="muted">· ${esc(g.intolerances)}</span>`:""}</td>
+        <td>${esc(g.meal||"normale")}${g.ptype==="bambino"?' <span class="tag">bambino</span>':""}${g.intolerances?` <span class="muted">· ${esc(g.intolerances)}</span>`:""}</td>
         <td class="num"><button class="btn sm ghost" data-act="editGuest" data-id="${g.id}" aria-label="Modifica ${esc(g.name)}" title="Modifica">&#9998;</button> <button class="btn sm danger" data-act="delGuest" data-id="${g.id}" aria-label="Elimina ${esc(g.name)}" title="Elimina">×</button></td>
       </tr>`;
     });
@@ -1219,21 +1245,22 @@ function viewGuests(){
     const sc=SCOPES[CATERING_SCOPE]?CATERING_SCOPE:"conf", lab=SCOPES[sc];
     const sel=e.guests.filter(x=>sc==="all"?true:x.rsvp===sc);
     const head=sel.reduce((s,x)=>s+1+(+x.plusOne||0),0);
-    const kids=sel.filter(x=>x.meal==="bambino").length;
-    const meals={};
-    sel.forEach(x=>{ meals[x.meal]=(meals[x.meal]||0)+1; if(x.plusOne){ meals["adulto"]=(meals["adulto"]||0)+(+x.plusOne); } });
+    const kids=sel.filter(x=>x.ptype==="bambino").length;
+    // matrice menu x tipologia: righe = menu, colonne = adulti/bambini
+    const mx={};
+    sel.forEach(x=>{ const m=x.meal||"normale", p=(x.ptype==="bambino")?"b":"a"; mx[m]=mx[m]||{a:0,b:0}; mx[m][p]++; if(x.plusOne){ mx["normale"]=mx["normale"]||{a:0,b:0}; mx["normale"].a+=(+x.plusOne); } });
     const intoll=sel.filter(x=>x.intolerances).map(x=>x.name+": "+x.intolerances);
     const access=sel.filter(x=>x.accessibility).map(x=>x.name+": "+x.accessibility);
-    const mealRows=Object.keys(meals).map(k=>`<tr><td>${esc(k)}</td><td class="num">${meals[k]}</td></tr>`).join("")||`<tr><td colspan="2" class="muted">${lab[2]}</td></tr>`;
+    const mealRows=Object.keys(mx).map(k=>`<tr><td>${esc(k)}</td><td class="num">${mx[k].a||""}</td><td class="num">${mx[k].b||""}</td><td class="num"><b>${mx[k].a+mx[k].b}</b></td></tr>`).join("")||`<tr><td colspan="4" class="muted">${lab[2]}</td></tr>`;
     return `
   <div class="sec-title"><h2>Report catering</h2><button class="pill ${lab[0]}" data-act="cycleCateringScope" title="Clic per cambiare: confermati / in attesa / tutti" aria-label="Filtro report: ${lab[1]}. Tocca per cambiare." style="cursor:pointer;border:none;font:inherit">${lab[1]} &#8635;</button></div>
   <div class="grid cards">
     <div class="card kpi"><div class="v">${head}</div><div class="l">Coperti totali${head>sel.length?`</div><div class="l" style="margin-top:2px">${sel.length} invitati + ${head-sel.length} accompagnatori (+1)`:""}</div></div>
-    <div class="card kpi"><div class="v">${kids}</div><div class="l">Bambini / menù bambino</div></div>
+    <div class="card kpi"><div class="v">${kids}</div><div class="l">Bambini</div></div>
     <div class="card kpi"><div class="v">${intoll.length}</div><div class="l">Con intolleranze</div></div>
   </div>
   <div class="grid" style="grid-template-columns:1fr 1fr;gap:14px">
-    <div class="card"><h3>Pasti</h3><table class="tbl"><tbody>${mealRows}</tbody></table><p class="muted" style="font-size:12px;margin-top:6px">Gli accompagnatori (+1) contano come menù adulto.</p></div>
+    <div class="card" style="grid-column:1 / -1"><h3>Pasti (menù × tipologia)</h3><div class="scroll-x" style="border:none"><table class="tbl"><thead><tr><th>Menù</th><th class="num">Adulti</th><th class="num">Bambini</th><th class="num">Totale</th></tr></thead><tbody>${mealRows}</tbody></table></div><p class="muted" style="font-size:12px;margin-top:6px">Gli accompagnatori (+1) contano come adulti, menù normale.</p></div>
     <div class="card"><h3>Intolleranze</h3>${intoll.length?intoll.map(x=>`<div style="padding:4px 0">${esc(x)}</div>`).join(""):'<span class="muted">Nessuna.</span>'}${access.length?`<div style="margin-top:8px"><h3 style="font-size:14px">Accessibilità</h3>${access.map(x=>`<div style="padding:4px 0">${esc(x)}</div>`).join("")}</div>`:""}</div>
   </div>`;
   })()}
@@ -1789,7 +1816,7 @@ function seatPrefillAttrs(){
   const e=ev(); let n=0;
   (e.guests||[]).forEach(g=>{ g.attr=g.attr||{};
     if(g.household&&g.household!=="Senza nucleo"&&!g.attr.nucleo){ g.attr.nucleo=g.household; n++; }
-    if(!g.attr.eta){ g.attr.eta=(g.meal==="bambino"?"Bambino":"Adulto"); n++; }
+    if(!g.attr.eta){ g.attr.eta=(g.ptype==="bambino"?"Bambino":"Adulto"); n++; }
     if(!g.attr.lato){ g.attr.lato=(g.side==="A"?"Sposa":"Sposo"); n++; }
     const map={"Amici":"Amici","Colleghi":"Colleghi","Parenti":"Parenti","Vicini":"Vicini","Compagni di scuola":"Scuola"};
     if(g.group&&map[g.group]&&!g.attr.ambiente){ g.attr.ambiente=map[g.group]; n++; }
@@ -1801,7 +1828,7 @@ function seatPrefillAttrs(){
     (e.guests||[]).forEach(g=>{
       g.attr=g.attr||{}; if(g.attr.stato) return;
       const fam=hhs[g.household];
-      if(fam){ const kids=fam.some(x=>x.meal==="bambino"); g.attr.stato=(kids||fam.length>=3)?"Famiglia":(fam.length===2?"In coppia":"Single"); n++; }
+      if(fam){ const kids=fam.some(x=>x.ptype==="bambino"); g.attr.stato=(kids||fam.length>=3)?"Famiglia":(fam.length===2?"In coppia":"Single"); n++; }
       else { g.attr.stato=(+g.plusOne>0)?"In coppia":"Single"; n++; }
     });
   })();
@@ -2731,12 +2758,14 @@ function impRsvp(v){ const n=impNorm(v);
   if(['no','n','declina','assente','non viene','non partecipa','0','false','rifiuta','nv'].includes(n)) return 'no';
   return 'attesa';
 }
+function impPtype(v){ const n=impNorm(v);
+  return ['bambino','bimbo','bimba','child','kid','baby','bambini','ridotto'].includes(n)?'bambino':'adulto'; }
 function impMeal(v){ const n=impNorm(v);
-  if(['bambino','bimbo','bimba','child','kid','baby','bambini','ridotto'].includes(n)) return 'bambino';
+  if(['bambino','bimbo','bimba','child','kid','baby','bambini','ridotto'].includes(n)) return 'normale';
   if(['vegetariano','vegetariana','veg','vegetarian'].includes(n)) return 'vegetariano';
   if(['vegano','vegana','vegan'].includes(n)) return 'vegano';
   if(['celiaco','celiaca','senza glutine','gluten free','gf','sg','no glutine'].includes(n)) return 'celiaco';
-  return 'adulto';
+  return 'normale'; // adulto/vuoto/sconosciuto: menu standard (il tipo persona lo decide impPtype)
 }
 function impBool(v){ const n=impNorm(v); return ['si','s','yes','y','1','true','x','vero','navetta'].includes(n); }
 function impPlus(v){ const n=impNorm(v); const num=parseInt(n,10); if(!isNaN(num)) return Math.max(0,num); if(['si','s','yes','y','x'].includes(n)) return 1; return 0; }
@@ -2758,7 +2787,8 @@ function impRowsToGuests(rows, mapping, hasHeader, opts){
       side: mapping.side!=null ? impSide(get(r,'side'),cA,cB) : 'A',
       household: (mapping.household!=null && get(r,'household')) ? get(r,'household') : 'Senza nucleo',
       rsvp: mapping.rsvp!=null ? impRsvp(get(r,'rsvp')) : 'attesa',
-      meal: mapping.meal!=null ? impMeal(get(r,'meal')) : 'adulto',
+      meal: mapping.meal!=null ? impMeal(get(r,'meal')) : 'normale',
+      ptype: mapping.meal!=null ? impPtype(get(r,'meal')) : 'adulto',
       intolerances: mapping.intolerances!=null ? get(r,'intolerances') : '',
       accessibility: mapping.accessibility!=null ? get(r,'accessibility') : '',
       shuttle: mapping.shuttle!=null ? impBool(get(r,'shuttle')) : false,
@@ -2863,7 +2893,7 @@ function seatReadAttrFields(prev){
 }
 function editGuest(id){
   const g=ev().guests.find(x=>x.id===id); const isNew=!g;
-  const x=g||{name:"",side:"A",household:"",group:"",rsvp:"attesa",meal:"adulto",intolerances:"",accessibility:"",shuttle:false,plusOne:0};
+  const x=g||{name:"",side:"A",household:"",group:"",rsvp:"attesa",ptype:"adulto",meal:"normale",intolerances:"",accessibility:"",shuttle:false,plusOne:0};
   modal(isNew?"Nuovo ospite":"Modifica ospite",
     `<div class="field"><label>Nome</label><input class="inp" id="g_name" value="${esc(x.name)}"></div>
      <div class="two">
@@ -2873,7 +2903,7 @@ function editGuest(id){
      <div class="field"><label>Gruppo <span class="muted" style="font-size:11px">(l'ottimizzatore tiene vicini chi è dello stesso gruppo)</span></label>${managedSelect("g_group", x.group||"", [""].concat(guestGroups()))}</div>
      <div class="two">
        <div class="field"><label>RSVP</label><select class="inp" id="g_rsvp">${Object.keys(RSVP).map(k=>`<option value="${k}"${x.rsvp===k?" selected":""}>${RSVP[k][1]}</option>`).join("")}</select></div>
-       <div class="field"><label>Menù</label><select class="inp" id="g_meal">${MEALS.map(m=>`<option value="${m}"${x.meal===m?" selected":""}>${m}</option>`).join("")}</select></div>
+       <div class="field"><label>Menù</label><select class="inp" id="g_meal">${MEALS.map(m=>`<option value="${m}"${(x.meal||"normale")===m?" selected":""}>${m}</option>`).join("")}</select></div>\n     </div>\n     <div class="two">\n       <div class="field"><label>Tipo persona</label><select class="inp" id="g_ptype">${PTYPES.map(p=>`<option value="${p}"${(x.ptype||"adulto")===p?" selected":""}>${p}</option>`).join("")}</select></div>
      </div>
      <div class="two">
        <div class="field"><label>Intolleranze</label><input class="inp" id="g_int" value="${esc(x.intolerances)}"></div>
@@ -2886,7 +2916,7 @@ function editGuest(id){
      ${seatGuestAttrFields(x)}`,
     [{label:"Annulla"},{label:"Salva",cls:"",fn:()=>{
       const name=$("#g_name").value.trim(); if(!name) return;
-      const data={name,side:$("#g_side").value,household:managedValue("g_hh")||"Senza nucleo",group:managedValue("g_group"),rsvp:$("#g_rsvp").value,meal:$("#g_meal").value,intolerances:$("#g_int").value.trim(),accessibility:$("#g_acc").value.trim(),shuttle:$("#g_sh").value==="1",plusOne:+$("#g_plus").value||0,attr:seatReadAttrFields(x.attr)};
+      const data={name,side:$("#g_side").value,household:managedValue("g_hh")||"Senza nucleo",group:managedValue("g_group"),rsvp:$("#g_rsvp").value,ptype:$("#g_ptype").value,meal:$("#g_meal").value,intolerances:$("#g_int").value.trim(),accessibility:$("#g_acc").value.trim(),shuttle:$("#g_sh").value==="1",plusOne:+$("#g_plus").value||0,attr:seatReadAttrFields(x.attr)};
       if(isNew){ ev().guests.push(Object.assign({id:"g"+Date.now(),gift:"",thanked:false},data)); }
       else { const cur=ev().guests.find(x=>x.id===id); if(!cur){ toast("Ospite non più presente (aggiornato da un altro dispositivo)"); return; } Object.assign(cur,data); }
       commit(isNew?"Ospite aggiunto":"Ospite aggiornato");
@@ -3040,7 +3070,7 @@ function openBilling(){
 function cloudDoLogin(email, pw){
   if(!email||!pw){ toast("Inserisci email e password"); return Promise.resolve(false); }
   return Cloud.login(email, pw).then(function(res){
-    if(res.cloudState){ STATE=res.cloudState; migrateBudgetV2(); migrateSeedLabels(); migrateTaskVendorCat(); migrateGuestsRoster2(); recompute(); render(); toast("Accesso ok · dati dal cloud"); }
+    if(res.cloudState){ STATE=res.cloudState; migrateBudgetV2(); migrateSeedLabels(); migrateTaskVendorCat(); migrateGuestsRoster2(); migrateMealSplit(); recompute(); render(); toast("Accesso ok · dati dal cloud"); }
     else { Sync.notify(STATE); toast("Accesso ok · questo dispositivo diventa la copia madre"); }
     return true;
   }).catch(function(e){ toast("Accesso non riuscito: "+(e&&e.message||"")); Diag.log("cloud","login fallito", e&&e.message); return false; });
@@ -3340,6 +3370,7 @@ document.addEventListener("keydown", function(e){
   migrateSeedLabels(); // titoli liste seed in italiano
   migrateTaskVendorCat(); // collega attivita' seed ai fornitori
   migrateGuestsRoster2(); // bonifica lista invitati (una tantum)
+  migrateMealSplit(); // separa tipologia persona / menu (una tantum)
   active=startTab()||active; // scheda di partenza da ?tab= (widget/scorciatoie Home)
   recompute(); render();
   // Bootstrap cloud: attivo solo se la build fornisce config + supabase-js.
@@ -3351,7 +3382,7 @@ document.addEventListener("keydown", function(e){
       // Se c'è già una sessione valida (login precedente), riprendi e tira giù il cloud.
       // Migrazione DOPO il pull: lo stato del cloud vince su quello locale,
       // quindi va migrato lui (Store.save dentro migrate rispinge nel cloud).
-      try{ const res=await Cloud.resume(); if(res && res.cloudState){ STATE=res.cloudState; migrateBudgetV2(); migrateSeedLabels(); migrateTaskVendorCat(); migrateGuestsRoster2(); recompute(); render(); } }
+      try{ const res=await Cloud.resume(); if(res && res.cloudState){ STATE=res.cloudState; migrateBudgetV2(); migrateSeedLabels(); migrateTaskVendorCat(); migrateGuestsRoster2(); migrateMealSplit(); recompute(); render(); } }
       catch(e){ Diag.log("cloud","resume fallito", e&&e.message); }
     }
   }catch(e){ Diag.log("cloud","bootstrap fallito", e&&e.message); }

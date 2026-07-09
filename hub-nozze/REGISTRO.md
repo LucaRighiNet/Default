@@ -1614,3 +1614,36 @@ Verifica: suite verde; E2E catering invariato (4 scenari verdi); card
 verificata su "tutti": "134 / Coperti totali / 131 invitati + 3 accompagnatori
 (+1)"; screenshot controllato, zero overflow. sw.js v34->v35;
 APP_BUILD 2026-07-09.12.
+
+## Giro 58 (Claude Code) — Tipologia persona separata dalla tipologia menu
+
+Proposta utente (condivisa): il vecchio campo Menu mischiava eta'
+(adulto/bambino) e regime alimentare (vegetariano, celiaco...): impossibile
+rappresentare un bambino celiaco o un adulto vegetariano. Nel roster c'era
+proprio il caso: Irene Petruzzino, celiaca E bambina.
+
+Nuovo modello: g.ptype ("adulto"/"bambino") + g.meal
+("normale"/"vegetariano"/"celiaco"/"vegano").
+- migrateMealSplit (flag mealSplitV1, boot + tutti i pull dal cloud):
+  meal bambino/adulto -> menu "normale"; ptype dedotto dal vecchio valore O
+  dalla variabile tavoli "Fascia d'eta'" (Irene -> bambina celiaca).
+  migrateGuestsRoster2 azzera il flag quando risostituisce la lista (ordine
+  difensivo: il roster porta il campo misto).
+- Editor ospite: due select separate (Tipo persona / Menu').
+- Righe ospiti: colonna Menu' mostra il menu + tag "bambino".
+- Report catering: card "Bambini" (per tipologia) + tabella "Pasti (menu' x
+  tipologia)" a matrice: righe menu, colonne Adulti/Bambini/Totale; gli
+  accompagnatori (+1) contano come adulti menu normale. Funziona con le 3
+  viste del filtro (confermati/attesa/tutti).
+- Import: impMeal ora ritorna il menu (bambino/adulto -> normale) e il nuovo
+  impPtype la tipologia: la stessa colonna mista di Excel viene separata.
+- Export CSV: nuova colonna "Tipo" tra RSVP e Menu.
+- recompute: kidsN per ptype; pasti per menu (+1 -> normale).
+- Prefill variabili tavoli (eta', stato famiglia): da ptype.
+
+Verifica: 19 suite verdi (import_test aggiornato: impMeal/impPtype separati,
+default menu "normale"); E2E: migrazione seed (131, 29 bambini incl. Irene,
+menu solo nei 4 valori nuovi), matrice = oracolo dallo stato (celiaco 1+1!),
+editor con 2 select e salvataggio bambina celiaca, riga con tag, export con
+Tipo; regressioni roster/catering/ricerca/privacy verdi. Zero errori JS,
+screenshot controllato. sw.js v35->v36; APP_BUILD 2026-07-09.13.
