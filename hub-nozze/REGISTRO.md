@@ -1296,3 +1296,36 @@ Foto/Video, genChecklist collega le book-vendor e lascia manuali le
 attivita'-evento, display "da fornitore (cat)" prima della conferma, dopo aver
 confermato un fornitore Foto/Video la voce si auto-spunta (✓ + tag auto) e mostra
 "Confermato: <nome>". Zero errori JS. sw.js v22->v23; APP_BUILD 2026-07-04.10.
+
+## Giro 46 (Claude Code) — Bonifica forzata lista invitati (file Excel utente)
+
+Ordine utente: cancellare la lista invitati presente e sovrascriverla con
+quella nel file 07190774-tabella_invitati_matrimonio.xlsx.
+
+Analisi file: foglio "Invitati", 131 invitati validi (0 duplicati, 0 nomi
+vuoti). Colonne = formato export dell'app + 5 variabili tavoli. Distribuzioni:
+Righi 68 / Biondi 63; RSVP tutti "In attesa"; menu 95 adulto, 28 bambino,
+4 vegetariani, 2 vegani, 2 celiaci; navetta 0; +1 su 3 invitati; 36 nuclei;
+63 invitati con variabili tavoli valorizzate (tutte nel dominio ammesso).
+
+Implementazione:
+- guestsRoster2(): factory con i 131 invitati (id stabili g2607_N), generata
+  dall'Excel via parser zip/xml (mapping Righi->A, Biondi->B, RSVP->attesa,
+  colonne K-O -> attr {nucleo,lato,eta,ambiente,stato}). Usata dal seed (il
+  vecchio blocco di 113 nomi dettati e' stato rimosso insieme all'helper g()).
+- migrateGuestsRoster2(): bonifica FORZATA per gli stati gia' salvati (cloud e
+  dispositivi): sovrascrive e.guests, svuota i seatIds dei tavoli e azzera le
+  regole di vicinanza (gli id vecchi non esistono piu'; i tavoli restano con
+  nome/forma/posti). Flag guestsRosterV2: una sola volta per evento, le
+  modifiche successive dell'utente non vengono mai risovrascritte. Agganciata
+  a boot + Cloud.resume + cloudDoLogin + onRemoteWin (regola del Giro 36:
+  le migrazioni girano sul vincitore del merge).
+- I 113 vecchi restano recuperabili dalla history git.
+
+Verifica: suite verde (17 suite). E2E: boot fresco -> 131 con distribuzioni
+identiche all'Excel (68/63, 28 bambini, 3 +1, 63 attr, Greta Berardi prima);
+stato esistente con vecchi ospiti + tavolo assegnato + regola -> lista
+sostituita, posti svuotati, regole azzerate, tavolo intatto; idempotenza (un
+RSVP modificato sopravvive al reload, nessuna ri-bonifica). Regressioni
+giro38/39/40 + export CSV + collegamento fornitori: verdi. Zero errori JS,
+zero overflow, screenshot controllato. sw.js v23->v24; APP_BUILD 2026-07-09.1.
