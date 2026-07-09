@@ -1267,3 +1267,32 @@ Verifica: suite verde; manifest.json valido; E2E deep-link: default->dash,
 ?tab=budget->budget, ?tab=guests->guests, ?tab=dash->dash, ?tab=pippo->dash
 (fallback), #vendors->vendors, zero errori JS. Regressioni (privacy, giro38,
 playlist, export) verdi. sw.js v21->v22; APP_BUILD 2026-07-04.9.
+
+## Giro 45 (Claude Code) — Bug: checklist Timeline <-> fornitori non collegata
+
+Segnalazione utente: in Timeline la checklist ha voci che "prendono dal tab
+Fornitori"; verificare se funziona e se i collegamenti sono coerenti.
+
+DIAGNOSI: il collegamento (taskDone/taskVendor: un'attivita' con vendorCat si
+auto-spunta e mostra il fornitore quando esiste un fornitore confermato di quella
+categoria) funzionava SOLO per 2 voci seed (Confermare location/catering).
+Incongruenze:
+- genChecklist ("Genera standard") non impostava MAI vendorCat: tutte le voci
+  generate restavano scollegate (nessuna auto-spunta, nessun fornitore mostrato).
+- il seed k4 "Scegliere foto e video" era una voce "prenota fornitore" ma senza
+  vendorCat (avrebbe dovuto puntare a Foto/Video).
+
+FIX: mappa condivisa TASK_VENDORCAT (titolo -> categoria fornitore, con nomi
+VCATS esatti) per le sole attivita' "prenota/assicura fornitore" (foto/video,
+musica/DJ, fiori, torta, navetta/trasporti). NON collega le attivita'-evento
+(degustazioni, prove, "confermare numeri") che non devono spuntarsi solo perche'
+il fornitore e' confermato. La mappa e' usata da genChecklist, dal seed (k4) e da
+migrateTaskVendorCat() che collega le attivita' seed gia' salvate senza vendorCat
+(idempotente; boot + dopo ogni pull dal cloud, come le altre migrazioni).
+
+Verifica: suite verde + timeline_test (7 casi: mappa in VCATS, auto-spunta solo
+su confermato, categoria giusta, done manuale). E2E: seed k4 migrato a
+Foto/Video, genChecklist collega le book-vendor e lascia manuali le
+attivita'-evento, display "da fornitore (cat)" prima della conferma, dopo aver
+confermato un fornitore Foto/Video la voce si auto-spunta (✓ + tag auto) e mostra
+"Confermato: <nome>". Zero errori JS. sw.js v22->v23; APP_BUILD 2026-07-04.10.

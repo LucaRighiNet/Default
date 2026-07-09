@@ -3,7 +3,7 @@
 (function(){
 // Versione visibile della build (ingranaggio -> prima riga). Serve a capire al
 // volo quale versione sta girando su un dispositivo (cache vs deploy).
-const APP_BUILD="2026-07-04.8";
+const APP_BUILD="2026-07-04.9";
 
 /* ============ DIAGNOSTICA / ERROR TRACKING (P0) ============ */
 // Senza backend gli errori di produzione sarebbero invisibili. Diag li cattura in
@@ -247,6 +247,7 @@ const Cloud=(function(){
             STATE=st;
             if(typeof migrateBudgetV2==="function") migrateBudgetV2();
             if(typeof migrateSeedLabels==="function") migrateSeedLabels();
+            if(typeof migrateTaskVendorCat==="function") migrateTaskVendorCat();
             if(typeof recompute==="function") recompute();
             if(typeof render==="function") render();
             if(typeof toast==="function") toast("Aggiornato dalle modifiche sull'altro dispositivo");
@@ -472,7 +473,7 @@ function seedState(){
         {id:"k1",title:"Bloccare location e catering",category:"Fornitori",due:"2026-07-03",assignee:"Sposi",done:true},
         {id:"k2",title:"Confermare location",category:"Fornitori",vendorCat:"Location",due:"2026-07-03",assignee:"Sposi",done:false},
         {id:"k3",title:"Confermare catering",category:"Catering",vendorCat:"Catering",due:"2026-07-03",assignee:"Sposi",done:false},
-        {id:"k4",title:"Scegliere foto e video",category:"Fornitori",due:"2026-10-03",assignee:"Sposi",done:false},
+        {id:"k4",title:"Scegliere foto e video",category:"Fornitori",vendorCat:"Foto/Video",due:"2026-10-03",assignee:"Sposi",done:false},
         {id:"k5",title:"Confermare numeri al catering",category:"Catering",due:"2027-05-24",assignee:"Sposi",done:false},
         {id:"k6",title:"Saldo fornitori",category:"Pagamenti",due:"2027-06-23",assignee:"Sposi",done:false}
       ], runshow:[
@@ -2249,13 +2250,37 @@ function taskDone(t){ if(t.done) return true; if(t.vendorCat) return ev().vendor
 // 8.3: il fornitore confermato che soddisfa l'auto-spunta del task (per trasparenza in timeline).
 function taskVendor(t){ if(!t.vendorCat) return null; return ev().vendors.find(v=>v.category===t.vendorCat&&v.status==="confermato")||null; }
 let rsFilter="";
+// Attivita' "prenota/assicura fornitore" -> categoria fornitore (VCATS esatte):
+// queste si auto-spuntano quando esiste un fornitore confermato di quella
+// categoria e mostrano il suo nome (vedi taskDone/taskVendor). NON includiamo
+// attivita'-evento (degustazioni, prove, "confermare numeri") che non devono
+// spuntarsi solo perche' il fornitore e' confermato.
+const TASK_VENDORCAT={
+  "Scegliere foto e video":"Foto/Video",
+  "Scegliere musica / DJ":"Musica/DJ",
+  "Fiori e allestimenti":"Fiori",
+  "Scegliere torta":"Torta",
+  "Confermare navetta e trasporti":"Trasporti/Navetta"
+};
+// Collega le attivita' seed gia' salvate che dovrebbero puntare a un fornitore
+// ma sono senza vendorCat (idempotente; solo titoli identici alla mappa e senza
+// vendorCat gia' impostato). Boot + dopo ogni pull dal cloud, come le altre.
+function migrateTaskVendorCat(){
+  try{
+    let n=0;
+    Object.keys((STATE&&STATE.events)||{}).forEach(k=>{
+      ((STATE.events[k]||{}).tasks||[]).forEach(t=>{ if(t && !t.vendorCat && TASK_VENDORCAT[t.title]){ t.vendorCat=TASK_VENDORCAT[t.title]; n++; } });
+    });
+    if(n) Store.save(STATE);
+  }catch(err){ Diag.log("timeline","migrazione vendorCat fallita", err&&err.message); }
+}
 function genChecklist(){
   const e=ev(), base=new Date(meta().date+"T00:00:00");
   const M=n=>{ const d=new Date(base); d.setMonth(d.getMonth()-n); return d.toISOString().slice(0,10); };
   const W=n=>{ const d=new Date(base); d.setDate(d.getDate()-7*n); return d.toISOString().slice(0,10); };
   const tpl=[["Bloccare location e catering","Fornitori",M(12)],["Lista invitati preliminare","Ospiti",M(12)],["Scegliere foto e video","Fornitori",M(9)],["Scegliere musica / DJ","Fornitori",M(9)],["Acquisto abito sposa","Abiti",M(9)],["Ordinare partecipazioni","Inviti",M(6)],["Fiori e allestimenti","Fornitori",M(6)],["Scegliere torta","Fornitori",M(6)],["Prove menu e degustazione","Catering",M(3)],["Prova trucco e acconciatura","Beauty",M(3)],["Ordinare bomboniere","Extra",M(3)],["Confermare numeri al catering","Catering",M(1)],["Tableau e disposizione tavoli","Ospiti",M(1)],["Scaletta e run-of-show","Coordinamento",W(2)],["Confermare navetta e trasporti","Logistica",W(2)],["Saldo fornitori","Pagamenti",W(1)],["Kit emergenza e dettagli finali","Coordinamento",W(1)]];
   const have=new Set(e.tasks.map(t=>t.title)); let added=0;
-  tpl.forEach(r=>{ if(!have.has(r[0])){ e.tasks.push({id:"k"+Date.now()+"_"+added,title:r[0],category:r[1],due:r[2],assignee:"Sposi",done:false}); added++; } });
+  tpl.forEach(r=>{ if(!have.has(r[0])){ const task={id:"k"+Date.now()+"_"+added,title:r[0],category:r[1],due:r[2],assignee:"Sposi",done:false}; if(TASK_VENDORCAT[r[0]]) task.vendorCat=TASK_VENDORCAT[r[0]]; e.tasks.push(task); added++; } });
   commit("Checklist generata: +"+added+" attività");
 }
 function viewTimeline(){
@@ -2821,7 +2846,7 @@ function openBilling(){
 function cloudDoLogin(email, pw){
   if(!email||!pw){ toast("Inserisci email e password"); return Promise.resolve(false); }
   return Cloud.login(email, pw).then(function(res){
-    if(res.cloudState){ STATE=res.cloudState; migrateBudgetV2(); migrateSeedLabels(); recompute(); render(); toast("Accesso ok · dati dal cloud"); }
+    if(res.cloudState){ STATE=res.cloudState; migrateBudgetV2(); migrateSeedLabels(); migrateTaskVendorCat(); recompute(); render(); toast("Accesso ok · dati dal cloud"); }
     else { Sync.notify(STATE); toast("Accesso ok · questo dispositivo diventa la copia madre"); }
     return true;
   }).catch(function(e){ toast("Accesso non riuscito: "+(e&&e.message||"")); Diag.log("cloud","login fallito", e&&e.message); return false; });
@@ -3117,6 +3142,7 @@ document.addEventListener("keydown", function(e){
   if(!STATE||!STATE.events){ STATE=seedState(); Store.save(STATE); }
   migrateBudgetV2(); // stima -> preventivo (una tantum, vedi funzione)
   migrateSeedLabels(); // titoli liste seed in italiano
+  migrateTaskVendorCat(); // collega attivita' seed ai fornitori
   active=startTab()||active; // scheda di partenza da ?tab= (widget/scorciatoie Home)
   recompute(); render();
   // Bootstrap cloud: attivo solo se la build fornisce config + supabase-js.
@@ -3128,7 +3154,7 @@ document.addEventListener("keydown", function(e){
       // Se c'è già una sessione valida (login precedente), riprendi e tira giù il cloud.
       // Migrazione DOPO il pull: lo stato del cloud vince su quello locale,
       // quindi va migrato lui (Store.save dentro migrate rispinge nel cloud).
-      try{ const res=await Cloud.resume(); if(res && res.cloudState){ STATE=res.cloudState; migrateBudgetV2(); migrateSeedLabels(); recompute(); render(); } }
+      try{ const res=await Cloud.resume(); if(res && res.cloudState){ STATE=res.cloudState; migrateBudgetV2(); migrateSeedLabels(); migrateTaskVendorCat(); recompute(); render(); } }
       catch(e){ Diag.log("cloud","resume fallito", e&&e.message); }
     }
   }catch(e){ Diag.log("cloud","bootstrap fallito", e&&e.message); }
