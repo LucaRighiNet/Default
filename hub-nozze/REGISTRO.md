@@ -1695,3 +1695,31 @@ salvataggio a vuoto bloccato con modale APERTA + bordo rosso + focus + toast,
 rata bloccata anche con importo 0, poi salvataggio corretto a campo compilato);
 regressioni su tutti gli editor (budget/conferme/playlist/ospiti/attivita'/
 catering) verdi. sw.js v37->v38; APP_BUILD 2026-07-09.15.
+
+## Giro 61 (Claude Code) — Barra dei tab: orientamento per chi arriva nuovo
+
+Segnalazione utente: Silvia (nuova utente) disorientata nel passare da una
+scheda all'altra, titubante sulla barra dei tab. Diagnosi UX: barra di solo
+testo che scorre senza NESSUN segnale che oltre il bordo ci sia altro; scheda
+attiva poco contrastata; dopo una navigazione da Dashboard/avvisi la barra
+poteva mostrare tutt'altre schede.
+
+Quattro interventi:
+1. ICONE su ogni scheda (casa, banconote, persone, rubrica, sedia, brindisi,
+   checklist, appunti): riconoscibilita' immediata, prima del testo.
+2. FRECCE DI SCORRIMENTO ai bordi con sfumatura (tabswrap can-left/can-right,
+   aggiornate su scroll/resize): dicono "qui si scorre" e al tocco fanno
+   scorrere di mezzo schermo. Spariscono a fine corsa e su desktop (sidebar).
+3. AUTO-CENTRAGGIO: a ogni cambio scheda (tab, card Dashboard, avvisi, deep
+   link) la scheda attiva si porta al centro della barra: vedi sempre dove sei
+   e cosa c'e' accanto (tabsEnsureVisible in renderTabs).
+4. Scheda attiva a SFONDO PIENO (sea su avorio): contrasto netto.
+Scrollbar nativa nascosta (la sostituiscono frecce+sfumature); listener
+registrati una volta (#tabs e' un nodo fisso); desktop invariato.
+
+Verifica: suite verde; E2E 390/375px: 8 icone, freccia destra visibile
+all'avvio e sinistra no, click freccia -> scorre e compare l'altra,
+navigazione da card Dashboard -> Timeline centrata (scarto <1px), stile
+attiva pieno, click sull'icona = cambio scheda (delega intatta), zero
+overflow, zero errori JS, screenshot controllati. Regressioni dashnav/avvisi/
+privacy verdi. sw.js v38->v39; APP_BUILD 2026-07-09.16.

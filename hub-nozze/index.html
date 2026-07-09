@@ -63,13 +63,26 @@ header.top{
 .count span{color:rgba(247,243,233,.72); margin-top:2px; display:block}
 .gear{border:1px solid var(--line-sea); background:rgba(247,243,233,.06); color:var(--ivory); border-radius:12px; width:44px; height:44px; font-size:18px; flex:0 0 auto}
 
+.tabswrap{position:sticky; top:0; z-index:20; position:relative}
+.tabswrap{position:sticky}
 nav.tabs{
-  position:sticky; top:0; z-index:20; display:flex; gap:4px; overflow-x:auto;
+  display:flex; gap:4px; overflow-x:auto; scroll-behavior:smooth;
   padding:8px calc(var(--sar) + 12px) 8px calc(var(--sal) + 12px);
   background:var(--canvas); border-bottom:1px solid var(--line); -webkit-overflow-scrolling:touch;
+  scrollbar-width:none;
 }
+nav.tabs::-webkit-scrollbar{display:none}
+/* Frecce ai bordi: dicono "qui si scorre". Compaiono solo se c'e' contenuto oltre. */
+.tarrow{position:absolute; top:0; bottom:1px; width:34px; border:none; display:none;
+  align-items:center; justify-content:center; font-size:22px; color:var(--sea);
+  cursor:pointer; padding:0; z-index:21}
+.tarrow.left{left:0; background:linear-gradient(to right, var(--canvas) 55%, transparent)}
+.tarrow.right{right:0; background:linear-gradient(to left, var(--canvas) 55%, transparent)}
+.tabswrap.can-left .tarrow.left{display:flex}
+.tabswrap.can-right .tarrow.right{display:flex}
+.tico{font-size:15px; margin-right:5px; vertical-align:-1px}
 nav.tabs button{white-space:nowrap; border:1px solid transparent; background:transparent; color:var(--ink-soft); padding:9px 14px; border-radius:11px; font-size:14px; min-height:44px; transition:background .16s,color .16s}
-nav.tabs button[aria-selected="true"]{background:var(--sea-tint); color:var(--sea); font-weight:500; border-color:#cfe2e2}
+nav.tabs button[aria-selected="true"]{background:var(--sea); color:var(--ivory); font-weight:500; border-color:var(--sea)}
 main{flex:1; padding:18px calc(var(--sar) + 14px) calc(var(--sab) + 80px) calc(var(--sal) + 14px); max-width:1200px; width:100%; margin:0 auto}
 
 .grid{display:grid; gap:14px}
@@ -181,6 +194,8 @@ input[type=checkbox]{accent-color:var(--sea); width:18px; height:18px}
 @media(min-width:1024px){
   .app{flex-direction:row}
   header.top{position:fixed; top:0; left:0; right:0}
+  .tabswrap{position:static}
+  .tarrow{display:none !important}
   nav.tabs{position:fixed; top:84px; left:0; bottom:0; width:236px; flex-direction:column; overflow-y:auto; border-right:1px solid var(--line); border-bottom:none; padding-top:18px; gap:4px; background:var(--card)}
   nav.tabs button{width:100%; text-align:left; border-radius:11px; border-left:3px solid transparent}
   nav.tabs button[aria-selected="true"]{border-left-color:var(--sea); border-radius:0 11px 11px 0}
@@ -209,7 +224,11 @@ input[type=checkbox]{accent-color:var(--sea); width:18px; height:18px}
     <button class="gear" id="alertBell" data-act="openAlerts" aria-label="Avvisi" style="position:relative">&#128276;<span id="alertBadge" style="display:none;position:absolute;top:1px;right:1px;background:var(--no);color:#fff;border-radius:9px;font-size:10px;line-height:1;padding:3px 5px"></span></button>
     <button class="gear" id="gearBtn" aria-label="Gestione evento">&#9881;&#xFE0F;</button>
   </header>
-  <nav class="tabs" id="tabs" role="tablist" aria-label="Sezioni"></nav>
+  <div class="tabswrap" id="tabswrap">
+    <nav class="tabs" id="tabs" role="tablist" aria-label="Sezioni"></nav>
+    <button class="tarrow left" id="tarrowL" aria-label="Sezioni precedenti" tabindex="-1">&#8249;</button>
+    <button class="tarrow right" id="tarrowR" aria-label="Altre sezioni" tabindex="-1">&#8250;</button>
+  </div>
   <main id="view"></main>
 </div>
 <div id="modalRoot"></div>
@@ -226,7 +245,7 @@ input[type=checkbox]{accent-color:var(--sea); width:18px; height:18px}
 (function(){
 // Versione visibile della build (ingranaggio -> prima riga). Serve a capire al
 // volo quale versione sta girando su un dispositivo (cache vs deploy).
-const APP_BUILD="2026-07-09.15";
+const APP_BUILD="2026-07-09.16";
 
 /* ============ DIAGNOSTICA / ERROR TRACKING (P0) ============ */
 // Senza backend gli errori di produzione sarebbero invisibili. Diag li cattura in
@@ -1170,8 +1189,27 @@ function toggleLang(){ if(typeof STATE==="undefined"||!STATE) return; STATE.lang
 /* ==== fine blocco i18n ==== */
 const TABS=[["dash"],["budget"],["guests"],["vendors"],["seating"],["aperitivo"],["timeline"],["lists"]];
 let active="dash";
+const TAB_ICON={dash:"\u{1F3E0}",budget:"\u{1F4B6}",guests:"\u{1F465}",vendors:"\u{1F4C7}",seating:"\u{1FA91}",aperitivo:"\u{1F942}",timeline:"\u{1F4CB}",lists:"\u{1F4DD}"};
 function renderTabs(){
-  $("#tabs").innerHTML=TABS.map(x=>'<button role="tab" data-tab="'+x[0]+'" aria-selected="'+(active===x[0])+'">'+esc(t("tab."+x[0]))+'</button>').join("");
+  $("#tabs").innerHTML=TABS.map(x=>'<button role="tab" data-tab="'+x[0]+'" aria-selected="'+(active===x[0])+'"><span class="tico" aria-hidden="true">'+(TAB_ICON[x[0]]||"")+'</span>'+esc(t("tab."+x[0]))+'</button>').join("");
+  tabsEnsureVisible();
+}
+// La scheda attiva si centra da sola nella barra (cosi' si vede sempre dove sei
+// e che ai lati c'e' altro); le frecce compaiono solo se c'e' contenuto oltre.
+function tabsEnsureVisible(){
+  try{
+    const nav=$("#tabs"), wrap=$("#tabswrap"); if(!nav||!wrap) return;
+    const el=nav.querySelector('[aria-selected="true"]');
+    if(el && nav.scrollWidth>nav.clientWidth+4){
+      nav.scrollLeft=Math.max(0, el.offsetLeft-(nav.clientWidth-el.offsetWidth)/2);
+    }
+    updateTabArrows();
+  }catch(e){}
+}
+function updateTabArrows(){
+  const nav=$("#tabs"), wrap=$("#tabswrap"); if(!nav||!wrap) return;
+  wrap.classList.toggle("can-left", nav.scrollLeft>6);
+  wrap.classList.toggle("can-right", nav.scrollLeft<nav.scrollWidth-nav.clientWidth-6);
 }
 function render(){
   const m=meta(), d=DERIVED;
@@ -3610,6 +3648,14 @@ document.addEventListener("keydown", function(e){
   migrateTaskVendorCat(); // collega attivita' seed ai fornitori
   migrateGuestsRoster2(); // bonifica lista invitati (una tantum)
   migrateMealSplit(); // separa tipologia persona / menu (una tantum)
+  // barra dei tab: frecce di scorrimento (una sola registrazione: #tabs e' fisso)
+  try{
+    const nav=$("#tabs");
+    nav.addEventListener("scroll", updateTabArrows, {passive:true});
+    window.addEventListener("resize", updateTabArrows);
+    $("#tarrowL").addEventListener("click", ()=>{ nav.scrollLeft-=Math.round(nav.clientWidth*0.6); });
+    $("#tarrowR").addEventListener("click", ()=>{ nav.scrollLeft+=Math.round(nav.clientWidth*0.6); });
+  }catch(e){}
   active=startTab()||active; // scheda di partenza da ?tab= (widget/scorciatoie Home)
   recompute(); render();
   // Bootstrap cloud: attivo solo se la build fornisce config + supabase-js.
