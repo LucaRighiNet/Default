@@ -1411,3 +1411,34 @@ Verifica: suite verde; E2E 390/375px: X nascosta a campo vuoto, ricerca
 nascosta, query persistente al cambio scheda con X coerente e funzionante,
 zero overflow, zero errori JS, screenshot controllato.
 sw.js v27->v28; APP_BUILD 2026-07-09.5.
+
+## Giro 51 (Claude Code) — P2: merge per singola entita' nei conflitti di sync
+
+Richiesta utente: procedere col merge per entita' (annunciato come P2), per
+coprire l'editing simultaneo da due dispositivi.
+
+Implementazione:
+- merge3(base, locale, remoto, tsA, tsB): merge a 3 vie generico e ricorsivo.
+  Regole: cambiato da un solo lato -> vince quel lato; oggetti -> campo per
+  campo; array di entita' con id (budget, payments, guests, vendors, tasks,
+  runshow, lists, tables...) -> merge per id: aggiunte da entrambe le parti
+  convivono, la MODIFICA vince sulla cancellazione, stessa entita' -> ricorsione
+  sui campi; scalari/array semplici in conflitto -> LWW su _savedAt (come prima).
+- Sync: snapshot dell'ANTENATO comune (BASE={v,data}, persistito in
+  localStorage hub_state_base_v1, aggiornato a ogni push ok / pull / syncNow /
+  merge). In conflitto, se BASE.v == versione da cui partiva la modifica ->
+  merge3 e push del risultato; il locale ADOTTA il merge (onRemoteWin), che ora
+  viene anche persistito subito (Store.save). Se il push del merge fallisce, il
+  retry ripubblica il MERGE (pendingStr aggiornato). Senza antenato valido ->
+  fallback al LWW deterministico del Giro 41 (nessuna regressione).
+- Risultato pratico: tu tocchi i fornitori sul telefono e Silvia i pagamenti
+  sul tablet nello stesso momento -> sopravvivono entrambe.
+
+Verifica: 18 suite verdi; nuova merge_test 11 casi (entita' diverse, aggiunte
+incrociate, cancellazione rispettata, modifica-vince-su-cancellazione, merge
+campo-per-campo sulla stessa entita', stesso campo -> LWW, meta fusa, flusso
+Sync completo conflitto->merge v3 con adozione locale, push successivo liscio,
+fallback LWW senza antenato). Nota onesta: lo smoke con page.evaluate non e'
+possibile (app IIFE, nessun global); la copertura e' data dagli unit test che
+girano sul codice REALE estratto dal file + regressioni E2E senza errori JS
+(dashnav, searchclear, roster, privacy). sw.js v28->v29; APP_BUILD 2026-07-09.6.
