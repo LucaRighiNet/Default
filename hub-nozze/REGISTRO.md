@@ -1394,3 +1394,20 @@ Verifica: suite verde; E2E 390/375px: input di Pianificazione con top e bottom
 identici (616/663 e 635/682), scansione di tutti i .two della scheda budget
 senza disallineamenti, screenshot controllato, zero errori JS.
 sw.js v26->v27; APP_BUILD 2026-07-09.4.
+
+## Giro 50 (Claude Code) — Tasto rapido per svuotare la ricerca ospiti
+
+Segnalazione utente: cercando nella lista ospiti non c'e' un tasto veloce che
+svuota la barra di ricerca.
+
+Fix: X circolare dentro il campo (destra), visibile SOLO quando c'e' testo.
+Il tocco svuota la query, ripristina l'intera lista, rimette il focus nel
+campo e nasconde la X. Gestita in wireGuests (nessun listener accumulato:
+oninput/onclick per assegnazione); coerente al rientro nella scheda quando la
+query e' persistente (GUESTVIEW.q).
+
+Verifica: suite verde; E2E 390/375px: X nascosta a campo vuoto, ricerca
+"greta" filtra 131->1 e mostra la X, tocco -> lista completa + focus + X
+nascosta, query persistente al cambio scheda con X coerente e funzionante,
+zero overflow, zero errori JS, screenshot controllato.
+sw.js v27->v28; APP_BUILD 2026-07-09.5.
