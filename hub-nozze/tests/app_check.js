@@ -3,7 +3,7 @@
 (function(){
 // Versione visibile della build (ingranaggio -> prima riga). Serve a capire al
 // volo quale versione sta girando su un dispositivo (cache vs deploy).
-const APP_BUILD="2026-07-09.14";
+const APP_BUILD="2026-07-09.15";
 
 /* ============ DIAGNOSTICA / ERROR TRACKING (P0) ============ */
 // Senza backend gli errori di produzione sarebbero invisibili. Diag li cattura in
@@ -947,8 +947,27 @@ function toggleLang(){ if(typeof STATE==="undefined"||!STATE) return; STATE.lang
 /* ==== fine blocco i18n ==== */
 const TABS=[["dash"],["budget"],["guests"],["vendors"],["seating"],["aperitivo"],["timeline"],["lists"]];
 let active="dash";
+const TAB_ICON={dash:"\u{1F3E0}",budget:"\u{1F4B6}",guests:"\u{1F465}",vendors:"\u{1F4C7}",seating:"\u{1FA91}",aperitivo:"\u{1F942}",timeline:"\u{1F4CB}",lists:"\u{1F4DD}"};
 function renderTabs(){
-  $("#tabs").innerHTML=TABS.map(x=>'<button role="tab" data-tab="'+x[0]+'" aria-selected="'+(active===x[0])+'">'+esc(t("tab."+x[0]))+'</button>').join("");
+  $("#tabs").innerHTML=TABS.map(x=>'<button role="tab" data-tab="'+x[0]+'" aria-selected="'+(active===x[0])+'"><span class="tico" aria-hidden="true">'+(TAB_ICON[x[0]]||"")+'</span>'+esc(t("tab."+x[0]))+'</button>').join("");
+  tabsEnsureVisible();
+}
+// La scheda attiva si centra da sola nella barra (cosi' si vede sempre dove sei
+// e che ai lati c'e' altro); le frecce compaiono solo se c'e' contenuto oltre.
+function tabsEnsureVisible(){
+  try{
+    const nav=$("#tabs"), wrap=$("#tabswrap"); if(!nav||!wrap) return;
+    const el=nav.querySelector('[aria-selected="true"]');
+    if(el && nav.scrollWidth>nav.clientWidth+4){
+      nav.scrollLeft=Math.max(0, el.offsetLeft-(nav.clientWidth-el.offsetWidth)/2);
+    }
+    updateTabArrows();
+  }catch(e){}
+}
+function updateTabArrows(){
+  const nav=$("#tabs"), wrap=$("#tabswrap"); if(!nav||!wrap) return;
+  wrap.classList.toggle("can-left", nav.scrollLeft>6);
+  wrap.classList.toggle("can-right", nav.scrollLeft<nav.scrollWidth-nav.clientWidth-6);
 }
 function render(){
   const m=meta(), d=DERIVED;
@@ -3387,6 +3406,14 @@ document.addEventListener("keydown", function(e){
   migrateTaskVendorCat(); // collega attivita' seed ai fornitori
   migrateGuestsRoster2(); // bonifica lista invitati (una tantum)
   migrateMealSplit(); // separa tipologia persona / menu (una tantum)
+  // barra dei tab: frecce di scorrimento (una sola registrazione: #tabs e' fisso)
+  try{
+    const nav=$("#tabs");
+    nav.addEventListener("scroll", updateTabArrows, {passive:true});
+    window.addEventListener("resize", updateTabArrows);
+    $("#tarrowL").addEventListener("click", ()=>{ nav.scrollLeft-=Math.round(nav.clientWidth*0.6); });
+    $("#tarrowR").addEventListener("click", ()=>{ nav.scrollLeft+=Math.round(nav.clientWidth*0.6); });
+  }catch(e){}
   active=startTab()||active; // scheda di partenza da ?tab= (widget/scorciatoie Home)
   recompute(); render();
   // Bootstrap cloud: attivo solo se la build fornisce config + supabase-js.
