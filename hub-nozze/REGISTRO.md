@@ -1535,3 +1535,43 @@ notify -> esattamente 2 upload totali, l'ultimo col contenuto finale, zero
 conflitti, stato synced, niente pending; (b) displayStatus: push lampo
 invisibile, push lungo mostrato, rientro su synced. Regressioni E2E dashboard
 e privacy verdi. sw.js v31->v32; APP_BUILD 2026-07-09.9.
+
+## Giro 55 (Claude Code) — Audit della stessa famiglia: altri 3 difetti trovati e corretti
+
+Domanda utente: "ci sono altri bug con queste caratteristiche e tipologia?"
+(cioe' della famiglia del Giro 54: asincronia senza guardie, timer, closure
+su stato vecchio, doppi eventi). Audit sistematico del file. Esito:
+
+TROVATI E CORRETTI (3):
+1. STALE CLOSURES negli editor (il piu' serio, perdita dati silenziosa):
+   editBudget/editPayment/editGuest/editVendor/editTask/editRs catturavano il
+   riferimento all'entita' all'APERTURA della modale. Se durante la modifica
+   arrivava uno stato dal cloud (syncNow al focus, adozione, merge), STATE
+   veniva sostituito e il salvataggio mutava un oggetto ORFANO: modifica persa
+   in silenzio. Ora le fn di salvataggio ri-risolvono l'entita' per id da ev()
+   AL MOMENTO del salvataggio; se non esiste piu' (cancellata altrove), toast
+   chiaro invece di perdita muta. Corretti anche delBudget e delPayment che
+   usavano l'evento catturato.
+2. SOPPRESSORE POST-DRAG APPESO: dopo un trascinamento in planimetria, il
+   click-suppressor si toglieva solo se il click arrivava; su touch spesso non
+   arriva -> restava armato e MANGIAVA il primo tocco successivo ovunque
+   ("ogni tanto un tocco non risponde"). Ora si auto-disinnesca dopo 350ms.
+3. TOAST ACCORCIATI: toast ravvicinati condividevano il timer di chiusura del
+   precedente (il secondo spariva subito). Timer ora azzerato a ogni toast.
+
+VERIFICATI SANI (stessa famiglia, nessun intervento):
+- syncNow (guardia in-flight+throttle, Giro 53), _push (guardia+coalescing,
+  Giro 54), retry su 'online' (passa dalla guardia push);
+- drag planimetria: pointermove/up/cancel rimossi in cleanup() su up e cancel;
+- timer: saveTimer/pushTimer/updateSyncChip._t con clearTimeout; rowflash con
+  {once:true}; wire* su elementi ricreati a ogni render (nessun accumulo);
+- doppio flush su pagehide+visibilitychange: coalescato e deduplicato dal
+  Giro 54; delegati data-act: leggono ev() al click (mai stato catturato);
+- delTask/delRs/delVendor/delList/delGuest: gia' live (ev() dentro la fn).
+
+Verifica: 19 suite verdi; regressioni E2E su TUTTI gli editor toccati (budget
+save, task/momenti edit+delete+conferme, playlist, dashboard, swipe): verdi.
+Nota onesta: lo scenario stale-closure (stato sostituito con modale aperta)
+non e' riproducibile in E2E senza accesso all'IIFE; la correttezza e' per
+costruzione (ri-risoluzione per id al salvataggio) + regressioni sul percorso
+normale. sw.js v32->v33; APP_BUILD 2026-07-09.10.
