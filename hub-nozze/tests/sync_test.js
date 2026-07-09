@@ -169,4 +169,64 @@ ok("Sync: push fallita -> 'offline' + pending, retry ripubblica", async () => {
   S.Sync.disable();
 });
 
+
+// --- prestazioni: head condizionale, anti-doppione, niente upload fotocopia ---
+ok("syncNow con head: nessuna novita' -> NON scarica il documento", async () => {
+  let headN=0, pullN=0;
+  const remote={ name:"spy",
+    head(){ headN++; return Promise.resolve({version:1}); },
+    pull(){ pullN++; return Promise.resolve({version:1, data:"{}"}); },
+    push(b,d){ return Promise.resolve({ok:true, version:b+1}); } };
+  S.Sync.enable(remote, { version: 1 });
+  await S.Sync.syncNow();
+  assert.strictEqual(headN, 1, "head non chiamata");
+  assert.strictEqual(pullN, 0, "documento scaricato inutilmente");
+  assert.strictEqual(S.Sync.getStatus(), "synced");
+  S.Sync.disable();
+});
+ok("syncNow con head: versione avanzata -> scarica e adotta", async () => {
+  let won=null;
+  const remote={ name:"spy2",
+    head(){ return Promise.resolve({version:2}); },
+    pull(){ return Promise.resolve({version:2, data:JSON.stringify({_savedAt:5, events:{m:7}})}); },
+    push(b,d){ return Promise.resolve({ok:true, version:b+1}); } };
+  S.Sync.enable(remote, { version: 1, onRemoteWin: st=>{ won=st; } });
+  await S.Sync.syncNow();
+  assert(won && won.events.m===7, "doveva adottare il remoto avanzato");
+  assert.strictEqual(S.Sync.version(), 2);
+  S.Sync.disable();
+});
+ok("syncNow: anti-doppione (focus+visibility insieme -> UN solo controllo)", async () => {
+  let headN=0;
+  const remote={ name:"spy3",
+    head(){ headN++; return Promise.resolve({version:1}); },
+    pull(){ return Promise.resolve(null); },
+    push(b,d){ return Promise.resolve({ok:true, version:b+1}); } };
+  S.Sync.enable(remote, { version: 1 });
+  await Promise.all([S.Sync.syncNow(), S.Sync.syncNow(), S.Sync.syncNow()]);
+  assert.strictEqual(headN, 1, "controlli ravvicinati non deduplicati: "+headN);
+  S.Sync.disable();
+});
+ok("notify/flush: contenuto identico all'ultimo sincronizzato -> NESSUN upload", async () => {
+  let pushN=0;
+  const remote={ name:"spy4",
+    head(){ return Promise.resolve({version:pushN}); },
+    pull(){ return Promise.resolve(null); },
+    push(b,d){ pushN++; return Promise.resolve({ok:true, version:b+1}); } };
+  S.Sync.enable(remote, { version: 0 });
+  await S.Sync.flush({ _savedAt: 100, events: { x: 1 } });   // primo push reale
+  assert.strictEqual(pushN, 1);
+  // stesso contenuto, solo il timbro cambia (l'echo dopo un'adozione/merge)
+  await S.Sync.flush({ _savedAt: 999, events: { x: 1 } });
+  assert.strictEqual(pushN, 1, "upload fotocopia non evitato (flush)");
+  S.Sync.notify({ _savedAt: 1234, events: { x: 1 } });
+  await new Promise(r=>setTimeout(r, 600));
+  assert.strictEqual(pushN, 1, "upload fotocopia non evitato (notify)");
+  // contenuto DAVVERO diverso -> push regolare
+  await S.Sync.flush({ _savedAt: 2000, events: { x: 2 } });
+  assert.strictEqual(pushN, 2, "il push reale non deve essere bloccato");
+  assert.strictEqual(S.Sync.getStatus(), "synced");
+  S.Sync.disable();
+});
+
 run();

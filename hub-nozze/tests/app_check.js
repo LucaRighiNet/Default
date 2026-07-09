@@ -3,7 +3,7 @@
 (function(){
 // Versione visibile della build (ingranaggio -> prima riga). Serve a capire al
 // volo quale versione sta girando su un dispositivo (cache vs deploy).
-const APP_BUILD="2026-07-09.6";
+const APP_BUILD="2026-07-09.7";
 
 /* ============ DIAGNOSTICA / ERROR TRACKING (P0) ============ */
 // Senza backend gli errori di produzione sarebbero invisibili. Diag li cattura in
@@ -159,6 +159,7 @@ function merge3(base, a, b, aTs, bTs, _depth){
 const Sync=(function(){
   let remote=null, enabled=false, baseVersion=0, pushTimer=null, onConflict=null, onStatus=null, onRemoteWin=null;
   let status="local", pendingStr=null;   // status: local|synced|syncing|offline (niente "conflict" persistente)
+  let _syncBusy=false, _lastSyncNow=0;   // guardie syncNow: niente doppioni ne' raffiche
   // Antenato comune per il merge P2: l'ultimo stato SINCRONIZZATO {v, data}.
   // Persistito per sopravvivere ai riavvii (il conflitto tipico nasce proprio
   // alla riapertura). Senza antenato valido si ricade nel LWW.
@@ -170,6 +171,10 @@ const Sync=(function(){
   // Timestamp affidabile per la risoluzione dei conflitti: lo stato porta _savedAt
   // (impostato da Store.save a ogni modifica). Chi ha salvato piu' di recente vince.
   function savedAt(str){ try{ const o=JSON.parse(str); return (o&&+o._savedAt)||0; }catch(e){ return 0; } }
+  // Contenuto identico all'ultimo stato sincronizzato? (il timbro _savedAt cambia
+  // a ogni save: va ignorato nel confronto). Evita upload fotocopia.
+  function _norm(str){ return String(str).replace(/"_savedAt":\d+/, '"_savedAt":0'); }
+  function _sameAsBase(str){ return !!(BASE && BASE.data && _norm(BASE.data)===_norm(str)); }
   function _push(str){
     if(!enabled||!remote) return Promise.resolve();
     pendingStr=str; setStatus("syncing");
@@ -213,7 +218,7 @@ const Sync=(function(){
     version(){ return baseVersion; },
     getStatus(){ return enabled?status:"local"; },
     hasPending(){ return pendingStr!=null; },
-    enable(r, opts){ remote=r; enabled=!!r; opts=opts||{}; onConflict=opts.onConflict||null; onStatus=opts.onStatus||null; onRemoteWin=opts.onRemoteWin||null; baseVersion=opts.version||0; pendingStr=null; BASE=null; loadBase(); setStatus("synced"); return this; },
+    enable(r, opts){ remote=r; enabled=!!r; opts=opts||{}; onConflict=opts.onConflict||null; onStatus=opts.onStatus||null; onRemoteWin=opts.onRemoteWin||null; baseVersion=opts.version||0; pendingStr=null; BASE=null; loadBase(); _syncBusy=false; _lastSyncNow=0; setStatus("synced"); return this; },
     disable(){ enabled=false; remote=null; pendingStr=null; setStatus("local"); },
     pull(){
       if(!enabled||!remote) return Promise.resolve(null);
@@ -225,25 +230,38 @@ const Sync=(function(){
       }).catch(function(e){ Diag.log("sync","pull fallita", e&&e.message); setStatus("offline"); return null; });
     },
     // Sincronizzazione al ritorno in primo piano: se ho modifiche locali in coda le
-    // pubblico (il LWW decide), altrimenti scarico e, se il remoto e' piu' avanti,
-    // lo adotto. E' il fix multi-dispositivo: senza reload la app riallinea da sola.
+    // pubblico, altrimenti CONTROLLO SOLO LA VERSIONE (head, pochi byte) e scarico
+    // il documento intero solo se il cloud e' davvero avanti. Con guardia
+    // anti-doppione: focus e visibilitychange spesso scattano insieme.
     syncNow(){
       if(!enabled||!remote) return Promise.resolve();
+      const now=Date.now();
+      if(_syncBusy || (now-_lastSyncNow)<3000) return Promise.resolve(); // in corso o appena fatta
+      _lastSyncNow=now;
       if(pendingStr!=null) return this.retry();
-      setStatus("syncing");
-      return Promise.resolve(remote.pull()).then(function(res){
-        setStatus("synced");
+      _syncBusy=true; setStatus("syncing");
+      const fetchIfAhead=function(){
+        if(typeof remote.head==="function"){
+          return Promise.resolve(remote.head()).then(function(h){
+            if(!h || Number(h.version)<=baseVersion) return null;   // nessuna novita': ~0.3KB e stop
+            return Promise.resolve(remote.pull());
+          });
+        }
+        return Promise.resolve(remote.pull()); // remote senza head: comportamento classico
+      };
+      return fetchIfAhead().then(function(res){
+        _syncBusy=false; setStatus("synced");
         if(res && Number(res.version)>baseVersion){
           baseVersion=Number(res.version);
           setBase(baseVersion, res.data);
           if(onRemoteWin){ try{ const st=JSON.parse(res.data); onRemoteWin(st, res.version); }catch(e){ Diag.log("sync","syncNow parse", e&&e.message); } }
         }
-      }).catch(function(e){ Diag.log("sync","syncNow fallita", e&&e.message); setStatus("offline"); });
+      }).catch(function(e){ _syncBusy=false; Diag.log("sync","syncNow fallita", e&&e.message); setStatus("offline"); });
     },
-    notify(state){ if(!enabled||!remote) return; clearTimeout(pushTimer); const str=JSON.stringify(state); pushTimer=setTimeout(function(){ _push(str); }, 400); },
+    notify(state){ if(!enabled||!remote) return; clearTimeout(pushTimer); const str=JSON.stringify(state); if(_sameAsBase(str)){ pendingStr=null; setStatus("synced"); return; } pushTimer=setTimeout(function(){ _push(str); }, 400); },
     // Riprova un push rimasto in sospeso (es. dopo che la rete torna).
     retry(){ if(enabled&&remote&&pendingStr!=null) return _push(pendingStr); return Promise.resolve(); },
-    flush(state){ clearTimeout(pushTimer); if(enabled&&remote&&state!=null) return _push(JSON.stringify(state)); return Promise.resolve(); }
+    flush(state){ clearTimeout(pushTimer); if(enabled&&remote&&state!=null){ const str=JSON.stringify(state); if(_sameAsBase(str)){ pendingStr=null; return Promise.resolve(); } return _push(str); } return Promise.resolve(); }
   };
 })();
 // Remote mock in memoria: per test e sviluppo, stesso contratto del backend reale.
@@ -251,6 +269,7 @@ function makeMemoryRemote(){
   let store={version:0, data:null};
   return {
     name:"memory-remote",
+    head(){ return Promise.resolve(store.data==null?null:{version:store.version}); },
     pull(){ return Promise.resolve(store.data==null?null:{version:store.version, data:store.data}); },
     push(baseVersion, data){
       if(baseVersion===store.version){ store.version++; store.data=data; return Promise.resolve({ok:true, version:store.version}); }
@@ -264,6 +283,14 @@ function makeSupabaseRemote(supabase, eventId){
   const T="event_state", asStr=v=> typeof v==="string"?v:JSON.stringify(v);
   return {
     name:"supabase",
+    // Solo la versione: risposta di pochi byte. syncNow la usa per capire se
+    // serve davvero scaricare il documento intero.
+    async head(){
+      const r=await supabase.from(T).select("version").eq("event_id",eventId).maybeSingle();
+      if(r.error) throw new Error(r.error.message||"head");
+      if(!r.data) return null;
+      return { version:Number(r.data.version) };
+    },
     async pull(){
       const r=await supabase.from(T).select("version,data").eq("event_id",eventId).maybeSingle();
       if(r.error) throw new Error(r.error.message||"pull");

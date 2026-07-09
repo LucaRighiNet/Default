@@ -1475,3 +1475,33 @@ casi proprieta' + 120 flussi (~7s), con FUZZ_N/FUZZ_SEED per ripetere la corsa
 pesante. Tutte le 19 suite verdi. Nessun difetto del motore trovato dal fuzz:
 i fallimenti iniziali erano dell'oracolo di test, corretto.
 sw.js v29->v30; APP_BUILD 2026-07-09.7.
+
+## Giro 53 (Claude Code) — Sync veloce: diagnosi e cura della lentezza
+
+Segnalazione utente: "la sincronizzazione e' molto, molto lenta".
+
+DIAGNOSI (misurata): il documento pesa ~45KB (131 ospiti + 50 voci budget).
+Tre sprechi reali nel motore:
+1. A OGNI ritorno in primo piano syncNow scaricava il documento INTERO anche
+   quando il cloud non aveva novita' (il caso di gran lunga piu' comune).
+2. focus e visibilitychange scattano spesso INSIEME -> doppio download
+   simultaneo dello stesso documento.
+3. Dopo ogni adozione/merge, Store.save rimetteva in coda un push del medesimo
+   contenuto (cambiava solo il timbro _savedAt) -> upload fotocopia da 45KB.
+
+CURA:
+- head() sul RemoteAdapter (memory + Supabase): chiede SOLO la versione
+  (select "version", risposta di pochi byte). syncNow ora controlla head e
+  scarica il documento solo se il cloud e' davvero avanti: il rientro in app
+  senza novita' passa da ~45KB a ~0.3KB (~150x in meno).
+- Guardia anti-doppione su syncNow: in-flight flag + finestra di 3s ->
+  focus+visibility ravvicinati producono UN solo controllo.
+- notify/flush saltano il push quando il contenuto e' identico all'ultimo
+  stato sincronizzato (confronto che ignora il timbro _savedAt): eliminati
+  gli upload fotocopia post-adozione e i commit senza modifiche reali.
+Contratto invariato per i remote senza head (fallback al pull classico).
+
+Verifica: 19 suite verdi; sync_test 16->20 (head senza novita' NON scarica,
+head avanzato scarica e adotta, anti-doppione su 3 chiamate parallele -> 1
+controllo, contenuto identico -> nessun upload ma il push reale passa);
+merge/flow fuzz invariati (520 scenari). sw.js v30->v31; APP_BUILD 2026-07-09.8.
