@@ -245,7 +245,7 @@ input[type=checkbox]{accent-color:var(--sea); width:18px; height:18px}
 (function(){
 // Versione visibile della build (ingranaggio -> prima riga). Serve a capire al
 // volo quale versione sta girando su un dispositivo (cache vs deploy).
-const APP_BUILD="2026-07-09.16";
+const APP_BUILD="2026-07-09.17";
 
 /* ============ DIAGNOSTICA / ERROR TRACKING (P0) ============ */
 // Senza backend gli errori di produzione sarebbero invisibili. Diag li cattura in
@@ -2308,8 +2308,10 @@ function editVendor(id){
      <div class="field"><label>Recensioni (sintesi)</label><input class="inp" id="v_rev" value="${esc(x.reviews)}"></div>
      <div class="field"><label>Eventi passati</label><input class="inp" id="v_pe" value="${esc(x.pastEvents)}"></div>
      <div class="field"><label>Note / log</label><input class="inp" id="v_nt" value="${esc(x.notes)}"></div>`,
-    [{label:"Annulla"},{label:"Salva",cls:"",fn:()=>{
-      if(!reqOk(["#v_name"])) return false; const name=$("#v_name").value.trim();
+        [{label:"Annulla"},
+     // setTimeout: la conferma va aperta DOPO che close() ha svuotato #modalRoot
+     ...(isNew?[]:[{label:"Elimina",cls:"danger",fn:()=>{ setTimeout(()=>delVendor(id),0); }}]),
+     {label:"Salva",cls:"",fn:()=>{   if(!reqOk(["#v_name"])) return false; const name=$("#v_name").value.trim();
       const data={name,category:$("#v_cat").value,status:$("#v_st").value,contact:$("#v_ref").value.trim(),phone:$("#v_ph").value.trim(),email:$("#v_em").value.trim(),website:$("#v_web").value.trim(),quote:+$("#v_q").value||0,rating:$("#v_rt").value.trim(),budgetLineId:$("#v_bl").value,optionUntil:$("#v_opt").value||"",reviews:$("#v_rev").value.trim(),pastEvents:$("#v_pe").value.trim(),notes:$("#v_nt").value.trim()};
       let vv;
       const E=ev();

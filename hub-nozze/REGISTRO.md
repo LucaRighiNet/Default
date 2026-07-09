@@ -1723,3 +1723,22 @@ navigazione da card Dashboard -> Timeline centrata (scarto <1px), stile
 attiva pieno, click sull'icona = cambio scheda (delega intatta), zero
 overflow, zero errori JS, screenshot controllati. Regressioni dashnav/avvisi/
 privacy verdi. sw.js v38->v39; APP_BUILD 2026-07-09.16.
+
+## Giro 62 (Claude Code) — Eliminare un fornitore dalla tabella di confronto
+
+Domanda utente: "come faccio a cancellare un fornitore?" — La domanda rivelava
+un buco: il tasto Elimina esisteva SOLO sulla card del fornitore (categoria
+con un fornitore singolo). Nelle categorie con piu' fornitori a confronto
+(es. la Location con Castello Benelli e Borgo Fregnano) la tabella mostra solo
+"Apri", e la modale di modifica aveva solo Annulla/Salva: nessun percorso di
+eliminazione.
+
+Fix: bottone "Elimina" (danger) nella modale di modifica del fornitore, solo
+per fornitori esistenti (non su "Nuovo fornitore"); apre la solita conferma
+"Eliminare il fornitore?" via setTimeout (pattern editBudget: la conferma va
+aperta dopo che close() ha svuotato #modalRoot).
+
+Verifica: suite verde; E2E: due fornitori stessa categoria -> tabella di
+confronto -> Apri su uno -> Elimina presente -> conferma -> rimosso da stato e
+vista; "Nuovo fornitore" senza Elimina. Zero errori JS.
+sw.js v39->v40; APP_BUILD 2026-07-09.17.
