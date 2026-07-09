@@ -1228,7 +1228,7 @@ function viewGuests(){
     return `
   <div class="sec-title"><h2>Report catering</h2><button class="pill ${lab[0]}" data-act="cycleCateringScope" title="Clic per cambiare: confermati / in attesa / tutti" aria-label="Filtro report: ${lab[1]}. Tocca per cambiare." style="cursor:pointer;border:none;font:inherit">${lab[1]} &#8635;</button></div>
   <div class="grid cards">
-    <div class="card kpi"><div class="v">${head}</div><div class="l">Coperti totali</div></div>
+    <div class="card kpi"><div class="v">${head}</div><div class="l">Coperti totali${head>sel.length?`</div><div class="l" style="margin-top:2px">${sel.length} invitati + ${head-sel.length} accompagnatori (+1)`:""}</div></div>
     <div class="card kpi"><div class="v">${kids}</div><div class="l">Bambini / menù bambino</div></div>
     <div class="card kpi"><div class="v">${intoll.length}</div><div class="l">Con intolleranze</div></div>
   </div>
