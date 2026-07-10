@@ -1820,3 +1820,25 @@ persistita, genera 134/134 con regole 2/2, +1 adiacente su anello, toggle,
 scheda ospite, deduci stato) + regressioni roster/export/catering/mealsplit/
 required. Zero errori JS, zero overflow.
 sw.js v41->v42; APP_BUILD 2026-07-10.1.
+
+## Giro 65 (Claude Code) — Import allineato alla scheda ospite (Tavoli v2)
+
+Richiamo utente: "se modifichi la scheda ospiti, attento ad aggiornare anche
+import ed export". Export già allineato al Giro 64; l'audit dell'import ha
+trovato tre buchi (i primi due storici, il terzo introdotto dal Giro 64):
+1. Il GRUPPO non veniva importato affatto ("gruppo" era un sinonimo di
+   nucleo!) — e ora pesa nell'ottimizzatore. Nuovo campo import 'group'.
+2. Lo STATO (single/coppia) veniva ignorato: perso a ogni round-trip
+   export->import. Nuovo campo 'stato' -> attr.stato (impStato normalizza).
+   "Stato" nudo resta RSVP (storico): vince l'ordine dei campi.
+3. La colonna "Fascia d'età" dell'export non era più mappabile insieme a
+   "Tipo": nuovo campo 'eta' -> Giovane/Anziano diventano override attr.eta,
+   Bambino/Adulto restano al tipo persona. Con una sola colonna età, va al
+   tipo persona come prima (fallback conservato, anche dal menù legacy).
+impNewGuests passa group/attr senza modifiche (verificato). UI mappatura
+colonne estesa (Gruppo, Stato, Fascia d'età).
+
+Verifica: import_test 32->39 casi (mappature, precedenze rsvp/stato e
+ptype/eta, round-trip v2 con l'header reale dell'export, impStato); suite
+completa verde; E2E export e roster rieseguiti. Zero errori JS.
+sw.js v42->v43; APP_BUILD 2026-07-10.2.

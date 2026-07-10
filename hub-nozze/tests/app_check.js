@@ -3,7 +3,7 @@
 (function(){
 // Versione visibile della build (ingranaggio -> prima riga). Serve a capire al
 // volo quale versione sta girando su un dispositivo (cache vs deploy).
-const APP_BUILD="2026-07-10.1";
+const APP_BUILD="2026-07-10.2";
 
 /* ============ DIAGNOSTICA / ERROR TRACKING (P0) ============ */
 // Senza backend gli errori di produzione sarebbero invisibili. Diag li cattura in
@@ -2891,16 +2891,23 @@ function impSplitRows(text){
 const IMP_SYN={
   name:['nome','name','ospite','invitato','nominativo','nome e cognome','cognome e nome','nome cognome'],
   side:['lato','side','parte','sposo','sposa','famiglia di'],
-  household:['nucleo','household','famiglia','gruppo','tavolo'],
+  household:['nucleo','household','famiglia','tavolo'],
+  group:['gruppo','group','ambiente','cerchia','categoria'],
   rsvp:['rsvp','conferma','stato','presenza','partecipa','risposta','conferma presenza','presente'],
   meal:['pasto','menu','meal','pietanza','tipo pasto','tipo menu','menu scelto'],
   ptype:['tipo','tipologia','tipo persona','persona','adulto/bambino','fascia deta','fascia d eta','eta'],
+  stato:['stato (single/coppia)','single/coppia','stato civile','single coppia'],
+  eta:['fascia deta','fascia d eta','eta','fascia'],
   intolerances:['intolleranze','allergie','intolleranza','allergia','dieta','note alimentari','alimentari'],
   plusOne:['+1','accompagnatori','accompagnatore','plus','plusone','plus one','acc','accomp'],
   shuttle:['navetta','shuttle','bus','pullman'],
   accessibility:['accessibilita','accessibility','esigenze','seggiolone','disabili','note accessibilita']
 };
-const IMP_FIELDS=['name','side','household','rsvp','meal','ptype','intolerances','plusOne','shuttle','accessibility'];
+// 'rsvp' precede 'stato': una colonna generica "Stato" resta RSVP (storico);
+// "Stato (single/coppia)" dell'export ha il suo sinonimo esatto.
+// 'ptype' precede 'eta': con una sola colonna età va al tipo persona (storico);
+// con entrambe ("Tipo" + "Fascia d'età" dell'export) l'età diventa il raffinamento.
+const IMP_FIELDS=['name','side','household','group','rsvp','meal','ptype','stato','eta','intolerances','plusOne','shuttle','accessibility'];
 function impAutoMap(header){
   const map={}, used=new Set(), cells=(header||[]).map(impNorm);
   for(const field of IMP_FIELDS){ const syn=IMP_SYN[field]; let found=-1;
@@ -2925,6 +2932,11 @@ function impMeal(v){ const n=impNorm(v);
   if(['celiaco','celiaca','senza glutine','gluten free','gf','sg','no glutine'].includes(n)) return 'celiaco';
   return 'normale'; // adulto/vuoto/sconosciuto: menu standard (il tipo persona lo decide impPtype)
 }
+function impStato(v){ const n=impNorm(v);
+  if(['single','solo','sola','celibe','nubile'].includes(n)) return 'Single';
+  if(['in coppia','coppia','fidanzato','fidanzata','sposato','sposata','couple'].includes(n)) return 'In coppia';
+  if(['famiglia','family','con figli'].includes(n)) return 'Famiglia';
+  return ''; }
 function impBool(v){ const n=impNorm(v); return ['si','s','yes','y','1','true','x','vero','navetta'].includes(n); }
 function impPlus(v){ const n=impNorm(v); const num=parseInt(n,10); if(!isNaN(num)) return Math.max(0,num); if(['si','s','yes','y','x'].includes(n)) return 1; return 0; }
 function impSide(v,coupleA,coupleB){ const n=impNorm(v), a=impNorm(coupleA), b=impNorm(coupleB);
@@ -2940,18 +2952,28 @@ function impRowsToGuests(rows, mapping, hasHeader, opts){
   for(const r of data){
     const name = mapping.name!=null ? get(r,'name') : (r[0]!=null?String(r[0]).trim():'');
     if(!name) continue;
-    out.push({
+    const g={
       name:name,
       side: mapping.side!=null ? impSide(get(r,'side'),cA,cB) : 'A',
       household: (mapping.household!=null && get(r,'household')) ? get(r,'household') : 'Senza nucleo',
+      group: mapping.group!=null ? get(r,'group') : '',
       rsvp: mapping.rsvp!=null ? impRsvp(get(r,'rsvp')) : 'attesa',
       meal: mapping.meal!=null ? impMeal(get(r,'meal')) : 'normale',
-      ptype: mapping.ptype!=null ? impPtype(get(r,'ptype')) : (mapping.meal!=null ? impPtype(get(r,'meal')) : 'adulto'),
+      ptype: mapping.ptype!=null ? impPtype(get(r,'ptype')) : (mapping.eta!=null ? impPtype(get(r,'eta')) : (mapping.meal!=null ? impPtype(get(r,'meal')) : 'adulto')),
       intolerances: mapping.intolerances!=null ? get(r,'intolerances') : '',
       accessibility: mapping.accessibility!=null ? get(r,'accessibility') : '',
       shuttle: mapping.shuttle!=null ? impBool(get(r,'shuttle')) : false,
       plusOne: mapping.plusOne!=null ? impPlus(get(r,'plusOne')) : 0
-    });
+    };
+    // caratteristiche tavoli: Stato in attr; Giovane/Anziano della colonna età
+    // diventa override (il derivato Adulto/Bambino viene da ptype).
+    const at={};
+    if(mapping.stato!=null){ const sv=impStato(get(r,'stato')); if(sv) at.stato=sv; }
+    const etaSrc = mapping.eta!=null ? get(r,'eta') : (mapping.ptype!=null ? get(r,'ptype') : '');
+    const en=impNorm(etaSrc);
+    if(en==='giovane') at.eta='Giovane'; else if(en==='anziano'||en==='anziana') at.eta='Anziano';
+    if(Object.keys(at).length) g.attr=at;
+    out.push(g);
   }
   return out;
 }
@@ -2977,7 +2999,7 @@ function impNewGuests(toAdd){ const base=Date.now(); return toAdd.map((c,i)=>Obj
 
 function importWizard(){
   const cA=meta().coupleA, cB=meta().coupleB;
-  const FLD=[['name','Nome'],['side','Lato'],['household','Nucleo'],['rsvp','RSVP'],['meal','Menù'],['ptype','Tipo persona'],['intolerances','Intolleranze'],['plusOne','Accompagnatori'],['shuttle','Navetta'],['accessibility','Accessibilità']];
+  const FLD=[['name','Nome'],['side','Lato'],['household','Nucleo'],['group','Gruppo'],['rsvp','RSVP'],['meal','Menù'],['ptype','Tipo persona'],['stato','Stato (single/coppia)'],['eta',"Fascia d'età"],['intolerances','Intolleranze'],['plusOne','Accompagnatori'],['shuttle','Navetta'],['accessibility','Accessibilità']];
   let mapOverride=null, plan=null;
   const body=`
     <div class="field"><label>Incolla da Excel, Google Sheets o CSV</label>
