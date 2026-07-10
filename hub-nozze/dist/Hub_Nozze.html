@@ -244,7 +244,7 @@ input[type=checkbox]{accent-color:var(--sea); width:18px; height:18px}
 (function(){
 // Versione visibile della build (ingranaggio -> prima riga). Serve a capire al
 // volo quale versione sta girando su un dispositivo (cache vs deploy).
-const APP_BUILD="2026-07-09.18";
+const APP_BUILD="2026-07-10.1";
 
 /* ============ DIAGNOSTICA / ERROR TRACKING (P0) ============ */
 // Senza backend gli errori di produzione sarebbero invisibili. Diag li cattura in
@@ -1292,7 +1292,9 @@ function guestApplyFilter(){
 }
 // Export CSV della lista ospiti (G8).
 function exportGuestsCsv(){
-  const vars=seatActiveVars();
+  // Solo le variabili compilabili: le derivate (nucleo/lato/gruppo) duplicherebbero
+  // le colonne base. L'età esce col valore effettivo (override o da Tipo persona).
+  const vars=seatFillableVars();
   // Esporta TUTTI i campi presenti nell'app: anagrafica, RSVP/menu, logistica,
   // tavolo assegnato (derivato dai Tavoli) e regali/ringraziamenti, piu' le
   // variabili personalizzate attive.
@@ -1301,7 +1303,7 @@ function exportGuestsCsv(){
   const rows=(ev().guests||[]).map(g=>{
     const tbl=seatTableOf(g.id);
     const base=[g.name, g.side==="A"?meta().coupleA:meta().coupleB, g.household||"", g.group||"", (RSVP[g.rsvp]&&RSVP[g.rsvp][1])||g.rsvp, g.ptype||"adulto", g.meal||"normale", g.intolerances||"", g.accessibility||"", g.shuttle?"Sì":"No", g.plusOne||0, tbl?tbl.name:"", g.gift||"", g.thanked?"Sì":"No"];
-    return base.concat(vars.map(v=>(g.attr&&g.attr[v.id])||"")).map(q).join(",");
+    return base.concat(vars.map(v=>seatVarValueOf(g,v))).map(q).join(",");
   });
   const csv="﻿"+head.map(q).join(",")+"\n"+rows.join("\n");
   const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
@@ -1553,7 +1555,9 @@ function tableName(id){ const t=ev().tables.find(x=>x.id===id); return t?t.name:
 
 /* ---- modello dati posti (nativo, B1): forme, vicinati, ingombro, validazione ---- */
 const SEAT_SHAPES={round:'Tonda',rect:'Rettangolare',square:'Quadrata',imperial:'Imperiale',serpentine:'Serpentina'};
-const SEAT_CFG={wNear:10,wFar:12,wAffinity:3,sideWeight:1.0,faceWeight:0.85,restarts:5,maxSwaps:2000};
+// wNear/wFar alti: le regole esplicite (insieme/lontani) devono dominare sempre
+// la similarità pesata (max ~30 con tutte le variabili condivise).
+const SEAT_CFG={wNear:40,wFar:50,sideWeight:1.0,faceWeight:0.85,restarts:5,maxSwaps:2000};
 function seatColRow(idx){ return {col:Math.floor(idx/2),row:idx%2}; }
 function seatAdjacency(n){
   const adj=[]; for(let i=0;i<n;i++) adj.push({side:[],face:null});
@@ -1576,6 +1580,49 @@ function seatFootprint(t){
   if(t.shape==='square'){ const side=Math.max(1.2,Math.ceil(s/4)*0.7); return {w:side+1.8,h:side+1.8,lin:side}; }
   const len=Math.max(1.6,Math.ceil(s/2)*0.65); const depth=(t.shape==='imperial'||t.shape==='serpentine')?1.0:0.9;
   const lin=t.shape==='serpentine'?len*1.15:len; return {w:len+1.6,h:depth+1.8,lin:lin};
+}
+// Geometria dei posti in unità "mondo" (coerenti con seatFootprint), centro tavolo a (0,0).
+// Per serpentine/imperial/rect usa il modello 2-file di seatColRow, così il disegno
+// rispecchia le adiacenze face/side usate da seatPairs/optimizer.
+function seatPositions(t){
+  const n=Math.max(0,t.seats|0), f=seatFootprint(t), pos=[];
+  if(t.shape==='round'){
+    const r=Math.max(f.w,f.h)/2-0.4;
+    for(let i=0;i<n;i++){ const a=(2*Math.PI*i)/n - Math.PI/2; pos.push({x:r*Math.cos(a), y:r*Math.sin(a)}); }
+    return pos;
+  }
+  if(t.shape==='square'){
+    const per=Math.max(1,Math.ceil(n/4)), half=f.w/2-0.4;
+    for(let i=0;i<n;i++){
+      const side=Math.floor(i/per)%4, k=i%per, off=((k+0.5)/per*2-1)*half;
+      if(side===0) pos.push({x:off,y:-half});
+      else if(side===1) pos.push({x:half,y:off});
+      else if(side===2) pos.push({x:off,y:half});
+      else pos.push({x:-half,y:off});
+    }
+    return pos;
+  }
+  const cols=Math.max(1,Math.ceil(n/2)), colGap=(f.w-0.8)/cols, rowY=(f.h/2)-0.3;
+  for(let i=0;i<n;i++){ const cr=seatColRow(i);
+    pos.push({x:(cr.col-(cols-1)/2)*colGap, y:cr.row===0?-rowY:rowY});
+  }
+  return pos;
+}
+// Adiacenze per FORMA: per tonda e quadrata i vicini sono quelli geometrici
+// reali del disegno (i 2 posti più vicini), non il modello 2-file — così
+// l'ottimizzatore ottimizza esattamente ciò che l'utente vede in planimetria.
+// Rettangolare/imperiale/serpentina restano sul modello 2-file (corretto lì).
+function seatPairsFor(t){
+  const n=Math.max(0,t.seats|0);
+  if(t.shape!=='round'&&t.shape!=='square') return seatPairs(n);
+  const pos=seatPositions(t), pairs=[], seen=new Set();
+  const add=(a,b,w)=>{ const k=Math.min(a,b)+'-'+Math.max(a,b); if(seen.has(k))return; seen.add(k); pairs.push({a:Math.min(a,b),b:Math.max(a,b),w:w}); };
+  for(let i=0;i<n;i++){
+    const d=[]; for(let j=0;j<n;j++){ if(j!==i){ const dx=pos[i].x-pos[j].x, dy=pos[i].y-pos[j].y; d.push([j,dx*dx+dy*dy]); } }
+    d.sort((x,y)=>x[1]-y[1]);
+    for(let k=0;k<Math.min(2,d.length);k++) add(i,d[k][0],SEAT_CFG.sideWeight);
+  }
+  return pairs;
 }
 function seatValidateSerpentine(t,guestExists){
   const issues=[];
@@ -1601,23 +1648,27 @@ function seatPurgeGuest(tables, rules, gid){
 /* ---- optimizer posti 2-opt con vincoli e affinità (nativo, B2) ---- */
 function seatRng(seed){ let a=seed>>>0; return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
 function seatShuffle(arr,rng){ for(let i=arr.length-1;i>0;i--){ const j=Math.floor(rng()*(i+1)); const tmp=arr[i]; arr[i]=arr[j]; arr[j]=tmp; } return arr; }
-function seatCost(order,n,rulesIdx,affinityFn){
-  const pairs=seatPairs(n); let cost=0;
+// simFn(ga,gb) -> numero: similarità pesata reale (A3). Le regole esplicite
+// dominano (wNear/wFar >> similarità massima). pairs opzionale: adiacenze
+// precomputate per forma (seatPairsFor); default modello 2-file.
+function seatCost(order,n,rulesIdx,simFn,pairs){
+  pairs=pairs||seatPairs(n); let cost=0;
   for(const pr of pairs){ const ga=order[pr.a],gb=order[pr.b];
     if(ga===undefined||gb===undefined)continue;
     const key=ga<gb?ga+'|'+gb:gb+'|'+ga;
     if(rulesIdx.separate.has(key))cost+=SEAT_CFG.wFar*pr.w;
     else if(rulesIdx.together.has(key))cost-=SEAT_CFG.wNear*pr.w;
-    else if(affinityFn&&affinityFn(ga,gb))cost-=SEAT_CFG.wAffinity*pr.w;
+    else if(simFn)cost-=simFn(ga,gb)*pr.w;
   }
   return cost;
 }
-function seatOptimize(gids,seats,rulesIdx,affinityFn){
+function seatOptimize(gids,seats,rulesIdx,simFn,pairs){
+  pairs=pairs||seatPairs(seats); // precompute: seatCost gira ~2000 volte
   const people=gids.filter(x=>x!=null);
   const baseOrder=new Array(seats).fill(undefined); people.forEach((g,i)=>baseOrder[i]=g);
-  const before=seatCost(baseOrder,seats,rulesIdx,affinityFn);
+  const before=seatCost(baseOrder,seats,rulesIdx,simFn,pairs);
   let bestOrder=baseOrder.slice(),bestCost=before,swapBudget=SEAT_CFG.maxSwaps;
-  const evalOrder=ord=>seatCost(ord,seats,rulesIdx,affinityFn);
+  const evalOrder=ord=>seatCost(ord,seats,rulesIdx,simFn,pairs);
   for(let r=0;r<SEAT_CFG.restarts&&swapBudget>0;r++){
     let cur=baseOrder.slice();
     if(r>0){ const rng=seatRng(0x9E3779B9 ^ (r*2654435761)); const arr=people.slice(); seatShuffle(arr,rng); cur=new Array(seats).fill(undefined); const slots=[]; for(let i=0;i<seats;i++)slots.push(i); seatShuffle(slots,rng); arr.forEach((g,i)=>cur[slots[i]]=g); }
@@ -1640,18 +1691,21 @@ function seatRulesIdx(){ const together=new Set(),separate=new Set(); ((ev().sea
 // Variabili configurabili dell'ottimizzatore (G1): peso + modo unisci/separa +
 // tendina di valori. Le prime 4 attive; le altre pronte ma spente. L'utente può
 // aggiungerne di sue (custom). Vivono in ev().seating.vars; g.attr{varId:valore}.
+// v3 (B1): le variabili con 'src' derivano il valore LIVE dal campo nativo
+// dell'ospite (side/household/ptype/group): niente doppia compilazione, niente
+// dati divergenti. 'override:true' (età) permette di raffinare il valore in attr.
 const SEAT_VARS_DEF=[
-  {id:'nucleo',   name:'Nucleo / Famiglia', on:true,  weight:10, mode:'cluster', values:['','Sposa','Sposo','Famiglia sposa','Famiglia sposo','Amici sposa','Amici sposo','Colleghi','Vicini']},
-  {id:'lato',     name:'Lato',              on:true,  weight:5,  mode:'cluster', values:['','Sposa','Sposo','Entrambi']},
-  {id:'eta',      name:"Fascia d'età",      on:true,  weight:4,  mode:'cluster', values:['','Bambino','Giovane','Adulto','Anziano']},
-  {id:'ambiente', name:'Ambiente',          on:true,  weight:6,  mode:'cluster', values:['','Parenti','Amici','Colleghi','Vicini','Scuola','Sport']},
+  {id:'nucleo',   name:'Nucleo / Famiglia', on:true,  weight:10, mode:'cluster', src:'household', values:['']},
+  {id:'lato',     name:'Lato',              on:true,  weight:5,  mode:'cluster', src:'side', values:['']},
+  {id:'eta',      name:"Fascia d'età",      on:true,  weight:4,  mode:'cluster', src:'ptype', override:true, values:['','Bambino','Giovane','Adulto','Anziano']},
+  {id:'ambiente', name:'Gruppo / Ambiente', on:true,  weight:6,  mode:'cluster', src:'group', values:['']},
   {id:'lingua',   name:'Lingua',            on:false, weight:7,  mode:'cluster', values:['','Italiano','Inglese','Spagnolo','Francese','Tedesco']},
   {id:'uscita',   name:"Vicino all'uscita", on:false, weight:3,  mode:'cluster', values:['','Sì','No']},
   {id:'fumatori', name:'Fumatori',          on:false, weight:2,  mode:'separate', values:['','Sì','No']},
   {id:'sposi',    name:'Vicino agli sposi', on:false, weight:8,  mode:'cluster', values:['','Sì','No']},
   {id:'stato',    name:'Stato (single/coppia)', on:true, weight:5, mode:'cluster', values:['','Single','In coppia','Famiglia']}
 ];
-const SEAT_VARS_VER=2; // v2: aggiunta 'stato' (single/coppia/famiglia)
+const SEAT_VARS_VER=3; // v2: +stato · v3: nucleo/lato/età/ambiente derivate dai campi nativi
 function seatVars(){
   const e=ev(); e.seating=e.seating||{rules:[]};
   if(!e.seating.vars){ e.seating.vars=JSON.parse(JSON.stringify(SEAT_VARS_DEF)); e.seating.varsVer=SEAT_VARS_VER; return e.seating.vars; }
@@ -1662,15 +1716,79 @@ function seatVars(){
     ['stato'].forEach(id=>{ if(!have.has(id)){ const def=SEAT_VARS_DEF.find(v=>v.id===id); if(def) e.seating.vars.push(JSON.parse(JSON.stringify(def))); } });
     e.seating.varsVer=2;
   }
+  if(e.seating.varsVer<3){
+    // le 4 variabili doppione diventano derivate; gli attr copiati (ora ridondanti)
+    // vengono rimossi — per l'età si conservano i raffinamenti Giovane/Anziano.
+    const src={nucleo:'household', lato:'side', eta:'ptype', ambiente:'group'};
+    e.seating.vars.forEach(v=>{ if(src[v.id]){ v.src=src[v.id]; if(v.id==='eta') v.override=true; if(v.id==='ambiente') v.name='Gruppo / Ambiente'; } });
+    (e.guests||[]).forEach(g=>{ if(!g.attr) return;
+      delete g.attr.nucleo; delete g.attr.lato; delete g.attr.ambiente;
+      if(g.attr.eta==='Bambino'||g.attr.eta==='Adulto') delete g.attr.eta;
+    });
+    e.seating.varsVer=3;
+  }
   return e.seating.vars;
 }
 function seatActiveVars(){ return seatVars().filter(v=>v.on); }
 function seatVarById(id){ return seatVars().find(v=>v.id===id); }
+// Variabili che si compilano a mano (senza sorgente nativa, o con override).
+function seatFillableVars(){ return seatActiveVars().filter(v=>!v.src||v.override); }
+// Valore EFFETTIVO di una variabile per un ospite: campo nativo se derivata
+// (con eventuale override in attr per l'età), altrimenti attr.
+function seatVarValueOf(g,v){
+  if(!g) return "";
+  const ov=(g.attr&&g.attr[v.id])||"";
+  if(v.src==='side') return g.side||"";
+  if(v.src==='household'){ const h=g.household; return (h&&h!=='Senza nucleo')?h:""; }
+  if(v.src==='ptype') return ov||(g.ptype==='bambino'?'Bambino':'Adulto');
+  if(v.src==='group') return g.group||"";
+  return ov;
+}
+function seatVarCoverage(v){ const ppl=seatableGuests(); let n=0; ppl.forEach(g=>{ if(seatVarValueOf(g,v)) n++; }); return {n:n, tot:ppl.length}; }
 // Similarità pesata con segno (G2): stesso valore -> +peso (unisci) o -peso (separa).
-function seatSimilarity(a,b){ let s=0; if(!a||!b) return 0; seatActiveVars().forEach(v=>{ const av=a.attr&&a.attr[v.id], bv=b.attr&&b.attr[v.id]; if(!av||!bv) return; if(av===bv){ s+= v.mode==='separate'? -v.weight : v.weight; } }); return s; }
+// Copre anche nucleo/gruppo/bambini via variabili derivate (niente casi speciali).
+function seatSimilarity(a,b){ let s=0; if(!a||!b) return 0; seatActiveVars().forEach(v=>{ const av=seatVarValueOf(a,v), bv=seatVarValueOf(b,v); if(!av||!bv) return; if(av===bv){ s+= v.mode==='separate'? -v.weight : v.weight; } }); return s; }
 function seatSimilarityFn(){ const by={}; ev().guests.forEach(g=>by[g.id]=g); return function(ga,gb){ return seatSimilarity(by[ga],by[gb]); }; }
-function seatAffinityFn(){ const by={}; ev().guests.forEach(g=>by[g.id]=g); return function(ga,gb){ const a=by[ga],b=by[gb]; if(!a||!b)return false; const sameHH=a.household&&a.household!=='Senza nucleo'&&a.household===b.household; const sameGroup=a.group&&b.group&&a.group===b.group; const kids=a.meal==='bambino'&&b.meal==='bambino'; return !!(sameHH||sameGroup||kids|| seatSimilarity(a,b)>0); }; }
-function seatOptimizeTable(t){ return seatOptimize((t.seatIds||[]).slice(), t.seats, seatRulesIdx(), seatAffinityFn()); }
+/* ---- segnaposto accompagnatori +1 (C4) ---- */
+// Persone "sedibili" = ospiti + segnaposto per i plusOne (id: gid#pK), se attivi.
+function seatPlusEnabled(){ const e=ev(); return !(e.seating&&e.seating.plus1===false); }
+function seatOwnerId(pid){ const i=(pid||"").indexOf("#p"); return i<0?pid:pid.slice(0,i); }
+function seatCompanionsOf(g){
+  const out=[], n=Math.max(0,+g.plusOne||0);
+  for(let k=1;k<=n;k++) out.push({id:g.id+"#p"+k, name:g.name+" +"+k, side:g.side, household:g.household, group:g.group, ptype:"adulto", attr:g.attr, _plusOf:g.id});
+  return out;
+}
+function seatPeople(){
+  const gs=seatableGuests(); if(!seatPlusEnabled()) return gs.slice();
+  const out=gs.slice(); gs.forEach(g=>{ seatCompanionsOf(g).forEach(c=>out.push(c)); });
+  return out;
+}
+function seatPersonById(pid){
+  const own=seatOwnerId(pid), g=(ev().guests||[]).find(x=>x.id===own);
+  if(!g) return null;
+  if(own===pid) return g;
+  const k=+pid.slice(own.length+2)||0;
+  if(!seatPlusEnabled()||k<1||k>(+g.plusOne||0)) return null;
+  return seatCompanionsOf(g)[k-1];
+}
+// Vincoli impliciti: ogni segnaposto +N va accanto al suo titolare.
+function seatRulesIdxAll(){
+  const idx=seatRulesIdx(); if(!seatPlusEnabled()) return idx;
+  seatableGuests().forEach(g=>{ seatCompanionsOf(g).forEach(c=>{ idx.together.add(c.id<g.id?c.id+"|"+g.id:g.id+"|"+c.id); }); });
+  return idx;
+}
+// simFn per persone: i segnaposto ereditano le caratteristiche del titolare.
+function seatPersonSimFn(){
+  const by={}; ev().guests.forEach(g=>by[g.id]=g);
+  return function(pa,pb){ const oa=seatOwnerId(pa), ob=seatOwnerId(pb); if(oa===ob) return 15; return seatSimilarity(by[oa],by[ob]); };
+}
+// Posti occupati da id non più validi (ospite eliminato, +1 ridotti, segnaposto
+// disattivati): li libera. Chiamata dal render Tavoli; salva senza commit.
+function seatSweepStale(){
+  let n=0; (ev().tables||[]).forEach(t=>{ if(!t.seatIds) return; t.seatIds=t.seatIds.map(id=>{ if(!id) return null; if(seatPersonById(id)) return id; n++; return null; }); });
+  return n;
+}
+function seatOptimizeTable(t){ return seatOptimize((t.seatIds||[]).slice(), t.seats, seatRulesIdxAll(), seatPersonSimFn(), seatPairsFor(t)); }
 // Pianificazione assegnazione globale ospiti->tavoli (pura, testabile).
 // Euristica: raggruppa per vincoli "insieme" + stesso nucleo (union-find), poi
 // bin-packing dei gruppi nei tavoli rispettando capienza e vincoli "lontano".
@@ -1713,33 +1831,6 @@ function seatPlanAssignment(tables, guests, together, separate, simFn){
 
 
 /* ---- planimetria SVG nativa (B3) ---- */
-// Geometria dei posti in unità "mondo" (coerenti con seatFootprint), centro tavolo a (0,0).
-// Per serpentine/imperial/rect usa il modello 2-file di seatColRow, così il disegno
-// rispecchia le adiacenze face/side usate da seatPairs/optimizer.
-function seatPositions(t){
-  const n=Math.max(0,t.seats|0), f=seatFootprint(t), pos=[];
-  if(t.shape==='round'){
-    const r=Math.max(f.w,f.h)/2-0.4;
-    for(let i=0;i<n;i++){ const a=(2*Math.PI*i)/n - Math.PI/2; pos.push({x:r*Math.cos(a), y:r*Math.sin(a)}); }
-    return pos;
-  }
-  if(t.shape==='square'){
-    const per=Math.max(1,Math.ceil(n/4)), half=f.w/2-0.4;
-    for(let i=0;i<n;i++){
-      const side=Math.floor(i/per)%4, k=i%per, off=((k+0.5)/per*2-1)*half;
-      if(side===0) pos.push({x:off,y:-half});
-      else if(side===1) pos.push({x:half,y:off});
-      else if(side===2) pos.push({x:off,y:half});
-      else pos.push({x:-half,y:off});
-    }
-    return pos;
-  }
-  const cols=Math.max(1,Math.ceil(n/2)), colGap=(f.w-0.8)/cols, rowY=(f.h/2)-0.3;
-  for(let i=0;i<n;i++){ const cr=seatColRow(i);
-    pos.push({x:(cr.col-(cols-1)/2)*colGap, y:cr.row===0?-rowY:rowY});
-  }
-  return pos;
-}
 function seatGuestById(gid){ return (ev().guests||[]).find(g=>g.id===gid); }
 function seatInitials(g){ if(!g)return""; const p=(g.name||"").trim().split(/\s+/); return (((p[0]||"")[0]||"")+((p[1]||"")[0]||"")).toUpperCase(); }
 // Layout a griglia con celle dimensionate sull'ingombro MASSIMO: nessuna
@@ -1776,13 +1867,14 @@ function renderPlanimetria(){
     const pos=seatPositions(t), ids=t.seatIds||[];
     let seats="";
     pos.forEach((p,i)=>{
-      const gid=ids[i], g=gid?seatGuestById(gid):null;
+      const gid=ids[i], g=gid?seatPersonById(gid):null;
       const fill=g?(g.side==='A'?'#cfe3ee':'#f0ddd0'):'#ffffff';
       const stroke=g?'#5c8aa3':'#c2cdcf';
       const dash=g?'':' stroke-dasharray="0.12 0.12"';
+      const lbl=g?(g._plusOf?'+'+(gid.split('#p')[1]||'1'):seatInitials(g)):'';
       seats+=`<g transform="translate(${p.x.toFixed(2)},${p.y.toFixed(2)})" data-act="assignSeat" data-table="${t.id}" data-idx="${i}" data-seat-target="1"${g?` data-drag-guest="${gid}"`:""} style="cursor:pointer;touch-action:none">`
         +`<circle r="0.34" fill="${fill}" stroke="${stroke}" stroke-width="0.04"${dash}/>`
-        +(g?`<text x="0" y="0.12" text-anchor="middle" font-size="0.34" fill="#23373b">${esc(seatInitials(g))}</text>`:"")
+        +(g?`<text x="0" y="0.12" text-anchor="middle" font-size="0.34" fill="#23373b">${esc(lbl)}</text>`:"")
         +`</g>`;
     });
     const label=esc(t.name)+" · "+seatHeadAt(t)+"/"+t.seats;
@@ -1848,12 +1940,19 @@ function autoAssignConfirm(){
 // Core: assegna + ottimizza senza commit/render (riusabile dal wizard con undo).
 function seatAutoAssignRun(){
   const e=ev(), tables=e.tables||[]; if(!tables.length) return null;
-  const guests=seatableGuests(); if(!guests.length) return {empty:true};
-  const idx=seatRulesIdx();
-  const plan=seatPlanAssignment(tables, guests, idx.together, idx.separate, seatSimilarityFn());
+  const guests=seatPeople(); if(!guests.length) return {empty:true};
+  const idx=seatRulesIdxAll(); // include i vincoli impliciti titolare↔segnaposto +1
+  const plan=seatPlanAssignment(tables, guests, idx.together, idx.separate, seatPersonSimFn());
   tables.forEach(t=>{ const gs=(plan.assign[t.id]||[]).slice(0,t.seats); const arr=new Array(t.seats).fill(null); gs.forEach((g,i)=>arr[i]=g); t.seatIds=arr; });
   tables.forEach(t=>{ if(seatHeadAt(t)>=2){ const r=seatOptimizeTable(t); t.seatIds=r.order.map(x=>x===undefined?null:x); } });
   return {assigned:guests.length-plan.unseated.length, total:guests.length, unseated:plan.unseated.length};
+}
+function togglePlusSeats(){
+  const e=ev(); e.seating=e.seating||{rules:[]};
+  const turnOn=(e.seating.plus1===false);
+  e.seating.plus1=turnOn?true:false;
+  if(!turnOn) seatSweepStale(); // spegnendo, libera i posti dei segnaposto
+  commit(turnOn?"Segnaposto +1 attivati":"Segnaposto +1 disattivati");
 }
 function seatAutoAssign(){
   const r=seatAutoAssignRun();
@@ -1864,7 +1963,7 @@ function seatAutoAssign(){
   commit(msg);
 }
 /* ---- Categorizzazione: vicinanze insieme/lontano (alimentano l'ottimizzatore) ---- */
-function seatGuestName(gid){ const g=seatGuestById(gid); return g?g.name:"(ospite rimosso)"; }
+function seatGuestName(gid){ const g=seatPersonById(gid); return g?g.name:"(ospite rimosso)"; }
 function seatRuleEditor(){
   const e=ev(), gs=seatableGuests();
   if(gs.length<2){ toast("Servono almeno 2 ospiti sedibili"); return; }
@@ -1907,7 +2006,7 @@ function assignSeat(tableId, idx){
   const e=ev(), t=(e.tables||[]).find(x=>x.id===tableId); if(!t) return;
   idx=+idx; const occupied=(t.seatIds||[])[idx]||"";
   const seated=new Set(); (e.tables||[]).forEach(tt=>(tt.seatIds||[]).forEach(g=>{ if(g) seated.add(g); }));
-  const cand=seatableGuests().filter(g=>!seated.has(g.id)||g.id===occupied);
+  const cand=seatPeople().filter(g=>!seated.has(g.id)||g.id===occupied);
   const opts=cand.map(g=>`<option value="${g.id}"${g.id===occupied?" selected":""}>${esc(g.name)} (${g.side})</option>`).join("");
   modal("Posto "+(idx+1)+" — "+esc(t.name),
     `<div class="field"><label>Ospite</label><select class="inp" id="seat_g"><option value="">— vuoto —</option>${opts}</select></div>`,
@@ -1919,7 +2018,7 @@ function wireSeating(){
   const host=document.getElementById("planiHost"); if(!host) return;
   let st=null;
   const opts={capture:true,passive:false};
-  const nameOf=gid=>{ const g=seatGuestById(gid); return g?g.name:"ospite"; };
+  const nameOf=gid=>{ const g=seatPersonById(gid); return g?g.name:"ospite"; };
   function cleanup(){
     document.removeEventListener("pointermove",onMove,opts);
     document.removeEventListener("pointerup",onUp,opts);
@@ -2055,17 +2154,26 @@ function seatWizRender(){
   else if(step===3) seatWizRulesBind(host);
   else seatWizGenBind(host);
 }
+// Peso a 3 livelli chiari (B3): Poco=3, Normale=6, Molto=10. I pesi numerici
+// storici restano validi: il livello mostrato è quello più vicino.
+function seatWLevelName(w){ return w>=8?'Molto':(w>=5?'Normale':'Poco'); }
+function seatWizVarRow(v,i){
+  const cov=seatVarCoverage(v), lvl=seatWLevelName(v.weight);
+  const src=v.src?(v.override?'dai dati ospiti, raffinabile':'dai dati ospiti'):'da compilare al passo 2';
+  return `<div class="varrow"><button type="button" class="switch${v.on?' on':''}" data-vtog="${i}" aria-pressed="${v.on?'true':'false'}" aria-label="Attiva ${esc(v.name)}"></button>`
+    +`<div class="vn">${esc(v.name)}<span class="muted" style="font-size:11px;display:block">${src} · ${cov.n}/${cov.tot}</span></div>`
+    +`<select class="inp" style="width:88px;padding:4px" data-vw="${i}" title="Quanto conta per l'abbinamento">${[['3','Poco'],['6','Normale'],['10','Molto']].map(o=>`<option value="${o[0]}"${lvl===o[1]?' selected':''}>${o[1]}</option>`).join('')}</select>`
+    +`<select class="inp" style="width:88px;padding:4px" data-vm="${i}" title="Unisci avvicina chi condivide il valore, separa li allontana"><option value="cluster"${v.mode!=='separate'?' selected':''}>unisci</option><option value="separate"${v.mode==='separate'?' selected':''}>separa</option></select>`
+    +(v.custom?`<button type="button" class="btn sm danger" data-vdel="${i}" aria-label="Elimina">&times;</button>`:'')+`</div>`;
+}
 function seatWizVars(){
-  const vars=seatVars();
-  let h='<p class="muted" style="font-size:13px">Scegli quali caratteristiche l\'algoritmo usa per abbinare gli ospiti. Il peso dice quanto conta; "unisci" avvicina chi condivide il valore, "separa" li allontana.</p>';
-  h+='<div style="text-align:right;margin:2px 0 6px"><button type="button" class="btn sm ghost" id="wz-prefill" title="Deriva nucleo, lato ed età dai dati già inseriti">Precompila dai dati</button></div>';
-  vars.forEach((v,i)=>{
-    h+=`<div class="varrow"><button type="button" class="switch${v.on?' on':''}" data-vtog="${i}" aria-pressed="${v.on?'true':'false'}" aria-label="Attiva ${esc(v.name)}"></button>`
-      +`<div class="vn">${esc(v.name)}<span class="muted" style="font-size:11px;display:block">${v.values.filter(Boolean).length} valori</span></div>`
-      +`<label class="muted" style="font-size:11px">peso <input type="number" class="inp" style="width:52px;padding:4px" min="0" max="20" value="${v.weight}" data-vw="${i}"></label>`
-      +`<select class="inp" style="width:96px;padding:4px" data-vm="${i}"><option value="cluster"${v.mode!=='separate'?' selected':''}>unisci</option><option value="separate"${v.mode==='separate'?' selected':''}>separa</option></select>`
-      +(v.custom?`<button type="button" class="btn sm danger" data-vdel="${i}" aria-label="Elimina">&times;</button>`:'')+`</div>`;
-  });
+  const vars=seatVars(), der=[], fil=[];
+  vars.forEach((v,i)=>{ (v.src?der:fil).push([v,i]); });
+  let h='<p class="muted" style="font-size:13px">L\'algoritmo abbina gli ospiti con queste caratteristiche. Quelle "dai dati ospiti" (nucleo, lato, età, gruppo) sono già pronte: nessuna doppia compilazione. "Quanto conta": Molto = quasi sempre allo stesso tavolo.</p>';
+  if(der.length) h+='<div class="muted" style="font-size:11px;letter-spacing:.4px;text-transform:uppercase;margin:8px 0 2px">Dai dati ospiti — automatiche</div>'+der.map(x=>seatWizVarRow(x[0],x[1])).join('');
+  h+='<div class="muted" style="font-size:11px;letter-spacing:.4px;text-transform:uppercase;margin:10px 0 2px">Extra — si compilano al passo 2</div>'
+    +(fil.length?fil.map(x=>seatWizVarRow(x[0],x[1])).join(''):'<p class="muted" style="font-size:12px">Nessuna.</p>');
+  h+='<div style="text-align:right;margin:6px 0 2px"><button type="button" class="btn sm ghost" id="wz-prefill" title="Deduce Single/In coppia/Famiglia da nuclei e accompagnatori">Deduci lo Stato dai dati</button></div>';
   h+=`<div class="varadd"><input class="inp" id="wz-nvname" placeholder="Nuova variabile (es. Hobby)"><input class="inp" id="wz-nvvals" placeholder="Valori separati da virgola"><button type="button" class="btn sm primary" id="wz-nvadd">Aggiungi</button></div>`;
   return h+seatWizNav(1);
 }
@@ -2084,38 +2192,32 @@ function seatWizVarsBind(host){
   };
   const pf=host.querySelector("#wz-prefill"); if(pf) pf.onclick=()=>{ seatPrefillAttrs(); seatWizRender(); };
 }
-function seatAttrFillPct(){ const vars=seatActiveVars(), people=seatableGuests(); const cells=vars.length*people.length; if(!cells) return 0; let f=0; people.forEach(g=>vars.forEach(v=>{ if(g.attr&&g.attr[v.id]) f++; })); return Math.round(f*100/cells); }
+// % compilazione: solo sulle variabili che si compilano davvero a mano
+// (quelle derivate sono sempre "piene" dai dati; l'età-override è facoltativa).
+function seatAttrFillPct(){ const vars=seatActiveVars().filter(v=>!v.src), people=seatableGuests(); const cells=vars.length*people.length; if(!cells) return 100; let f=0; people.forEach(g=>vars.forEach(v=>{ if(g.attr&&g.attr[v.id]) f++; })); return Math.round(f*100/cells); }
+// Stato (single/coppia/famiglia) dedotto dal nucleo: con bambini o 3+ = Famiglia,
+// 2 = In coppia; senza nucleo: +1 = In coppia, da solo = Single. Correggibile.
+// (Nucleo/lato/età/ambiente non si copiano più: sono derivate live — B1.)
 function seatPrefillAttrs(){
   const e=ev(); let n=0;
-  (e.guests||[]).forEach(g=>{ g.attr=g.attr||{};
-    if(g.household&&g.household!=="Senza nucleo"&&!g.attr.nucleo){ g.attr.nucleo=g.household; n++; }
-    if(!g.attr.eta){ g.attr.eta=(g.ptype==="bambino"?"Bambino":"Adulto"); n++; }
-    if(!g.attr.lato){ g.attr.lato=(g.side==="A"?"Sposa":"Sposo"); n++; }
-    const map={"Amici":"Amici","Colleghi":"Colleghi","Parenti":"Parenti","Vicini":"Vicini","Compagni di scuola":"Scuola"};
-    if(g.group&&map[g.group]&&!g.attr.ambiente){ g.attr.ambiente=map[g.group]; n++; }
+  const hhs={}; (e.guests||[]).forEach(g=>{ const h=g.household; if(h&&h!=="Senza nucleo"){ (hhs[h]=hhs[h]||[]).push(g); } });
+  (e.guests||[]).forEach(g=>{
+    g.attr=g.attr||{}; if(g.attr.stato) return;
+    const fam=hhs[g.household];
+    if(fam){ const kids=fam.some(x=>x.ptype==="bambino"); g.attr.stato=(kids||fam.length>=3)?"Famiglia":(fam.length===2?"In coppia":"Single"); n++; }
+    else { g.attr.stato=(+g.plusOne>0)?"In coppia":"Single"; n++; }
   });
-  // Stato (single/coppia/famiglia) dedotto dal nucleo: con bambini o 3+ = Famiglia,
-  // 2 = In coppia; senza nucleo: +1 = In coppia, da solo = Single. Correggibile.
-  (function(){
-    const hhs={}; (e.guests||[]).forEach(g=>{ const h=g.household; if(h&&h!=="Senza nucleo"){ (hhs[h]=hhs[h]||[]).push(g); } });
-    (e.guests||[]).forEach(g=>{
-      g.attr=g.attr||{}; if(g.attr.stato) return;
-      const fam=hhs[g.household];
-      if(fam){ const kids=fam.some(x=>x.ptype==="bambino"); g.attr.stato=(kids||fam.length>=3)?"Famiglia":(fam.length===2?"In coppia":"Single"); n++; }
-      else { g.attr.stato=(+g.plusOne>0)?"In coppia":"Single"; n++; }
-    });
-  })();
-  const nv=seatVarById("nucleo"); if(nv){ (e.guests||[]).forEach(g=>{ if(g.attr&&g.attr.nucleo&&nv.values.indexOf(g.attr.nucleo)<0) nv.values.push(g.attr.nucleo); }); }
-  Store.save(STATE); toast("Precompilate "+n+" caratteristiche");
+  Store.save(STATE); toast(n?("Dedotto lo Stato di "+n+" invitati"):"Stato già compilato per tutti");
 }
 function seatWizFill(){
-  const vars=seatActiveVars();
-  if(!vars.length) return '<div class="muted" style="font-size:13px">Nessuna variabile attiva. Torna al passo 1 e attivane almeno una.</div>'+seatWizNav(2);
+  const vars=seatFillableVars();
+  if(!vars.length) return '<div class="muted" style="font-size:13px">Tutte le caratteristiche attive derivano dai dati ospiti: qui non c\'è nulla da compilare. Avanti.</div>'+seatWizNav(2);
   if(!SEATWIZ.fillVar || !vars.some(v=>v.id===SEATWIZ.fillVar)) SEATWIZ.fillVar=vars[0].id;
   const v=seatVarById(SEATWIZ.fillVar), people=seatableGuests(), pct=seatAttrFillPct();
   const selCount=people.filter(g=>SEATWIZ.sel[g.id]).length;
   let h=`<div style="font-size:13px;margin-bottom:4px">Compilazione: <b>${pct}%</b></div>`;
   h+='<p class="muted" style="font-size:12px">1) scegli una caratteristica · 2) spunta gli invitati (o tutti / per gruppo) · 3) scegli il valore e premi Assegna. Puoi anche usare il menù su ogni riga.</p>';
+  if(v.override) h+='<p class="muted" style="font-size:12px">Facoltativa: chi resta senza valore usa il Tipo persona (Adulto/Bambino). Compila solo Giovane/Anziano dove serve.</p>';
   h+=`<div class="varadd"><select class="inp" id="wz-fv" style="flex:1">${vars.map(x=>`<option value="${x.id}"${x.id===SEATWIZ.fillVar?' selected':''}>${esc(x.name)}</option>`).join("")}</select></div>`;
   h+=`<div class="varadd" style="margin-top:6px"><button type="button" class="btn sm ghost" id="wz-selall">Tutti</button><button type="button" class="btn sm ghost" id="wz-selnone">Nessuno</button><select class="inp" id="wz-selgrp" style="flex:1"><option value="">…o per gruppo</option>${guestGroups().map(g=>`<option value="${esc(g)}">${esc(g)}</option>`).join("")}</select></div>`;
   h+=`<div class="varadd" style="margin-top:6px"><select class="inp" id="wz-bval" style="flex:1">${v.values.map(val=>`<option value="${esc(val)}">${val===''?'(svuota)':esc(val)}</option>`).join("")}</select><button type="button" class="btn sm primary" id="wz-bapply">Assegna${selCount?` (${selCount})`:''}</button></div>`;
@@ -2128,6 +2230,7 @@ function seatWizFill(){
 }
 function seatWizFillBind(host){
   const people=seatableGuests();
+  if(!seatFillableVars().length) return; // niente da agganciare
   const fv=host.querySelector("#wz-fv"); if(fv) fv.onchange=()=>{ SEATWIZ.fillVar=fv.value; seatWizRender(); };
   host.querySelectorAll("[data-selg]").forEach(c=>c.onclick=()=>{ const id=c.getAttribute("data-selg"); SEATWIZ.sel[id]=!SEATWIZ.sel[id]; c.classList.toggle("on"); });
   host.querySelectorAll("[data-frow]").forEach(sel=>sel.onchange=()=>{ const g=seatGuestById(sel.getAttribute("data-frow")); if(!g) return; g.attr=g.attr||{}; if(sel.value) g.attr[SEATWIZ.fillVar]=sel.value; else delete g.attr[SEATWIZ.fillVar]; Store.save(STATE); });
@@ -2166,9 +2269,22 @@ function seatWizRulesBind(host){
 function seatRulesOutcome(){
   const rules=((ev().seating&&ev().seating.rules)||[]); if(!rules.length) return '';
   const tof={}; (ev().tables||[]).forEach(t=>(t.seatIds||[]).forEach(id=>{ if(id) tof[id]=t.id; }));
-  let ok=0,ko=0;
-  rules.forEach(r=>{ const same=tof[r.a]&&tof[r.a]===tof[r.b]; const good=r.kind==='together'?same:!same; if(good)ok++; else ko++; });
-  return `<div style="font-size:13px;margin-top:4px">Regole rispettate: ${ok}/${rules.length}${ko?` · <span style="color:var(--no)">${ko} non soddisfatte</span>`:''}</div>`;
+  let ok=0; const bad=[];
+  rules.forEach(r=>{ const same=tof[r.a]&&tof[r.a]===tof[r.b]; const good=r.kind==='together'?same:!same;
+    if(good)ok++; else bad.push(esc(seatGuestName(r.a))+(r.kind==='together'?' doveva stare con ':' doveva stare lontano da ')+esc(seatGuestName(r.b))); });
+  let h=`<div style="font-size:13px;margin-top:4px">Regole rispettate: ${ok}/${rules.length}</div>`;
+  if(bad.length) h+='<div style="font-size:12px;color:var(--no);margin-top:2px">'+bad.slice(0,6).join('<br>')+(bad.length>6?'<br>… e altre '+(bad.length-6):'')+'</div>';
+  return h;
+}
+// Composizione per tavolo (C2): chi c'è, riassunto per gruppo/nucleo.
+function seatTablesCompo(){
+  const rows=(ev().tables||[]).filter(t=>seatHeadAt(t)>0).map(t=>{
+    const cnt={}; (t.seatIds||[]).forEach(id=>{ if(!id)return; const own=seatGuestById(seatOwnerId(id)); if(!own)return; const k=own.group||((own.household&&own.household!=='Senza nucleo')?own.household:'Altro'); cnt[k]=(cnt[k]||0)+1; });
+    const parts=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a]).slice(0,3);
+    const extra=Object.keys(cnt).length-parts.length;
+    return `<div style="font-size:12px;padding:2px 0;border-bottom:1px solid var(--line)"><b>${esc(t.name)}</b> ${seatHeadAt(t)}/${t.seats}: ${parts.map(k=>esc(k)+' ×'+cnt[k]).join(' · ')}${extra>0?' · +'+extra:''}</div>`;
+  });
+  return rows.length?'<div style="margin-top:8px">'+rows.join('')+'</div>':'';
 }
 function seatWizGen(){
   const pct=seatAttrFillPct();
@@ -2184,7 +2300,7 @@ function seatWizGenBind(host){
     const r=seatAutoAssignRun(); Store.save(STATE);
     let out;
     if(!r||r.empty){ out='<div class="muted">Niente da assegnare.</div>'; SEATWIZ.snapshot=null; }
-    else out=`<div style="font-size:13px">Assegnati <b>${r.assigned}/${r.total}</b> ospiti su ${(ev().tables||[]).length} tavoli.</div>`+(r.unseated?`<div style="font-size:13px;color:var(--no)">${r.unseated} senza posto (capienza insufficiente).</div>`:'')+seatRulesOutcome();
+    else out=`<div style="font-size:13px">Assegnate <b>${r.assigned}/${r.total}</b> persone su ${(ev().tables||[]).length} tavoli.</div>`+(r.unseated?`<div style="font-size:13px;color:var(--no)">${r.unseated} senza posto (capienza insufficiente).</div>`:'')+seatRulesOutcome()+seatTablesCompo();
     seatWizRender();
     const rep=document.getElementById("wz-report"); if(rep) rep.innerHTML=out;
     toast("Disposizione generata");
@@ -2195,25 +2311,30 @@ function seatWizGenBind(host){
 }
 function viewSeating(){
   const tables=ev().tables||[];
+  // integrità: libera i posti con id non più validi (ospite eliminato, +1 ridotti)
+  if(seatSweepStale()>0) Store.save(STATE);
   const totSeats=tables.reduce((s,t)=>s+(t.seats||0),0);
   const seated=tables.reduce((s,t)=>s+seatHeadAt(t),0);
   const seatedSet=new Set(); tables.forEach(t=>(t.seatIds||[]).forEach(g=>{ if(g) seatedSet.add(g); }));
-  const unseated=seatableGuests().filter(g=>!seatedSet.has(g.id));
+  const people=seatPeople();
+  const unseated=people.filter(g=>!seatedSet.has(g.id));
+  const plusOn=seatPlusEnabled(), nPlus=people.filter(p=>p._plusOf).length;
   const tray=`<div id="seatTray" data-tray="1" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;padding:8px;border:1px dashed var(--line);border-radius:10px;min-height:38px">`
-    +(unseated.length?unseated.map(g=>`<span class="tag" data-drag-guest="${g.id}" style="cursor:grab;touch-action:none">${esc(g.name)} (${g.side})</span>`).join("")
-      :`<span class="muted" style="font-size:13px">Tutti gli ospiti sedibili sono assegnati.</span>`)+`</div>`;
+    +(unseated.length?unseated.map(g=>`<span class="tag" data-drag-guest="${g.id}" style="cursor:grab;touch-action:none${g._plusOf?';opacity:.75;font-style:italic':''}">${esc(g.name)} (${g.side})</span>`).join("")
+      :`<span class="muted" style="font-size:13px">Tutte le persone da sedere sono assegnate.</span>`)+`</div>`;
   return `
-  <div class="card"><span class="pill todo">come funziona</span> Crea i tavoli con + Tavolo, poi premi <b>Genera (guidato)</b>: in 4 passi scegli le caratteristiche che contano (nucleo, età, gruppo…), le compili in blocco, aggiungi i vincoli insieme/lontani e generi la disposizione — con Annulla se non convince. Ritocchi a mano: tocca un posto o trascina un nome dalla riserva; trascina un tavolo per spostarlo sulla planimetria.</div>
+  <div class="card"><span class="pill todo">come funziona</span> Crea i tavoli con + Tavolo, poi premi <b>Genera (guidato)</b>: in 4 passi scegli le caratteristiche che contano (nucleo, lato, età e gruppo sono già presi dai dati ospiti), compili solo quelle extra, aggiungi i vincoli insieme/lontani e generi la disposizione — con Annulla se non convince. Gli accompagnatori (+1) hanno un segnaposto accanto al loro invitato. Ritocchi a mano: tocca un posto o trascina un nome dalla riserva; trascina un tavolo per spostarlo.</div>
   <div class="grid cards">
     <div class="card kpi"><div class="v">${tables.length}</div><div class="l">Tavoli</div></div>
     <div class="card kpi"><div class="v">${seated}/${totSeats}</div><div class="l">Posti occupati</div></div>
-    <div class="card kpi"><div class="v">${unseated.length}</div><div class="l">Ospiti da sedere</div></div>
+    <div class="card kpi"><div class="v">${unseated.length}</div><div class="l">Da sedere${plusOn&&nPlus?` (con ${nPlus} +1)`:''}</div></div>
   </div>
   <div class="sec-title"><h2>Planimetria</h2><span><button class="btn sm" data-act="addTable">+ Tavolo</button></span></div>
   ${tables.length?`<div class="tbar">
     <button class="btn sm primary" data-act="seatWizard">Genera (guidato)</button>
     <button class="btn sm ghost" data-act="autoAssign">Assegna auto</button>
     <button class="btn sm ghost" data-act="optimizeAll">Ottimizza</button>
+    <button class="btn sm ghost" data-act="togglePlus" title="Segnaposto per gli accompagnatori">+1: ${plusOn?'Sì':'No'}</button>
     <button class="btn sm ghost" data-act="themeTables">Nomi tema</button>
     <button class="btn sm ghost" data-act="printTables">Stampa</button>
   </div>`:''}
@@ -3157,12 +3278,14 @@ function managedSelect(id, current, options){
     +`<input class="inp" id="${id}_new" placeholder="Scrivi il nuovo valore" style="display:none;margin-top:6px">`;
 }
 function managedValue(id){ const sel=$("#"+id); if(!sel) return ""; if(sel.value==="__new__"){ const t=$("#"+id+"_new"); return t?(t.value||"").trim():""; } return sel.value; }
-// Campi attributi per ospite (G2): una tendina per ogni variabile attiva.
+// Campi attributi per ospite (G2/C3): solo le variabili da compilare a mano —
+// nucleo, lato, età e gruppo si prendono dai campi qui sopra. Badge se manca qualcosa.
 function seatGuestAttrFields(x){
-  const vars=seatActiveVars(); if(!vars.length) return "";
+  const vars=seatFillableVars(); if(!vars.length) return "";
   const attr=x.attr||{};
-  const rows=vars.map(v=>`<div class="field"><label>${esc(v.name)}</label><select class="inp" data-gattr="${v.id}">${v.values.map(val=>`<option value="${esc(val)}"${(attr[v.id]||"")===val?" selected":""}>${val===""?"—":esc(val)}</option>`).join("")}</select></div>`).join("");
-  return `<details style="margin-top:6px"><summary class="muted" style="cursor:pointer">Caratteristiche per i tavoli (${vars.length})</summary><div class="two" style="margin-top:6px">${rows}</div></details>`;
+  const miss=vars.filter(v=>!v.override&&!attr[v.id]).length;
+  const rows=vars.map(v=>`<div class="field"><label>${esc(v.name)}${v.override?' <span class="muted" style="font-size:11px">(da Tipo persona se vuoto)</span>':''}</label><select class="inp" data-gattr="${v.id}">${v.values.map(val=>`<option value="${esc(val)}"${(attr[v.id]||"")===val?" selected":""}>${val===""?"—":esc(val)}</option>`).join("")}</select></div>`).join("");
+  return `<details style="margin-top:6px"><summary class="muted" style="cursor:pointer">Caratteristiche per i tavoli${miss?` — <b style="color:var(--gold)">${miss} da compilare</b>`:" ✓"}</summary><div class="two" style="margin-top:6px">${rows}</div></details>`;
 }
 function seatReadAttrFields(prev){
   const attr=Object.assign({}, prev||{});
@@ -3571,6 +3694,7 @@ document.addEventListener("click",e=>{ try{
   else if(act==="optimizeTable") optimizeTable(id);
   else if(act==="optimizeAll") optimizeAllTables();
   else if(act==="autoAssign") autoAssignConfirm();
+  else if(act==="togglePlus") togglePlusSeats();
   else if(act==="seatWizard") seatWizard();
   else if(act==="themeTables") seatThemePicker();
   else if(act==="printTables") printTables();
