@@ -1872,3 +1872,54 @@ convenzioni, intolleranze e accessibilità presenti; render desktop A4 senza
 overflow (docW 794); PDF reale generato via Chromium (204KB). Il taglio
 visto nello screenshot mobile era un artefatto Playwright (DOM misurato ok).
 sw.js v43->v44; APP_BUILD 2026-07-10.3.
+
+## Giro 67 (Claude Code) — Intelligenze operative I1-I4 (livelli gratuiti)
+
+Richiesta utente: implementare le intelligenze che non costano nulla e non
+richiedono decisioni, con studio di implicazioni e rischi.
+
+I1 — Controllo qualità dati (dentro alertsCompute, stessa UX degli avvisi:
+campanella, Dashboard, goAlert con evidenzia riga, silenziabili):
+possibili doppioni (nome normalizzato), nuclei con lati misti (info),
+bambino seduto senza nessuno del suo nucleo al tavolo, fornitore confermato
+senza telefono né email, rate collegate oltre il preventivo del fornitore.
+Sul roster reale: 4 info sui nuclei misti + 1 rilievo vero (Castello
+Benelli senza contatti) — rumore accettabile e silenziabile.
+
+I2 — Advisor budget (card in Budget): classifica le voci per macro-voce
+(fornitore collegato prima, parole chiave poi), confronta le quote % con
+benchmark indicativi Italia (BUDGET_BENCH), verdetto in linea/sopra/sotto,
+voci non classificate dichiarate, proiezione di spesa finale plausibile.
+Solo informativo: non tocca alcun dato.
+
+I3 — Scadenzario decisioni fornitori (card in Fornitori + avvisi):
+lead time per categoria (VENDOR_LEAD: Location 12 mesi, Catering 9,
+Foto/Video 8, Musica 6, ...), data-limite concreta, stato confermato/in
+corsa/scoperto. Gli avvisi v_key_* ora hanno la data ("decidere entro il
+...") e severità alta oltre la scadenza; id invariati (mute conservati).
+BREAKING semantico voluto: prima avvisava solo a 180 giorni; ora Location
+non confermata a 300 giorni avvisa (lead 12 mesi) — test aggiornati.
+
+I4 — Meteo (Open-Meteo, gratis, senza chiave, card in Dashboard + avviso):
+geocoding della location (una volta, salvato), clima storico ultimi 10 anni
+su finestra ±5 giorni attorno alla data (massime/minime medie, frequenza
+pioggia, giorni >32°C); entro 16 giorni dalle nozze previsione reale del
+giorno con probabilità pioggia; avviso "piano B" (alta ≥50%, media 30-49%).
+Guardie anti-loop: refresh max ogni 12h a successo, retry non prima di 15
+minuti, mai due in volo, dati in e.meteo (sincronizzati tra dispositivi).
+Card degrada con gentilezza se offline.
+
+BUG DI PRODUZIONE trovato dai test: il service worker applicava cache-first
+anche ai GET cross-origin — la prima risposta meteo sarebbe rimasta
+congelata in cache fino al bump successivo. Fix in sw.js: le richieste
+fuori origine passano al browser senza cache. (Scoperto perché i mock
+Playwright non intercettavano: le fetch passavano dal SW.)
+
+Verifica: alerts_test 16->29 casi (qualità, scadenzario, meteo, advisor,
+funzioni pure meteoHistStats/meteoPickDay con wrap d'anno); suite completa
+verde; E2E e2e_intel (2 contesti, Open-Meteo mockato via route): storico in
+Dashboard con geocoding, advisor budget, scadenzario con stati reali,
+scenario nozze a 10 giorni con previsione 70% -> card previsione + avviso
+alta + doppione + bimbo solo + fornitore senza contatti. Zero errori JS,
+zero overflow.
+sw.js v44->v45; APP_BUILD 2026-07-10.4.
