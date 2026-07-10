@@ -245,7 +245,7 @@ input[type=checkbox]{accent-color:var(--sea); width:18px; height:18px}
 (function(){
 // Versione visibile della build (ingranaggio -> prima riga). Serve a capire al
 // volo quale versione sta girando su un dispositivo (cache vs deploy).
-const APP_BUILD="2026-07-10.5";
+const APP_BUILD="2026-07-10.6";
 
 /* ============ DIAGNOSTICA / ERROR TRACKING (P0) ============ */
 // Senza backend gli errori di produzione sarebbero invisibili. Diag li cattura in
@@ -990,7 +990,7 @@ function alertsCompute(){
     // nucleo con lati misti (può essere voluto: solo info)
     const hh={};
     gs.forEach(g=>{ const h=g.household; if(h&&h!=="Senza nucleo"){ (hh[h]=hh[h]||new Set()).add(g.side); } });
-    Object.keys(hh).forEach(h=>{ if(hh[h].size>1) add("q_hhside_"+qn(h).replace(/\W+/g,""),"info","Ospiti","Il nucleo \""+h+"\" ha ospiti su entrambi i lati: verifica che sia voluto.","guests",gs.filter(g=>g.household===h).map(g=>g.id)); });
+    Object.keys(hh).forEach(h=>{ if(hh[h].size>1) add("q_hhside_"+qn(h).replace(/\W+/g,""),"info","Ospiti","Nella famiglia \""+h+"\" alcune persone risultano invitate da "+(m.coupleA||"lato A")+" e altre da "+(m.coupleB||"lato B")+" (campo Lato). Di solito è un refuso: tocca per controllare, o silenzia se è voluto.","guests",gs.filter(g=>g.household===h).map(g=>g.id)); });
     // bambino seduto senza nessuno del suo nucleo allo stesso tavolo
     (e.tables||[]).forEach(t=>{
       const atTable=new Set((t.seatIds||[]).filter(Boolean).map(x=>{ const i=String(x).indexOf("#p"); return i<0?x:x.slice(0,i); }));

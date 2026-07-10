@@ -1948,3 +1948,12 @@ completa verde; E2E: scenario E — col Benelli confermato il meteo geocodifica
 a Verucchio, al reload la cache si invalida e card+dati passano a Verucchio.
 Zero errori JS.
 sw.js v45->v46; APP_BUILD 2026-07-10.5.
+
+## Giro 69 (Claude Code) — Avviso "nuclei con lati misti" riscritto
+
+L'utente non capiva l'avviso info "ha ospiti su entrambi i lati". Testo
+riscritto in linguaggio naturale coi nomi degli sposi: «Nella famiglia "X"
+alcune persone risultano invitate da Righi e altre da Biondi (campo Lato).
+Di solito è un refuso: tocca per controllare, o silenzia se è voluto.»
+Fallback "lato A/B" se i nomi mancano. Suite verde.
+sw.js v46->v47; APP_BUILD 2026-07-10.6.
