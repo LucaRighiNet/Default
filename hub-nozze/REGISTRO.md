@@ -1763,3 +1763,60 @@ circolare Android; suite test verde; app boot ok. Icone in ASSETS cache-first
 Nota onesta: su iPhone l'icona gia' aggiunta NON si aggiorna da sola — va
 rimossa e rifatta "Aggiungi a Home".
 sw.js v40->v41; APP_BUILD 2026-07-09.18.
+
+## Giro 64 (Claude Code) — Tavoli v2: caratteristiche ospiti e ottimizzatore
+
+Richiesta utente: analisi dello stato (campi, voci, pesi, algoritmo) e piano
+per migliorare chiarezza e, dove serve, l'algoritmo. Eseguito il piano intero
+(Fasi A+B+C).
+
+Fase A — motore:
+- A1 (bug): l'affinità "bambini vicini" era codice morto (controllava
+  meal==='bambino', valore sparito col meal-split). Ora l'età deriva da ptype.
+- A2 (bug): per tavoli TONDI e QUADRATI l'ottimizzatore usava il modello a
+  2 file: il posto n-1 non era considerato vicino del posto 0, mentre 0-2 sì.
+  Ora seatPairsFor(t) calcola le adiacenze geometriche REALI dal disegno
+  (i 2 posti più vicini): l'algoritmo ottimizza ciò che si vede. Le forme a
+  2 file (rett/imperiale/serpentina) restano sul modello corretto esistente.
+  Bonus perf: pairs precomputati una volta per ottimizzazione (prima ricalcolati
+  a ogni valutazione di costo, ~2000 volte).
+- A3: a livello di posto l'affinità era binaria (3 punti fissi): i pesi delle
+  variabili non contavano su chi siede accanto. Ora il costo usa la similarità
+  pesata reale; wNear/wFar portati a 40/50 così le regole esplicite dominano
+  sempre (similarità max ~30).
+
+Fase B — dati:
+- B1: nucleo/lato/età/gruppo non si compilano più due volte: le variabili
+  sono DERIVATE live dai campi nativi (household/side/ptype/group), con
+  override facoltativo solo per l'età (Giovane/Anziano). Migrazione varsVer 3:
+  marca le derivate e purga gli attr doppione (conserva i raffinamenti età).
+  Da ~655 celle da mantenere a ~130 facoltative; niente più dati divergenti,
+  niente doppio conteggio del nucleo.
+- B3: pesi come Poco/Normale/Molto (3/6/10) invece del numero 0-20 nudo.
+- Export CSV: solo variabili compilabili (le derivate duplicavano le colonne
+  base); età col valore effettivo.
+
+Fase C — UX:
+- C1: wizard passo 1 in due sezioni: "Dai dati ospiti — automatiche" (con
+  copertura es. Lato 131/131) e "Extra — si compilano al passo 2". Passo 2
+  mostra solo le compilabili. "Precompila" ridotto a "Deduci lo Stato".
+- C2: report del Genera con composizione di ogni tavolo (gruppi/nuclei) e
+  regole violate COI NOMI, non solo il conteggio.
+- C3: scheda ospite: badge "N da compilare" sulle caratteristiche mancanti.
+- C4: segnaposto per gli accompagnatori (+1) in planimetria e riserva, con
+  vincolo implicito accanto al titolare (posto ADIACENTE, verificato);
+  toggle "+1: Sì/No" nella barra; sweep automatico degli id orfani
+  (ospite eliminato, +1 ridotti). Ora i coperti tornano: 131 in lista,
+  134 da sedere.
+
+Nota di progetto: regole contraddittorie (A insieme B, ma i loro nuclei si
+fondono via altre regole/famiglie) si risolvono a favore di insieme+famiglia:
+la "lontani" impossibile resta segnalata nel report.
+
+Verifica: b1 19/19, b2 riscritta 38/38 (adiacenze per forma, similarità,
+segnaposto), vars_test 16/16 (derivazione+migrazione v3), suite completa
+19 suite verdi; E2E nuovo e2e_tavoli2 (8 scenari: KPI, wizard, migrazione
+persistita, genera 134/134 con regole 2/2, +1 adiacente su anello, toggle,
+scheda ospite, deduci stato) + regressioni roster/export/catering/mealsplit/
+required. Zero errori JS, zero overflow.
+sw.js v41->v42; APP_BUILD 2026-07-10.1.
