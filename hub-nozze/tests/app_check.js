@@ -3,7 +3,7 @@
 (function(){
 // Versione visibile della build (ingranaggio -> prima riga). Serve a capire al
 // volo quale versione sta girando su un dispositivo (cache vs deploy).
-const APP_BUILD="2026-07-10.2";
+const APP_BUILD="2026-07-10.3";
 
 /* ============ DIAGNOSTICA / ERROR TRACKING (P0) ============ */
 // Senza backend gli errori di produzione sarebbero invisibili. Diag li cattura in
@@ -724,11 +724,12 @@ function alertsCompute(){
     const unseated=(e.guests||[]).filter(g=>g.rsvp==="conf"&&!seated.has(g.id));
     if(unseated.length) add("s_unseated","info","Tavoli",unseated.length+" ospiti confermati senza posto assegnato.","seating",unseated.map(g=>g.id));
   }
-  // Fornitori
-  const keyCats=["Location","Catering","Foto/Video","Musica/DJ"];
-  if(m.date&&daysTo(m.date)<=180){
-    keyCats.forEach(c=>{ if(!(e.vendors||[]).some(v=>v.category===c&&v.status==="confermato")) add("v_key_"+c,"media","Fornitori","Nessun fornitore confermato per \""+c+"\" a "+daysTo(m.date)+" giorni dalle nozze.","vendors"); });
-  }
+  // Fornitori: scadenzario decisioni (I3) — deadline per categoria dal lead time
+  vendorDeadlines().forEach(dl=>{
+    if(dl.status==="confermato"||!dl.key) return;
+    if(dl.daysLeft<0) add("v_key_"+dl.cat,"alta","Fornitori","\""+dl.cat+"\" non confermato: la data consigliata per decidere ("+fdate(dl.deadline)+") è passata.","vendors");
+    else if(dl.daysLeft<=60) add("v_key_"+dl.cat,"media","Fornitori","\""+dl.cat+"\" da confermare entro il "+fdate(dl.deadline)+" ("+dl.daysLeft+" giorni).","vendors");
+  });
   (e.vendors||[]).forEach(v=>{
     if(v.optionUntil&&v.status!=="confermato"&&v.status!=="scartato"){
       const n=daysTo(v.optionUntil);
@@ -736,11 +737,140 @@ function alertsCompute(){
       else if(n<=30) add("v_opt_"+v.id,"media","Fornitori","Opzione \""+v.name+"\" scade tra "+n+" giorni ("+fdate(v.optionUntil)+").","vendors",[v.id]);
     }
   });
+  // Controllo qualità dati (I1): incongruenze che sfuggono a occhio
+  const qn=s=>String(s||"").toLowerCase().trim().replace(/[àáâ]/g,"a").replace(/[èéê]/g,"e").replace(/[ìí]/g,"i").replace(/[òóô]/g,"o").replace(/[ùú]/g,"u").replace(/\s+/g," ");
+  (function(){
+    const gs=e.guests||[];
+    // possibili duplicati: stesso nome normalizzato
+    const seen={};
+    gs.forEach(g=>{ const k=qn(g.name); if(!k) return; if(seen[k]) add("q_dup_"+[seen[k].id,g.id].sort().join("_"),"media","Ospiti","Possibile doppione: \""+g.name+"\" compare due volte in lista.","guests",[seen[k].id,g.id]); else seen[k]=g; });
+    // nucleo con lati misti (può essere voluto: solo info)
+    const hh={};
+    gs.forEach(g=>{ const h=g.household; if(h&&h!=="Senza nucleo"){ (hh[h]=hh[h]||new Set()).add(g.side); } });
+    Object.keys(hh).forEach(h=>{ if(hh[h].size>1) add("q_hhside_"+qn(h).replace(/\W+/g,""),"info","Ospiti","Il nucleo \""+h+"\" ha ospiti su entrambi i lati: verifica che sia voluto.","guests",gs.filter(g=>g.household===h).map(g=>g.id)); });
+    // bambino seduto senza nessuno del suo nucleo allo stesso tavolo
+    (e.tables||[]).forEach(t=>{
+      const atTable=new Set((t.seatIds||[]).filter(Boolean).map(x=>{ const i=String(x).indexOf("#p"); return i<0?x:x.slice(0,i); }));
+      gs.forEach(g=>{ if(g.ptype!=="bambino"||!atTable.has(g.id)) return;
+        const h=g.household; if(!h||h==="Senza nucleo") return;
+        const withFam=gs.some(o=>o.id!==g.id&&o.household===h&&atTable.has(o.id));
+        if(!withFam) add("q_kid_"+g.id,"media","Tavoli","Il bambino "+g.name+" è seduto a \""+t.name+"\" senza nessuno del suo nucleo.","seating",[g.id]);
+      });
+    });
+    // fornitore confermato senza contatti
+    (e.vendors||[]).forEach(v=>{ if(v.status==="confermato"&&!String(v.phone||"").trim()&&!String(v.email||"").trim()) add("q_vcontact_"+v.id,"info","Fornitori","\""+v.name+"\" è confermato ma non ha né telefono né email in scheda.","vendors",[v.id]); });
+    // rate collegate a un fornitore oltre il suo preventivo
+    (e.vendors||[]).forEach(v=>{ if(!(+v.quote>0)) return;
+      const sum=(e.payments||[]).filter(p=>p.vendorId===v.id).reduce((s,p)=>s+(+p.amount||0),0);
+      if(sum>(+v.quote)+0.01) add("q_paysum_"+v.id,"media","Pagamenti","Le rate di \""+v.name+"\" ("+money(sum)+") superano il suo preventivo ("+money(v.quote)+").","budget",(e.payments||[]).filter(p=>p.vendorId===v.id).map(p=>p.id));
+    });
+  })();
+  // Meteo (I4): probabilità pioggia sul giorno, se abbiamo una previsione reale
+  if(e.meteo&&e.meteo.fc&&m.date&&e.meteo.fc.date===m.date&&e.meteo.fc.prain!=null){
+    const pr=+e.meteo.fc.prain;
+    if(pr>=50) add("meteo_rain","alta","Meteo","Probabilità pioggia "+pr+"% il giorno delle nozze: valuta il piano B per l'aperitivo.","aperitivo");
+    else if(pr>=30) add("meteo_rain","media","Meteo","Probabilità pioggia "+pr+"% il giorno delle nozze: tieni pronto un piano B.","aperitivo");
+  }
   const muted=cfg.muted||[];
   const order={alta:0,media:1,info:2};
   return A.filter(a=>!muted.includes(a.id)).sort((x,y)=>order[x.sev]-order[y.sev]);
 }
 function alertsMutedCount(){ return (alertsPrefs().muted||[]).length; }
+/* ---- Intelligenze locali (I2/I3) e meteo (I4): funzioni pure ---- */
+// Lead time consigliato (mesi prima delle nozze) per confermare la categoria.
+// key: le categorie che generano avvisi; le altre appaiono solo nello scadenzario.
+const VENDOR_LEAD=[
+  {cat:"Location",           months:12, key:true},
+  {cat:"Catering",           months:9,  key:true},
+  {cat:"Foto/Video",         months:8,  key:true},
+  {cat:"Musica/DJ",          months:6,  key:true},
+  {cat:"Officiante/Pratiche",months:6,  key:false},
+  {cat:"Fiori",              months:4,  key:false},
+  {cat:"Allestimenti",       months:4,  key:false},
+  {cat:"Torta",              months:3,  key:false},
+  {cat:"Trasporti/Navetta",  months:3,  key:false},
+  {cat:"Beauty",             months:3,  key:false}
+];
+function vendorDeadlines(){
+  const e=ev(), m=meta(); if(!m||!m.date) return [];
+  return VENDOR_LEAD.map(L=>{
+    const d=new Date(m.date+"T12:00:00"); d.setMonth(d.getMonth()-L.months);
+    const deadline=d.toISOString().slice(0,10);
+    const vs=(e.vendors||[]).filter(v=>v.category===L.cat);
+    const status=vs.some(v=>v.status==="confermato")?"confermato":(vs.length?"in corsa":"scoperto");
+    return {cat:L.cat, months:L.months, key:L.key, deadline:deadline, daysLeft:daysTo(deadline), status:status, n:vs.length};
+  });
+}
+// Benchmark indicativi (matrimoni Italia): quota % del budget per macro-voce.
+const BUDGET_BENCH=[
+  {id:"locat",  name:"Location + Catering", lo:45, hi:60, kw:/location|castello|villa|borgo|sala|catering|banchett|banqueting|men[uù]|ricevim|aperitiv|buffet/i, cats:["Location","Catering"]},
+  {id:"foto",   name:"Foto e video",        lo:8,  hi:12, kw:/foto|video|drone|album/i, cats:["Foto/Video"]},
+  {id:"musica", name:"Musica e intrattenimento", lo:4, hi:8, kw:/music|dj|band|intratten|anima|spettacol|fuochi/i, cats:["Musica/DJ","Intrattenimento"]},
+  {id:"fiori",  name:"Fiori e allestimenti", lo:6, hi:10, kw:/fior|allest|decor|addobb|luci|tovagli/i, cats:["Fiori","Allestimenti"]},
+  {id:"abiti",  name:"Abiti e beauty",      lo:8,  hi:12, kw:/abito|vestito|smoking|scarpe|trucco|parruc|beauty|acconciat/i, cats:["Beauty"]},
+  {id:"torta",  name:"Torta",               lo:1,  hi:3,  kw:/torta|cake|dolc|confett/i, cats:["Torta"]},
+  {id:"trasp",  name:"Trasporti e navetta", lo:1,  hi:3,  kw:/navett|trasport|auto|bus|pullman|limousine/i, cats:["Trasporti/Navetta"]},
+  {id:"carta",  name:"Inviti e grafica",    lo:1,  hi:3,  kw:/invit|partecipaz|grafic|tableau[^ ]* stamp|stamp|segnapost/i, cats:[]},
+  {id:"fedi",   name:"Fedi e officiante",   lo:2,  hi:4,  kw:/fede|fedi|anell|officiant|celebrant|chiesa|rito|pratiche/i, cats:["Officiante/Pratiche"]}
+];
+// Classifica una voce di budget: prima il fornitore collegato, poi le parole chiave.
+function budgetClassify(b, vendorsById){
+  const v=b.vendorId&&vendorsById[b.vendorId];
+  if(v){ const hit=BUDGET_BENCH.find(x=>x.cats.indexOf(v.category)>=0); if(hit) return hit.id; }
+  const hit=BUDGET_BENCH.find(x=>x.kw.test(b.item||""));
+  return hit?hit.id:null;
+}
+// Analisi budget vs benchmark. Denominatore: budget massimo (ceiling) se noto,
+// altrimenti l'impegnato. Ritorna righe + non classificate + proiezione finale.
+function budgetAdvisor(){
+  const e=ev(), d=DERIVED;
+  const vb={}; (e.vendors||[]).forEach(v=>vb[v.id]=v);
+  const sums={}; let unclassified=0, tot=0;
+  (e.budget||[]).forEach(b=>{
+    const val=(+b.actual||0)||(+b.quote||0); if(!val) return;
+    tot+=val;
+    const c=budgetClassify(b, vb);
+    if(c) sums[c]=(sums[c]||0)+val; else unclassified+=val;
+  });
+  const denom=d.ceiling||tot||1;
+  const rows=BUDGET_BENCH.map(x=>{
+    const val=sums[x.id]||0, pct=Math.round(val*100/denom);
+    let verdict="—";
+    if(val>0) verdict=pct>x.hi?"sopra":(pct<x.lo?"sotto":"ok");
+    return {id:x.id, name:x.name, val:val, pct:pct, lo:x.lo, hi:x.hi, verdict:verdict};
+  });
+  // proiezione: per le macro-voci chiave ancora a zero, ipotizza il punto medio del range
+  let projected=tot;
+  rows.forEach(rw=>{ if(rw.val===0) projected+=Math.round(denom*(rw.lo+rw.hi)/200); });
+  return {rows:rows, unclassified:unclassified, total:tot, denom:denom, projected:projected};
+}
+/* ---- Meteo (I4): Open-Meteo, gratuito e senza chiave ---- */
+// Statistiche storiche su righe {date,tmax,tmin,prcp}: filtra ±5 giorni attorno
+// a (mese,giorno) delle nozze su tutti gli anni e riassume.
+function meteoHistStats(rows, mmdd){
+  const mm=+mmdd.slice(0,2), dd=+mmdd.slice(3,5);
+  const keep=rows.filter(r=>{
+    const M=+r.date.slice(5,7), D=+r.date.slice(8,10);
+    const a=new Date(2000,mm-1,dd), b=new Date(2000,M-1,D);
+    const diff=Math.abs(a-b)/86400000;
+    return Math.min(diff,365-diff)<=5;
+  });
+  if(!keep.length) return null;
+  const n=keep.length;
+  const avg=f=>keep.reduce((s,r)=>s+(+f(r)||0),0)/n;
+  return { n:n,
+    tmaxAvg:Math.round(avg(r=>r.tmax)), tminAvg:Math.round(avg(r=>r.tmin)),
+    rainPct:Math.round(keep.filter(r=>(+r.prcp||0)>=1).length*100/n),
+    hotPct:Math.round(keep.filter(r=>(+r.tmax||0)>=32).length*100/n) };
+}
+// Estrae il giorno delle nozze dal forecast daily Open-Meteo (o null se fuori orizzonte).
+function meteoPickDay(daily, dateISO){
+  if(!daily||!daily.time) return null;
+  const i=daily.time.indexOf(dateISO); if(i<0) return null;
+  return { date:dateISO, tmax:Math.round(daily.temperature_2m_max[i]), tmin:Math.round(daily.temperature_2m_min[i]),
+    prain:(daily.precipitation_probability_max&&daily.precipitation_probability_max[i]!=null)?Math.round(daily.precipitation_probability_max[i]):null,
+    code:daily.weather_code?daily.weather_code[i]:null };
+}
 const ALERT_PILL={alta:"no",media:"warn",info:"todo"};
 const ALERT_LABEL={alta:"critico",media:"attenzione",info:"info"};
 let _alertsModal=null;
@@ -1203,8 +1333,69 @@ function blurMoney(key, html){
   const on=PRIVACY_REVEALED.has(key);
   return `<span class="blurval${on?' revealed':''}" data-act="togglePrivacy" data-key="${key}" role="button" tabindex="0" aria-label="Importo riservato: tocca per mostrare o nascondere" title="Tocca per mostrare/nascondere">${html}</span>`;
 }
+// Aggiorna i dati meteo (Open-Meteo, gratis, senza chiave). Guardie: al massimo
+// una volta ogni 12h a successo, retry non prima di 15 min, mai due in volo.
+// Salva in e.meteo (sincronizzato: un dispositivo scarica, tutti vedono).
+let _meteoBusy=false, _meteoLastTry=0;
+async function meteoRefresh(){
+  try{
+    const e=ev(), m=meta(); if(!m||!m.date) return;
+    const now=Date.now();
+    if(_meteoBusy||now-_meteoLastTry<15*60*1000) return;
+    if(e.meteo&&e.meteo.ts&&now-e.meteo.ts<12*3600*1000) return;
+    _meteoBusy=true; _meteoLastTry=now;
+    const J=async u=>{ const r=await fetch(u); if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); };
+    // 1) coordinate della location (una volta sola, poi riusate)
+    let geo=e.meteo&&e.meteo.lat!=null?{lat:e.meteo.lat,lon:e.meteo.lon,place:e.meteo.place}:null;
+    if(!geo){
+      const q=(m.venueAddr||m.venue||"").split(",").pop().trim()||m.venue||"";
+      if(!q) { _meteoBusy=false; return; }
+      const g=await J("https://geocoding-api.open-meteo.com/v1/search?count=1&language=it&name="+encodeURIComponent(q.replace(/\(.*\)/,"").trim()));
+      if(!g.results||!g.results.length) throw new Error("località non trovata: "+q);
+      geo={lat:g.results[0].latitude, lon:g.results[0].longitude, place:g.results[0].name};
+    }
+    // 2) storico: stessi giorni degli ultimi 10 anni (±5 giorni)
+    const yy=new Date().getFullYear(), mmdd=m.date.slice(5);
+    const rows=[];
+    const years=[]; for(let y=yy-10;y<yy;y++) years.push(y);
+    await Promise.all(years.map(async y=>{
+      const base=new Date(y+"-"+mmdd+"T12:00:00");
+      const d0=new Date(base); d0.setDate(d0.getDate()-5);
+      const d1=new Date(base); d1.setDate(d1.getDate()+5);
+      const iso=x=>x.toISOString().slice(0,10);
+      const h=await J("https://archive-api.open-meteo.com/v1/archive?latitude="+geo.lat+"&longitude="+geo.lon+"&start_date="+iso(d0)+"&end_date="+iso(d1)+"&daily=temperature_2m_max,temperature_2m_min,precipitation_sum&timezone=auto");
+      (h.daily&&h.daily.time||[]).forEach((t,i)=>rows.push({date:t,tmax:h.daily.temperature_2m_max[i],tmin:h.daily.temperature_2m_min[i],prcp:h.daily.precipitation_sum[i]}));
+    }));
+    const hist=meteoHistStats(rows, mmdd);
+    // 3) previsione reale se le nozze sono entro l'orizzonte (16 giorni)
+    let fc=null;
+    const dleft=daysTo(m.date);
+    if(dleft>=0&&dleft<=15){
+      const f=await J("https://api.open-meteo.com/v1/forecast?latitude="+geo.lat+"&longitude="+geo.lon+"&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&forecast_days=16&timezone=auto");
+      fc=meteoPickDay(f.daily, m.date);
+    }
+    e.meteo={ts:Date.now(), lat:geo.lat, lon:geo.lon, place:geo.place, hist:hist, fc:fc};
+    Store.save(STATE);
+    _meteoBusy=false;
+    if(typeof active!=="undefined"&&active==="dash") render();
+  }catch(err){ _meteoBusy=false; Diag.log("meteo","aggiornamento fallito", err&&err.message); }
+}
+function meteoCard(){
+  const e=ev(), m=meta(), w=e.meteo;
+  if(!w||(!w.hist&&!w.fc)) return `<div class="card"><span class="pill todo">meteo</span> <span class="muted" style="font-size:13px">Dati meteo non ancora disponibili: si aggiornano da soli quando sei online.</span></div>`;
+  let h="";
+  if(w.fc&&w.fc.date===m.date){
+    h+=`<div style="font-size:14px"><b>Previsione per il ${fdate(m.date)}</b>: ${w.fc.tmin}–${w.fc.tmax}°C${w.fc.prain!=null?`, probabilità pioggia <b>${w.fc.prain}%</b>`:""}</div>`;
+  }
+  if(w.hist){
+    h+=`<div class="muted" style="font-size:12px;margin-top:4px">Clima storico a ${esc(w.place||"")} in quei giorni (ultimi 10 anni): massime ~${w.hist.tmaxAvg}°C, minime ~${w.hist.tminAvg}°C${w.hist.rainPct>0?` · piove 1 giorno su ${Math.max(1,Math.round(100/w.hist.rainPct))}`:" · pioggia rara"}${w.hist.hotPct>0?` · oltre 32°C nel ${w.hist.hotPct}% dei giorni`:""}.</div>`;
+  }
+  h+=`<div class="muted" style="font-size:11px;margin-top:3px">Fonte: Open-Meteo · aggiornato ${w.ts?new Date(w.ts).toLocaleDateString("it-IT"):""}</div>`;
+  return `<div class="card">${h}</div>`;
+}
 function viewDash(){
   const d=DERIVED, m=meta(), e=ev();
+  setTimeout(meteoRefresh, 400); // non blocca il render; guardie interne
   const next=e.payments.filter(p=>!p.paid).sort((a,b)=>(a.dueDate||"").localeCompare(b.dueDate||"")).slice(0,3);
   const alerts=alertsCompute(); // stessa fonte della campanella
   const pct=d.ceiling?Math.min(100,Math.round(d.committed/d.ceiling*100)):0;
@@ -1219,6 +1410,9 @@ function viewDash(){
     <div class="card kpi" data-act="goTab" data-target="vendors" role="link" title="Apri Fornitori"><div class="v">${d.vConf}/${d.vendorsN}</div><div class="l">Fornitori confermati</div></div>
     <div class="card kpi" data-act="goTab" data-target="timeline" role="link" title="Apri Timeline"><div class="v">${d.tasksDone}/${d.tasksTotal}</div><div class="l">Attività completate</div></div>
   </div>
+
+  <div class="sec-title"><h2>Meteo del giorno</h2><span class="pill">${daysTo(m.date)<=15&&daysTo(m.date)>=0?"previsione reale":"clima storico"}</span></div>
+  ${meteoCard()}
 
   <div class="sec-title"><h2>Prossimi pagamenti</h2><span class="pill">cash-flow</span></div>
   <div class="scroll-x"><table class="tbl"><thead><tr><th>Voce</th><th>Scadenza</th><th class="num">Importo</th></tr></thead><tbody>
@@ -1240,6 +1434,22 @@ function viewDash(){
 
 /* ============ BUDGET ============ */
 const TIER=["","Quasi certa","Molto probabile","Probabile","Possibile","Meno probabile"];
+// Card advisor budget (I2): quote per macro-voce vs benchmark, con proiezione.
+function budgetAdvisorCard(){
+  const a=budgetAdvisor();
+  if(!a.total) return `<div class="card"><span class="muted" style="font-size:13px">Inserisci i preventivi per vedere l'analisi rispetto ai benchmark tipici.</span></div>`;
+  const P={ok:["ok","in linea"],sopra:["no","sopra"],sotto:["warn","sotto"],"—":["todo","—"]};
+  const rows=a.rows.filter(r=>r.val>0||r.lo>=4).map(r=>{
+    const p=P[r.verdict]||P["—"];
+    return `<tr><td>${esc(r.name)}</td><td class="num">${r.val?money(r.val):"—"}</td><td class="num">${r.val?r.pct+"%":"—"}</td><td class="num muted">${r.lo}–${r.hi}%</td><td><span class="pill ${p[0]}">${p[1]}</span></td></tr>`;
+  }).join("");
+  return `<div class="card">
+    <div class="scroll-x"><table class="tbl"><thead><tr><th>Macro-voce</th><th class="num">Impegnato</th><th class="num">Quota</th><th class="num">Tipico</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
+    ${a.unclassified?`<div class="muted" style="font-size:12px;margin-top:6px">Voci non classificate: ${money(a.unclassified)} (fuori analisi, nessun automatismo).</div>`:""}
+    <div style="font-size:13px;margin-top:6px">Proiezione di spesa finale plausibile (macro-voci mancanti al valore tipico): <b>${money(a.projected)}</b></div>
+    <div class="muted" style="font-size:11px;margin-top:3px">Benchmark indicativi per matrimoni in Italia: i tuoi preventivi restano la verità. Solo informativo, non modifica nulla.</div>
+  </div>`;
+}
 function viewBudget(){
   const e=ev(), m=meta(), d=DERIVED;
   let rows="";
@@ -1273,6 +1483,9 @@ function viewBudget(){
     <div class="btnbar"><button class="btn" data-act="applyPlan">Applica</button>
     <span class="muted" style="align-self:center">Riserva: ${money(d.cont)}</span></div>
   </div>
+
+  <div class="sec-title"><h2>Analisi intelligente</h2><span class="pill">benchmark Italia</span></div>
+  ${budgetAdvisorCard()}
 
   <div class="sec-title"><h2>Voci di spesa</h2><button class="btn sm" data-act="addBudget">+ Voce</button></div>
   <div class="scroll-x"><table class="tbl">
@@ -2250,10 +2463,25 @@ function vendorCard(v){
     </div>
   </div>`;
 }
+// Scadenzario decisioni (I3): per categoria, entro quando conviene confermare.
+function vendorDeadlinesCard(){
+  const dls=vendorDeadlines(); if(!dls.length) return "";
+  const rows=dls.map(dl=>{
+    let pill;
+    if(dl.status==="confermato") pill='<span class="pill ok">confermato</span>';
+    else if(dl.daysLeft<0) pill='<span class="pill no">in ritardo</span>';
+    else if(dl.daysLeft<=60) pill='<span class="pill warn">decidere ora</span>';
+    else pill='<span class="pill todo">'+(dl.status==="in corsa"?"in corsa":"da cercare")+'</span>';
+    return `<tr><td>${esc(dl.cat)}</td><td>${fdate(dl.deadline)} <span class="muted">(${dl.months} mesi prima)</span></td><td class="num">${dl.n||"—"}</td><td>${pill}</td></tr>`;
+  }).join("");
+  return `<div class="sec-title"><h2>Scadenzario decisioni</h2><span class="pill">quando confermare</span></div>
+  <div class="card"><div class="scroll-x"><table class="tbl"><thead><tr><th>Categoria</th><th>Confermare entro</th><th class="num">In lista</th><th>Stato</th></tr></thead><tbody>${rows}</tbody></table></div>
+  <div class="muted" style="font-size:11px;margin-top:4px">Tempi consigliati dalla prassi: adattali pure — gli avvisi partono solo per le categorie chiave (location, catering, foto/video, musica).</div></div>`;
+}
 function viewVendors(){
   const e=ev();
   const byCat={}; e.vendors.forEach(v=>{ (byCat[v.category]=byCat[v.category]||[]).push(v); });
-  let html="";
+  let html=vendorDeadlinesCard();
   VCATS.forEach(cat=>{
     const list=byCat[cat]; if(!list||!list.length) return;
     const multi=list.length>1;

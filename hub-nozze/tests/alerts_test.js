@@ -5,7 +5,7 @@ const { sandbox, runner } = require("./_harness");
 
 const START = "/* ============ CENTRO AVVISI (motore centrale) ============ */";
 const END = "/* ============ HELPERS ============ */";
-const EXPORTS = ["alertsCompute","alertsPrefs"];
+const EXPORTS = ["alertsCompute","alertsPrefs","vendorDeadlines","budgetAdvisor","budgetClassify","meteoHistStats","meteoPickDay","VENDOR_LEAD","BUDGET_BENCH"];
 
 // Stato mutabile condiviso con il sandbox (mutare, MAI riassegnare).
 let evState;
@@ -90,13 +90,77 @@ r.ok("coperti oltre capienza -> s_cap; confermati senza posto -> s_unseated", ()
   const un=A.find(a=>a.id==="s_unseated");
   assert(un && un.text.indexOf("1 ospiti")===0, "s_unseated deve contare solo b (conf senza posto)");
 });
-r.ok("categorie chiave senza confermato: solo entro 180 giorni", () => {
-  resetAll(); evState.meta={date:daysFromNow(100)};
-  assert(ids().includes("v_key_Location"));
+r.ok("scadenzario (I3): Location in ritardo a 300 giorni (lead 12 mesi) = alta", () => {
+  resetAll(); evState.meta={date:daysFromNow(300)};
+  const A=S.alertsCompute();
+  const a=A.find(x=>x.id==="v_key_Location");
+  assert(a && a.sev==="alta", "Location scaduta deve essere alta");
   evState.vendors=[{id:"v1",category:"Location",status:"confermato"}];
+  assert(!ids().includes("v_key_Location"), "confermato -> niente avviso");
+});
+r.ok("scadenzario (I3): dentro la finestra dei 60 giorni = media; lontano = niente", () => {
+  resetAll(); evState.meta={date:daysFromNow(400)}; // deadline Location tra ~35 gg
+  const a=S.alertsCompute().find(x=>x.id==="v_key_Location");
+  assert(a && a.sev==="media", "atteso media, avvisi: "+JSON.stringify(ids()));
+  resetAll(); evState.meta={date:daysFromNow(700)}; // deadline tra ~335 gg
   assert(!ids().includes("v_key_Location"));
-  evState.meta={date:daysFromNow(300)}; evState.vendors=[];
-  assert(!ids().includes("v_key_Location"));
+});
+r.ok("scadenzario (I3): categorie non chiave (es. Torta) non generano avvisi", () => {
+  resetAll(); evState.meta={date:daysFromNow(30)};
+  assert(!ids().some(x=>x==="v_key_Torta"||x==="v_key_Fiori"));
+});
+r.ok("vendorDeadlines: date, stato e conteggio per categoria", () => {
+  resetAll(); evState.meta={date:"2027-07-17"};
+  evState.vendors=[{id:"v1",category:"Catering",status:"trattativa"},{id:"v2",category:"Catering",status:"opzione"}];
+  const dls=S.vendorDeadlines();
+  const cat=dls.find(d=>d.cat==="Catering");
+  assert.strictEqual(cat.deadline, "2026-10-17"); // 9 mesi prima
+  assert.strictEqual(cat.status, "in corsa");
+  assert.strictEqual(cat.n, 2);
+  assert.strictEqual(dls.find(d=>d.cat==="Location").status, "scoperto");
+});
+r.ok("qualità (I1): doppione nome ospite (normalizzato)", () => {
+  resetAll(); evState.guests=[{id:"g1",name:"Mario Rossi"},{id:"g2",name:"  mario  ROSSI "},{id:"g3",name:"Pia"}];
+  const A=S.alertsCompute();
+  const d=A.find(a=>a.id.indexOf("q_dup_")===0);
+  assert(d && d.ref.includes("g1") && d.ref.includes("g2"));
+});
+r.ok("qualità (I1): nucleo con lati misti = info", () => {
+  resetAll(); evState.guests=[{id:"g1",name:"A",household:"Rossi",side:"A"},{id:"g2",name:"B",household:"Rossi",side:"B"}];
+  const a=S.alertsCompute().find(x=>x.id.indexOf("q_hhside_")===0);
+  assert(a && a.sev==="info");
+});
+r.ok("qualità (I1): bambino solo al tavolo senza il suo nucleo", () => {
+  resetAll();
+  evState.guests=[{id:"k1",name:"Bimbo",ptype:"bambino",household:"Rossi"},{id:"a1",name:"Papà",household:"Rossi"},{id:"x1",name:"Estraneo",household:"Verdi"}];
+  evState.tables=[{id:"t1",name:"Uno",seats:4,seatIds:["k1","x1",null,null]},{id:"t2",name:"Due",seats:4,seatIds:["a1",null,null,null]}];
+  assert(ids().includes("q_kid_k1"));
+  // se il papà si siede con lui, niente avviso
+  evState.tables[0].seatIds=["k1","a1",null,null]; evState.tables[1].seatIds=[null,null,null,null];
+  assert(!ids().includes("q_kid_k1"));
+});
+r.ok("qualità (I1): fornitore confermato senza contatti; rate oltre preventivo", () => {
+  resetAll();
+  evState.vendors=[{id:"v1",name:"Foto X",status:"confermato",phone:"",email:"",quote:1000}];
+  evState.payments=[{id:"p1",vendorId:"v1",amount:700},{id:"p2",vendorId:"v1",amount:600}];
+  const A=S.alertsCompute();
+  assert(A.some(a=>a.id==="q_vcontact_v1"));
+  assert(A.some(a=>a.id==="q_paysum_v1"));
+  // rate nel preventivo: niente q_paysum
+  evState.payments=[{id:"p1",vendorId:"v1",amount:400}];
+  assert(!ids().includes("q_paysum_v1"));
+});
+r.ok("meteo (I4): pioggia >=50 alta, 30-49 media, <30 niente; solo sul giorno giusto", () => {
+  resetAll(); evState.meta={date:daysFromNow(10)};
+  const day=evState.meta.date;
+  evState.meteo={fc:{date:day, prain:60}};
+  assert(S.alertsCompute().find(a=>a.id==="meteo_rain").sev==="alta");
+  evState.meteo={fc:{date:day, prain:35}};
+  assert(S.alertsCompute().find(a=>a.id==="meteo_rain").sev==="media");
+  evState.meteo={fc:{date:day, prain:10}};
+  assert(!ids().includes("meteo_rain"));
+  evState.meteo={fc:{date:"1999-01-01", prain:90}}; // previsione di un altro giorno
+  assert(!ids().includes("meteo_rain"));
 });
 r.ok("opzione fornitore: scaduta = alta, entro 30 giorni = media, confermato = niente", () => {
   resetAll();
@@ -150,6 +214,55 @@ r.ok("soglia payDays configurabile", () => {
   assert(!ids().includes("pay_due"), "20 gg fuori soglia default 14");
   S.alertsPrefs().payDays=30;
   assert(ids().includes("pay_due"), "20 gg dentro soglia 30");
+});
+
+r.ok("budgetClassify: fornitore collegato batte le parole chiave; poi keyword; poi null", () => {
+  const vb={v1:{id:"v1",category:"Foto/Video"}};
+  assert.strictEqual(S.budgetClassify({item:"Torta nuziale",vendorId:"v1"}, vb), "foto"); // vendor vince
+  assert.strictEqual(S.budgetClassify({item:"Bomboniere e confetti"}, {}), "torta"); // keyword confett
+  assert.strictEqual(S.budgetClassify({item:"Voce misteriosa"}, {}), null);
+});
+r.ok("budgetAdvisor: quote, verdetti e proiezione", () => {
+  resetAll(); D.ceiling=10000;
+  evState.vendors=[{id:"v1",category:"Catering"}];
+  evState.budget=[
+    {id:"b1",item:"Menu ricevimento",vendorId:"v1",quote:7000,actual:0},
+    {id:"b2",item:"Servizio fotografico",quote:500,actual:0},
+    {id:"b3",item:"Voce misteriosa",quote:400,actual:0}
+  ];
+  const a=S.budgetAdvisor();
+  assert.strictEqual(a.total, 7900);
+  assert.strictEqual(a.unclassified, 400);
+  const loc=a.rows.find(r=>r.id==="locat"); assert.strictEqual(loc.pct, 70); assert.strictEqual(loc.verdict, "sopra");
+  const foto=a.rows.find(r=>r.id==="foto"); assert.strictEqual(foto.pct, 5); assert.strictEqual(foto.verdict, "sotto");
+  assert(a.projected>a.total, "le macro-voci a zero entrano nella proiezione");
+});
+r.ok("budgetAdvisor: effettivo batte il preventivo nella somma", () => {
+  resetAll(); D.ceiling=0;
+  evState.budget=[{id:"b1",item:"Fiori e addobbi",quote:1000,actual:1200}];
+  const a=S.budgetAdvisor();
+  assert.strictEqual(a.total, 1200);
+  assert.strictEqual(a.denom, 1200); // senza ceiling usa il totale
+});
+r.ok("meteoHistStats: media, pioggia e caldo su finestra +-5 giorni (con wrap anno)", () => {
+  const rows=[];
+  for(let y=2020;y<2023;y++){
+    rows.push({date:y+"-07-15",tmax:30,tmin:20,prcp:0});
+    rows.push({date:y+"-07-17",tmax:34,tmin:22,prcp:5});
+    rows.push({date:y+"-07-22",tmax:99,tmin:0,prcp:99}); // fuori finestra (17+5=22 incluso? diff 5 -> incluso)
+    rows.push({date:y+"-01-01",tmax:5,tmin:0,prcp:9});   // fuori finestra
+  }
+  const st=S.meteoHistStats(rows, "07-17");
+  assert.strictEqual(st.n, 9); // 15,17,22 per 3 anni (22 e' a distanza 5: incluso)
+  assert(st.tmaxAvg>30 && st.rainPct>0 && st.hotPct>0);
+  assert.strictEqual(S.meteoHistStats([], "07-17"), null);
+});
+r.ok("meteoPickDay: estrae il giorno o null", () => {
+  const daily={time:["2027-07-16","2027-07-17"],temperature_2m_max:[30,33],temperature_2m_min:[21,22],precipitation_probability_max:[10,55],weather_code:[1,61]};
+  const d=S.meteoPickDay(daily,"2027-07-17");
+  assert.deepStrictEqual(d, {date:"2027-07-17",tmax:33,tmin:22,prain:55,code:61});
+  assert.strictEqual(S.meteoPickDay(daily,"2027-08-01"), null);
+  assert.strictEqual(S.meteoPickDay(null,"2027-07-17"), null);
 });
 
 r.done();
