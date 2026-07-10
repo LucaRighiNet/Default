@@ -1071,15 +1071,104 @@ function exportGuestsCsv(){
   toast("CSV esportato ("+rows.length+" ospiti)");
 }
 // Tableau stampabile (G8): apre una finestra con i tavoli e i loro ospiti.
+// Planimetria in bianco e nero per la stampa: forme, posti occupati/vuoti,
+// nome tavolo e occupazione. Niente interattività: solo geometria fedele.
+function cateringPlanSvg(){
+  const tables=ev().tables||[]; if(!tables.length) return '';
+  const LP=seatLayout(tables);
+  let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+  tables.forEach(t=>{ const f=seatFootprint(t), x=LP[t.id].x, y=LP[t.id].y;
+    minX=Math.min(minX,x-f.w/2-0.7); maxX=Math.max(maxX,x+f.w/2+0.7);
+    minY=Math.min(minY,y-f.h/2-0.9); maxY=Math.max(maxY,y+f.h/2+0.9);
+  });
+  const W=Math.max(1,maxX-minX), H=Math.max(1,maxY-minY);
+  let body='';
+  tables.forEach(t=>{
+    const f=seatFootprint(t), x=LP[t.id].x, y=LP[t.id].y;
+    let shapeSvg;
+    if(t.shape==='round') shapeSvg=`<circle cx="0" cy="0" r="${(f.lin/2).toFixed(2)}" fill="#f2f2f2" stroke="#444" stroke-width="0.05"/>`;
+    else if(t.shape==='square'){ const sd=f.lin; shapeSvg=`<rect x="${(-sd/2).toFixed(2)}" y="${(-sd/2).toFixed(2)}" width="${sd.toFixed(2)}" height="${sd.toFixed(2)}" rx="0.12" fill="#f2f2f2" stroke="#444" stroke-width="0.05"/>`; }
+    else { const bw=f.lin, bh=Math.max(0.6,f.h-1.8); shapeSvg=`<rect x="${(-bw/2).toFixed(2)}" y="${(-bh/2).toFixed(2)}" width="${bw.toFixed(2)}" height="${bh.toFixed(2)}" rx="0.12" fill="#f2f2f2" stroke="#444" stroke-width="0.05"/>`; }
+    const pos=seatPositions(t), ids=t.seatIds||[];
+    let seats='';
+    pos.forEach((p,i)=>{ const occ=!!(ids[i]&&seatPersonById(ids[i]));
+      seats+=`<circle cx="${p.x.toFixed(2)}" cy="${p.y.toFixed(2)}" r="0.30" fill="${occ?'#555':'#ffffff'}" stroke="#444" stroke-width="0.04"${occ?'':' stroke-dasharray="0.1 0.1"'}/>`;
+    });
+    body+=`<g transform="translate(${x.toFixed(2)},${y.toFixed(2)})">${shapeSvg}${seats}`
+      +`<text x="0" y="0.16" text-anchor="middle" font-size="0.44" font-weight="bold" fill="#111">${esc(t.name)}</text>`
+      +`<text x="0" y="${(f.h/2+0.55).toFixed(2)}" text-anchor="middle" font-size="0.38" fill="#333">${seatHeadAt(t)}/${t.seats}</text></g>`;
+  });
+  return `<svg viewBox="${minX.toFixed(2)} ${minY.toFixed(2)} ${W.toFixed(2)} ${H.toFixed(2)}" style="width:100%;height:auto" role="img" aria-label="Planimetria tavoli">${body}</svg>`;
+}
+// Documento per il catering (stampa/PDF): intestazione, riepilogo operativo,
+// matrice menù per tavolo, planimetria, schede tavolo con posti numerati.
+// Puro (ritorna l'HTML completo): testabile e riusabile.
+function buildCateringDoc(){
+  const m=meta(), st=seatPrintStats();
+  const MEAL_LBL={normale:'Normale',vegetariano:'Vegetariano',celiaco:'Celiaco',vegano:'Vegano'};
+  const oggi=new Date(); const gen=('0'+oggi.getDate()).slice(-2)+'/'+('0'+(oggi.getMonth()+1)).slice(-2)+'/'+oggi.getFullYear();
+  const special=MEALS.filter(x=>x!=='normale').reduce((s,x)=>s+st.tot.meals[x],0);
+  const matrix=`<table class="mt"><thead><tr><th>Tavolo</th><th class="n">Coperti</th>${MEALS.map(x=>`<th class="n">${MEAL_LBL[x]||esc(x)}</th>`).join('')}<th class="n">Bambini</th><th class="n">Intoll.</th></tr></thead><tbody>`
+    +st.rows.map(r=>`<tr><td>${esc(r.name)}</td><td class="n">${r.people.length}</td>${MEALS.map(x=>`<td class="n">${r.meals[x]||''}</td>`).join('')}<td class="n">${r.bambini||''}</td><td class="n">${r.intoll.length||''}</td></tr>`).join('')
+    +`<tr class="tot"><td>Totale</td><td class="n">${st.tot.seated}</td>${MEALS.map(x=>`<td class="n">${st.tot.meals[x]}</td>`).join('')}<td class="n">${st.tot.bambini}</td><td class="n">${st.tot.intoll}</td></tr></tbody></table>`;
+  const cards=st.rows.map(r=>{
+    const rowsP=r.people.map(p=>{
+      const tags=[p.kid?'<span class="tag">bambino</span>':'', p.plus?'<span class="tag">+1</span>':'', p.meal!=='normale'?'<span class="tag m">'+esc(MEAL_LBL[p.meal]||p.meal)+'</span>':''].join('');
+      const note=[p.intol?'⚠ '+esc(p.intol):'', p.acc?esc(p.acc):''].filter(Boolean).join(' · ');
+      return `<tr><td class="n">${p.seat}</td><td>${esc(p.name)} ${tags}</td><td class="note">${note}</td></tr>`;
+    }).join('')||'<tr><td colspan="3" class="note">— tavolo vuoto —</td></tr>';
+    return `<div class="tc"><h3>${esc(r.name)} <span class="sub">${SEAT_SHAPES[r.shape]||esc(r.shape)} · ${r.people.length}/${r.seats} coperti${r.bambini?' · '+r.bambini+' bambini':''}</span></h3>`
+      +`<table class="pt"><thead><tr><th class="n">Posto</th><th>Ospite</th><th>Note</th></tr></thead><tbody>${rowsP}</tbody></table></div>`;
+  }).join('');
+  const unseated=st.unseated.length?`<div class="warn"><b>Senza posto (${st.unseated.length}):</b> ${st.unseated.map(esc).join(', ')}</div>`:'';
+  const css=`@page{size:A4;margin:13mm}
+  body{font-family:Georgia,'Times New Roman',serif;color:#1a1a1a;margin:0;padding:18px}
+  .head{text-align:center;border-bottom:2px solid #1a1a1a;padding-bottom:10px;margin-bottom:14px}
+  .head h1{font-size:24px;font-weight:600;letter-spacing:.5px;margin:0}
+  .head .sub{font-size:13px;color:#444;margin-top:4px}
+  h2{font-size:15px;letter-spacing:1.2px;text-transform:uppercase;border-bottom:1px solid #999;padding-bottom:3px;margin:18px 0 8px}
+  .kpis{display:flex;gap:18px;flex-wrap:wrap;font-size:13px;margin:8px 0}
+  .kpis b{font-size:17px}
+  table{border-collapse:collapse;width:100%;font-size:12px}
+  th,td{border:1px solid #bbb;padding:3px 6px;text-align:left;vertical-align:top}
+  th{background:#efefef;font-weight:600}
+  td.n,th.n{text-align:center;width:1%;white-space:nowrap}
+  .mt .tot td{font-weight:700;background:#f5f5f5}
+  .plan{page-break-before:always}
+  .tables{page-break-before:always}
+  .tc{break-inside:avoid;margin-bottom:12px}
+  .tc h3{font-size:14px;margin:0 0 4px}
+  .tc .sub{font-weight:normal;font-size:11px;color:#555}
+  .tag{font-size:10px;border:1px solid #777;border-radius:6px;padding:0 4px;margin-left:3px;white-space:nowrap;font-family:Arial,sans-serif}
+  .tag.m{font-weight:700}
+  .pt{table-layout:fixed}
+  .pt th:nth-child(1){width:44px}
+  .pt th:nth-child(3){width:32%}
+  .note{font-size:11px;color:#333}
+  .warn{border:1.5px solid #944;padding:6px 8px;font-size:12px;margin-top:10px}
+  .conv{font-size:11px;color:#555;margin-top:6px}
+  .toolbar{text-align:center;margin:0 0 14px}
+  .toolbar button{font-size:15px;padding:8px 22px;cursor:pointer}
+  @media print{.toolbar{display:none}}`;
+  return '<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
+    +'<title>Disposizione tavoli — '+esc(m.coupleA)+' e '+esc(m.coupleB)+'</title><style>'+css+'</style></head><body>'
+    +'<div class="toolbar"><button onclick="window.print()">Stampa / Salva PDF</button></div>'
+    +'<div class="head"><h1>Disposizione tavoli</h1><div class="sub">'+esc(m.coupleA)+' e '+esc(m.coupleB)+' — '+esc(fdate(m.date))
+    +(m.venue?'<br>'+esc(m.venue)+(m.venueAddr?' · '+esc(m.venueAddr):''):'')+'<br>Documento per il catering · generato il '+gen+'</div></div>'
+    +'<h2>Riepilogo</h2>'
+    +'<div class="kpis"><span><b>'+st.rows.length+'</b> tavoli</span><span><b>'+st.tot.seated+'</b> coperti</span><span><b>'+st.tot.adulti+'</b> adulti</span><span><b>'+st.tot.bambini+'</b> bambini</span><span><b>'+special+'</b> menù speciali</span><span><b>'+st.tot.intoll+'</b> intolleranze</span></div>'
+    +matrix
+    +'<div class="conv">Convenzioni: gli accompagnatori (+1) sono conteggiati come menù normale; le intolleranze sono dettagliate nelle schede tavolo.</div>'
+    +unseated
+    +'<div class="plan"><h2>Planimetria</h2>'+cateringPlanSvg()+'</div>'
+    +'<div class="tables"><h2>Schede tavolo</h2>'+cards+'</div>'
+    +'</body></html>';
+}
 function printTables(){
   const tables=ev().tables||[]; if(!tables.length){ toast("Nessun tavolo"); return; }
-  const cards=tables.map(t=>{
-    const names=(t.seatIds||[]).filter(Boolean).map(id=>esc(seatGuestName(id)));
-    return `<div class="pt-card"><h3>${esc(t.name)}</h3><div class="pt-sub">${names.length}/${t.seats} posti</div><ol>${names.map(n=>`<li>${n}</li>`).join("")||'<li class="pt-empty">—</li>'}</ol></div>`;
-  }).join("");
   const w=window.open("","_blank");
   if(!w){ toast("Consenti i popup per stampare"); return; }
-  w.document.write('<!doctype html><html lang="it"><head><meta charset="utf-8"><title>Tableau — '+esc(meta().coupleA)+' & '+esc(meta().coupleB)+'</title><style>body{font-family:system-ui,-apple-system,Arial,sans-serif;margin:20px;color:#1E2A30}h1{text-align:center;font-weight:600;font-size:20px}.pt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px}.pt-card{border:1px solid #ccc;border-radius:10px;padding:10px;break-inside:avoid}.pt-card h3{margin:0 0 2px;font-size:15px}.pt-sub{font-size:12px;color:#666;margin-bottom:6px}ol{margin:0;padding-left:18px}li{font-size:13px;margin:2px 0}.pt-empty{list-style:none;margin-left:-18px;color:#aaa}@media print{.noprint{display:none}}</style></head><body><h1>Tableau — '+esc(meta().coupleA)+' &amp; '+esc(meta().coupleB)+'</h1><div class="noprint" style="text-align:center;margin-bottom:12px"><button onclick="window.print()">Stampa</button></div><div class="pt-grid">'+cards+'</div></body></html>');
+  w.document.write(buildCateringDoc());
   w.document.close();
 }
 // Etichette accessibili per i pulsanti icona senza testo (es. "×", "⚙").
@@ -1548,6 +1637,33 @@ function seatSweepStale(){
   return n;
 }
 function seatOptimizeTable(t){ return seatOptimize((t.seatIds||[]).slice(), t.seats, seatRulesIdxAll(), seatPersonSimFn(), seatPairsFor(t)); }
+// Dati per il documento di stampa/PDF del catering: per ogni tavolo le persone
+// in ordine di posto con menù/età/note, i conteggi menù, e i totali. I +1 sono
+// conteggiati come menù normale (convenzione dichiarata nel documento).
+function seatPrintStats(){
+  const tables=ev().tables||[]; const rows=[]; const tot={seats:0,seated:0,adulti:0,bambini:0,plus:0,intoll:0,meals:{}};
+  MEALS.forEach(m=>tot.meals[m]=0);
+  tables.forEach(t=>{
+    const row={id:t.id,name:t.name,shape:t.shape,seats:t.seats,people:[],bambini:0,plus:0,intoll:[],acc:[],meals:{}};
+    MEALS.forEach(m=>row.meals[m]=0);
+    (t.seatIds||[]).forEach((id,i)=>{ if(!id) return; const p=seatPersonById(id); if(!p) return;
+      const isPlus=!!p._plusOf;
+      const meal=isPlus?'normale':(p.meal||'normale');
+      const kid=!isPlus&&p.ptype==='bambino';
+      row.people.push({seat:i+1,name:p.name,plus:isPlus,kid:kid,meal:meal,intol:isPlus?'':(p.intolerances||''),acc:isPlus?'':(p.accessibility||'')});
+      row.meals[meal]=(row.meals[meal]||0)+1; if(kid)row.bambini++; if(isPlus)row.plus++;
+      if(!isPlus&&p.intolerances){ row.intoll.push(p.name+': '+p.intolerances); tot.intoll++; }
+      if(!isPlus&&p.accessibility){ row.acc.push(p.name+': '+p.accessibility); }
+    });
+    tot.seats+=t.seats; tot.seated+=row.people.length; tot.bambini+=row.bambini; tot.plus+=row.plus;
+    MEALS.forEach(m=>{ tot.meals[m]+=row.meals[m]; });
+    rows.push(row);
+  });
+  tot.adulti=tot.seated-tot.bambini;
+  const seatedSet=new Set(); tables.forEach(t=>(t.seatIds||[]).forEach(id=>{ if(id) seatedSet.add(id); }));
+  const unseated=seatPeople().filter(p=>!seatedSet.has(p.id)).map(p=>p.name);
+  return {rows:rows, tot:tot, unseated:unseated};
+}
 // Pianificazione assegnazione globale ospiti->tavoli (pura, testabile).
 // Euristica: raggruppa per vincoli "insieme" + stesso nucleo (union-find), poi
 // bin-packing dei gruppi nei tavoli rispettando capienza e vincoli "lontano".

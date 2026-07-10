@@ -8,10 +8,11 @@ const SEAT_START = "const SEAT_SHAPES=";
 const SEAT_END = "/* ---- planimetria SVG nativa (B3) ---- */";
 const EXPORTS = ["seatCost","seatOptimize","seatRulesIdx","seatRulesIdxAll","seatPersonSimFn","seatSimilarity",
   "seatOptimizeTable","seatPlanAssignment","SEAT_CFG","seatPairs","seatPairsFor","seatPositions",
-  "seatPeople","seatPersonById","seatCompanionsOf","seatOwnerId","seatSweepStale","seatVarValueOf","seatVars"];
+  "seatPeople","seatPersonById","seatCompanionsOf","seatOwnerId","seatSweepStale","seatVarValueOf","seatVars",
+  "seatPrintStats"];
 
 let evState = { guests: [], tables: [], seating: { rules: [] } };
-const S = sandbox(SEAT_START, SEAT_END, EXPORTS, { ev: () => evState });
+const S = sandbox(SEAT_START, SEAT_END, EXPORTS, { ev: () => evState, MEALS: ["normale","vegetariano","celiaco","vegano"] });
 const r = runner("b2_test");
 
 const idx = (tog, sep) => ({ together: new Set(tog||[]), separate: new Set(sep||[]) });
@@ -182,6 +183,39 @@ r.ok("seatOptimizeTable: usa seatIds e seats del tavolo", () => {
   evState = { guests:[], tables:[], seating:{ rules:[{a:"A",b:"C",kind:"together"}] } };
   const res = S.seatOptimizeTable({ seats:6, seatIds:["A","B","C","D","E","F"] });
   assert(res.order.length === 6 && res.after <= res.before + 1e-9);
+});
+
+// --- documento catering (seatPrintStats) ---
+r.ok("seatPrintStats: conteggi menù/bambini per tavolo e totali", () => {
+  evState = { guests:[
+    {id:"a",name:"Anna",rsvp:"conf",meal:"vegetariano",ptype:"adulto",intolerances:"noci"},
+    {id:"b",name:"Bea",rsvp:"conf",meal:"celiaco",ptype:"bambino"},
+    {id:"c",name:"Ciro",rsvp:"conf",ptype:"adulto",plusOne:1,accessibility:"sedia rotelle"}
+  ], tables:[{id:"t1",name:"Uno",shape:"round",seats:6,seatIds:["a","b","c","c#p1",null,null]}], seating:{rules:[]} };
+  const st=S.seatPrintStats();
+  const r1=st.rows[0];
+  assert.strictEqual(r1.people.length, 4);
+  assert.strictEqual(r1.meals.vegetariano, 1);
+  assert.strictEqual(r1.meals.celiaco, 1);
+  assert.strictEqual(r1.meals.normale, 2); // Ciro + il suo +1 (convenzione)
+  assert.strictEqual(r1.bambini, 1);
+  assert.strictEqual(r1.plus, 1);
+  assert.deepStrictEqual(r1.intoll, ["Anna: noci"]);
+  assert.deepStrictEqual(r1.acc, ["Ciro: sedia rotelle"]);
+  assert.strictEqual(st.tot.seated, 4);
+  assert.strictEqual(st.tot.adulti, 3);
+  assert.strictEqual(st.tot.bambini, 1);
+  assert.strictEqual(st.tot.intoll, 1);
+});
+r.ok("seatPrintStats: posti in ordine, numerazione 1-based, id morti ignorati", () => {
+  evState = { guests:[{id:"a",name:"Anna",rsvp:"conf"}], tables:[{id:"t1",name:"Uno",shape:"round",seats:4,seatIds:[null,"a","gDEAD",null]}], seating:{rules:[]} };
+  const st=S.seatPrintStats();
+  assert.deepStrictEqual(st.rows[0].people.map(p=>[p.seat,p.name]), [[2,"Anna"]]);
+});
+r.ok("seatPrintStats: senza posto elencati (inclusi i +1)", () => {
+  evState = { guests:[{id:"a",name:"Anna",rsvp:"conf",plusOne:1},{id:"b",name:"Bea",rsvp:"conf"}], tables:[{id:"t1",name:"Uno",shape:"round",seats:4,seatIds:["a",null,null,null]}], seating:{rules:[]} };
+  const st=S.seatPrintStats();
+  assert.deepStrictEqual(st.unseated.sort(), ["Anna +1","Bea"]);
 });
 
 // --- assegnazione globale ospiti->tavoli (seatPlanAssignment) ---

@@ -1842,3 +1842,33 @@ Verifica: import_test 32->39 casi (mappature, precedenze rsvp/stato e
 ptype/eta, round-trip v2 con l'header reale dell'export, impStato); suite
 completa verde; E2E export e roster rieseguiti. Zero errori JS.
 sw.js v42->v43; APP_BUILD 2026-07-10.2.
+
+## Giro 66 (Claude Code) — Documento catering: stampa/PDF della disposizione
+
+Richiesta utente: una volta confermata la disposizione, serve un output
+elegante e chiaro da stampare in PDF o su carta e inviare al catering.
+
+Prima il tasto Stampa produceva solo un elenco nomi per tavolo. Ora genera
+un documento completo (buildCateringDoc, puro e testabile):
+1. Intestazione: sposi, data, location con indirizzo, data di generazione.
+2. Riepilogo operativo: KPI (tavoli, coperti, adulti/bambini, menù speciali,
+   intolleranze) + MATRICE menù per tavolo (Normale/Vegetariano/Celiaco/
+   Vegano, bambini, intolleranze) con riga dei totali — il foglio di lavoro
+   del catering. Convenzione dichiarata nel documento: i +1 contano come
+   menù normale. Blocco "senza posto" evidenziato se esiste.
+3. Planimetria in bianco e nero (cateringPlanSvg): geometria fedele a
+   quella a schermo, posti occupati pieni/vuoti tratteggiati, occupazione.
+4. Schede tavolo: persone in ORDINE DI POSTO (numerate), badge bambino/+1/
+   menù speciale, note con intolleranze e accessibilità per persona.
+Impaginazione A4 (@page, salti pagina tra sezioni, schede indivisibili),
+bottone "Stampa / Salva PDF" (nascosto in stampa). Dati da seatPrintStats
+(nel motore, unit-testato): conteggi per tavolo e totali, id morti ignorati,
+senza-posto inclusi i +1.
+
+Verifica: b2 41/41 (+3 casi seatPrintStats); suite completa verde; E2E
+e2e_print con popup reale: totali del documento == oracolo calcolato dallo
+stato (134 coperti, 29 bambini, matrice menù), 15 schede, planimetria,
+convenzioni, intolleranze e accessibilità presenti; render desktop A4 senza
+overflow (docW 794); PDF reale generato via Chromium (204KB). Il taglio
+visto nello screenshot mobile era un artefatto Playwright (DOM misurato ok).
+sw.js v43->v44; APP_BUILD 2026-07-10.3.
