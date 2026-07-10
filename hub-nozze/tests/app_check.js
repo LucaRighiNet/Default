@@ -3,7 +3,7 @@
 (function(){
 // Versione visibile della build (ingranaggio -> prima riga). Serve a capire al
 // volo quale versione sta girando su un dispositivo (cache vs deploy).
-const APP_BUILD="2026-07-10.5";
+const APP_BUILD="2026-07-10.6";
 
 /* ============ DIAGNOSTICA / ERROR TRACKING (P0) ============ */
 // Senza backend gli errori di produzione sarebbero invisibili. Diag li cattura in
@@ -1514,9 +1514,6 @@ function viewBudget(){
     <span class="muted" style="align-self:center">Riserva: ${money(d.cont)}</span></div>
   </div>
 
-  <div class="sec-title"><h2>Analisi intelligente</h2><span class="pill">benchmark Italia</span></div>
-  ${budgetAdvisorCard()}
-
   <div class="sec-title"><h2>Voci di spesa</h2><button class="btn sm" data-act="addBudget">+ Voce</button></div>
   <div class="scroll-x"><table class="tbl">
     <thead><tr><th>Voce</th><th class="num">Preventivo</th><th class="num">Effettivo</th><th></th></tr></thead>
@@ -1555,6 +1552,9 @@ function viewBudget(){
   </table></div>
   <p class="muted" style="font-size:13px;margin-top:8px">Cash-flow mensile: ${Object.keys(DERIVED.cf).sort().map(k=>k+" → "+money(DERIVED.cf[k])).join(" · ")||"—"}</p>`;
   })()}
+
+  <div class="sec-title" style="margin-top:14px"><h2>Analisi intelligente</h2><span class="pill">benchmark Italia</span></div>
+  ${budgetAdvisorCard()}
   `;
 }
 
@@ -2511,7 +2511,7 @@ function vendorDeadlinesCard(){
 function viewVendors(){
   const e=ev();
   const byCat={}; e.vendors.forEach(v=>{ (byCat[v.category]=byCat[v.category]||[]).push(v); });
-  let html=vendorDeadlinesCard();
+  let html="";
   VCATS.forEach(cat=>{
     const list=byCat[cat]; if(!list||!list.length) return;
     const multi=list.length>1;
@@ -2532,6 +2532,7 @@ function viewVendors(){
   <p class="muted" style="margin-top:12px;font-size:12px">I dati dei fornitori si inseriscono con Modifica. "Aggiorna dal web" è attivo solo nella versione integrata in Claude.ai; su questo sito mostra un avviso e non modifica nulla.</p>
   <div class="btnbar" style="margin-top:12px"><button class="btn" data-act="addVendor">+ Fornitore</button></div>
   ${html||'<div class="placeholder"><div class="ic">&#9742;</div><p>Nessun fornitore.</p></div>'}
+  ${vendorDeadlinesCard()}
   `;
 }
 function editVendor(id){

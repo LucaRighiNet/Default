@@ -1957,3 +1957,11 @@ alcune persone risultano invitate da Righi e altre da Biondi (campo Lato).
 Di solito è un refuso: tocca per controllare, o silenzia se è voluto.»
 Fallback "lato A/B" se i nomi mancano. Suite verde.
 sw.js v46->v47; APP_BUILD 2026-07-10.6.
+
+## Giro 70 (Claude Code) — Riposizionamento sezioni (richiesta utente)
+
+"Analisi intelligente" del budget spostata SOTTO i Pagamenti (era sopra le
+Voci di spesa); "Scadenzario decisioni" spostato in FONDO alla lista
+fornitori (era in testa). Nessuna logica toccata. E2E sull'ordine delle
+sezioni in entrambe le viste; suite verde.
+sw.js v47->v48; APP_BUILD 2026-07-10.7.
