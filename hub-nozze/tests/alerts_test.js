@@ -5,7 +5,7 @@ const { sandbox, runner } = require("./_harness");
 
 const START = "/* ============ CENTRO AVVISI (motore centrale) ============ */";
 const END = "/* ============ HELPERS ============ */";
-const EXPORTS = ["alertsCompute","alertsPrefs","vendorDeadlines","budgetAdvisor","budgetClassify","meteoHistStats","meteoPickDay","VENDOR_LEAD","BUDGET_BENCH"];
+const EXPORTS = ["alertsCompute","alertsPrefs","vendorDeadlines","budgetAdvisor","budgetClassify","meteoHistStats","meteoPickDay","meteoLocationQuery","VENDOR_LEAD","BUDGET_BENCH"];
 
 // Stato mutabile condiviso con il sandbox (mutare, MAI riassegnare).
 let evState;
@@ -263,6 +263,24 @@ r.ok("meteoPickDay: estrae il giorno o null", () => {
   assert.deepStrictEqual(d, {date:"2027-07-17",tmax:33,tmin:22,prain:55,code:61});
   assert.strictEqual(S.meteoPickDay(daily,"2027-08-01"), null);
   assert.strictEqual(S.meteoPickDay(null,"2027-07-17"), null);
+});
+
+r.ok("meteoLocationQuery: la Location CONFERMATA con indirizzo comanda", () => {
+  resetAll(); evState.meta={venue:"Castello X", venueAddr:"Via A 1, CittaMeta (XX)"};
+  evState.vendors=[
+    {id:"v1",category:"Location",status:"opzione",address:"Via B 2, CittaOpzione (YY)"},
+    {id:"v2",category:"Location",status:"confermato",address:"Via C 3, CittaConfermata (ZZ)"}
+  ];
+  assert.strictEqual(S.meteoLocationQuery(), "CittaConfermata");
+});
+r.ok("meteoLocationQuery: senza location confermata (o senza indirizzo) usa l'intestazione", () => {
+  resetAll(); evState.meta={venue:"Castello X", venueAddr:"Via A 1, CittaMeta (XX)"};
+  evState.vendors=[{id:"v1",category:"Location",status:"confermato",address:"  "}];
+  assert.strictEqual(S.meteoLocationQuery(), "CittaMeta");
+  evState.meta={venue:"SoloNomeVenue"};
+  assert.strictEqual(S.meteoLocationQuery(), "SoloNomeVenue");
+  evState.meta={};
+  assert.strictEqual(S.meteoLocationQuery(), "");
 });
 
 r.done();

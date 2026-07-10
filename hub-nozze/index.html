@@ -245,7 +245,7 @@ input[type=checkbox]{accent-color:var(--sea); width:18px; height:18px}
 (function(){
 // Versione visibile della build (ingranaggio -> prima riga). Serve a capire al
 // volo quale versione sta girando su un dispositivo (cache vs deploy).
-const APP_BUILD="2026-07-10.4";
+const APP_BUILD="2026-07-10.5";
 
 /* ============ DIAGNOSTICA / ERROR TRACKING (P0) ============ */
 // Senza backend gli errori di produzione sarebbero invisibili. Diag li cattura in
@@ -607,6 +607,7 @@ const Cloud=(function(){
             if(typeof migrateTaskVendorCat==="function") migrateTaskVendorCat();
             if(typeof migrateGuestsRoster2==="function") migrateGuestsRoster2();
             if(typeof migrateMealSplit==="function") migrateMealSplit();
+            if(typeof migrateVendorAddr==="function") migrateVendorAddr();
             try{ Store.save(STATE); }catch(e){} // persiste subito lo stato adottato/fuso
             if(typeof recompute==="function") recompute();
             if(typeof render==="function") render();
@@ -845,8 +846,8 @@ function seedState(){
       guests: guestsRoster2(),
       vendors:[
         {id:"fenice",name:"La Fenice Catering & Banqueting",category:"Catering",contact:"Vittorio Fiore",phone:"+39 331 668 2055",email:"",website:"lafenicecatering.com",status:"confermato",quote:18000,budgetLineId:"b1",rating:"",reviews:"",pastEvents:"",notes:"Tasting a Faenza",source:"preventivo",updated:""},
-        {id:"benelli",name:"Castello Benelli",category:"Location",contact:"",phone:"",email:"",website:"",status:"confermato",quote:7000,budgetLineId:"b0",rating:"",reviews:"",pastEvents:"",notes:"Via San Vito 17, Bellaria-Igea Marina (RN)",source:"contratto",updated:""},
-        {id:"fregnano",name:"Borgo Fregnano",category:"Location",contact:"",phone:"",email:"",website:"borgofregnano.com",status:"opzione",quote:4500,budgetLineId:null,rating:"",reviews:"",pastEvents:"",notes:"Opzione presa per il 17/07/2027 (data alternativa a Castello Benelli).",source:"opzione",updated:"2027-07-03"}
+        {id:"benelli",name:"Castello Benelli",category:"Location",contact:"",phone:"",email:"",website:"",address:"Via San Vito 17, Bellaria-Igea Marina (RN)",status:"confermato",quote:7000,budgetLineId:"b0",rating:"",reviews:"",pastEvents:"",notes:"",source:"contratto",updated:""},
+        {id:"fregnano",name:"Borgo Fregnano",category:"Location",contact:"",phone:"",email:"",website:"borgofregnano.com",address:"",status:"opzione",quote:4500,budgetLineId:null,rating:"",reviews:"",pastEvents:"",notes:"Opzione presa per il 17/07/2027 (data alternativa a Castello Benelli).",source:"opzione",updated:"2027-07-03"}
       ], tasks:[
         {id:"k1",title:"Bloccare location e catering",category:"Fornitori",due:"2026-07-03",assignee:"Sposi",done:true},
         {id:"k2",title:"Confermare location",category:"Fornitori",vendorCat:"Location",due:"2026-07-03",assignee:"Sposi",done:false},
@@ -1087,6 +1088,15 @@ function budgetAdvisor(){
   return {rows:rows, unclassified:unclassified, total:tot, denom:denom, projected:projected};
 }
 /* ---- Meteo (I4): Open-Meteo, gratuito e senza chiave ---- */
+// Località di riferimento: l'indirizzo del fornitore LOCATION CONFERMATO
+// comanda; in mancanza, l'intestazione evento. Ritorna la città (ultima
+// parte dell'indirizzo, senza provincia tra parentesi).
+function meteoLocationQuery(){
+  const e=ev(), m=meta();
+  const v=(e.vendors||[]).find(x=>x.category==="Location"&&x.status==="confermato"&&String(x.address||"").trim());
+  const raw=v?v.address:((m&&(m.venueAddr||m.venue))||"");
+  return String(raw).split(",").pop().replace(/\(.*?\)/g,"").trim();
+}
 // Statistiche storiche su righe {date,tmax,tmin,prcp}: filtra ±5 giorni attorno
 // a (mese,giorno) delle nozze su tutti gli anni e riassume.
 function meteoHistStats(rows, mmdd){
@@ -1194,6 +1204,25 @@ function migrateSeedLabels(){
     });
     if(n) Store.save(STATE);
   }catch(err){ Diag.log("lists","migrazione titoli fallita", err&&err.message); }
+}
+
+/* ---- Migrazione indirizzo fornitori: campo nuovo v.address. Se il fornitore
+   è la location dell'intestazione (stesso nome) eredita l'indirizzo da lì —
+   così il meteo della location confermata parte subito. Idempotente: agisce
+   solo dove address è ancora undefined. ---- */
+function migrateVendorAddr(){
+  try{
+    let n=0;
+    Object.keys((STATE&&STATE.events)||{}).forEach(k=>{
+      const e=STATE.events[k]; if(!e) return; const m=e.meta||{};
+      (e.vendors||[]).forEach(v=>{
+        if(v.address!=null) return;
+        v.address=(m.venue&&m.venueAddr&&v.name===m.venue)?m.venueAddr:"";
+        n++;
+      });
+    });
+    if(n) Store.save(STATE);
+  }catch(err){ Diag.log("vendors","migrazione indirizzi fallita", err&&err.message); }
 }
 
 /* ---- Bonifica forzata lista invitati (2026-07-09, ordinata dall'utente):
@@ -1584,15 +1613,16 @@ async function meteoRefresh(){
     const e=ev(), m=meta(); if(!m||!m.date) return;
     const now=Date.now();
     if(_meteoBusy||now-_meteoLastTry<15*60*1000) return;
-    if(e.meteo&&e.meteo.ts&&now-e.meteo.ts<12*3600*1000) return;
+    const q=meteoLocationQuery(); if(!q) return;
+    // location cambiata (nuova confermata o indirizzo modificato): cache invalida
+    const fresh=e.meteo&&e.meteo.q===q;
+    if(fresh&&e.meteo.ts&&now-e.meteo.ts<12*3600*1000) return;
     _meteoBusy=true; _meteoLastTry=now;
     const J=async u=>{ const r=await fetch(u); if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); };
-    // 1) coordinate della location (una volta sola, poi riusate)
-    let geo=e.meteo&&e.meteo.lat!=null?{lat:e.meteo.lat,lon:e.meteo.lon,place:e.meteo.place}:null;
+    // 1) coordinate della località (riusate finché l'indirizzo non cambia)
+    let geo=(fresh&&e.meteo.lat!=null)?{lat:e.meteo.lat,lon:e.meteo.lon,place:e.meteo.place}:null;
     if(!geo){
-      const q=(m.venueAddr||m.venue||"").split(",").pop().trim()||m.venue||"";
-      if(!q) { _meteoBusy=false; return; }
-      const g=await J("https://geocoding-api.open-meteo.com/v1/search?count=1&language=it&name="+encodeURIComponent(q.replace(/\(.*\)/,"").trim()));
+      const g=await J("https://geocoding-api.open-meteo.com/v1/search?count=1&language=it&name="+encodeURIComponent(q));
       if(!g.results||!g.results.length) throw new Error("località non trovata: "+q);
       geo={lat:g.results[0].latitude, lon:g.results[0].longitude, place:g.results[0].name};
     }
@@ -1616,7 +1646,7 @@ async function meteoRefresh(){
       const f=await J("https://api.open-meteo.com/v1/forecast?latitude="+geo.lat+"&longitude="+geo.lon+"&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&forecast_days=16&timezone=auto");
       fc=meteoPickDay(f.daily, m.date);
     }
-    e.meteo={ts:Date.now(), lat:geo.lat, lon:geo.lon, place:geo.place, hist:hist, fc:fc};
+    e.meteo={ts:Date.now(), q:q, lat:geo.lat, lon:geo.lon, place:geo.place, hist:hist, fc:fc};
     Store.save(STATE);
     _meteoBusy=false;
     if(typeof active!=="undefined"&&active==="dash") render();
@@ -2765,6 +2795,7 @@ function editVendor(id){
        <div class="field"><label>Sito</label><input class="inp" id="v_web" value="${esc(x.website)}"></div>
        <div class="field"><label>Preventivo (€)</label><input class="inp" type="number" id="v_q" value="${x.quote||0}"></div>
      </div>
+     <div class="field"><label>Indirizzo <span class="muted" style="font-size:11px">(per Location confermata guida anche il meteo)</span></label><input class="inp" id="v_addr" value="${esc(x.address||"")}" placeholder="Via, Città (Prov)"></div>
      <div class="two">
        <div class="field"><label>Rating</label><input class="inp" id="v_rt" value="${esc(x.rating)}"></div>
        <div class="field"><label>Voce di budget collegata</label><select class="inp" id="v_bl">${blOpts}</select></div>
@@ -2777,7 +2808,7 @@ function editVendor(id){
      // setTimeout: la conferma va aperta DOPO che close() ha svuotato #modalRoot
      ...(isNew?[]:[{label:"Elimina",cls:"danger",fn:()=>{ setTimeout(()=>delVendor(id),0); }}]),
      {label:"Salva",cls:"",fn:()=>{   if(!reqOk(["#v_name"])) return false; const name=$("#v_name").value.trim();
-      const data={name,category:$("#v_cat").value,status:$("#v_st").value,contact:$("#v_ref").value.trim(),phone:$("#v_ph").value.trim(),email:$("#v_em").value.trim(),website:$("#v_web").value.trim(),quote:+$("#v_q").value||0,rating:$("#v_rt").value.trim(),budgetLineId:$("#v_bl").value,optionUntil:$("#v_opt").value||"",reviews:$("#v_rev").value.trim(),pastEvents:$("#v_pe").value.trim(),notes:$("#v_nt").value.trim()};
+      const data={name,category:$("#v_cat").value,status:$("#v_st").value,contact:$("#v_ref").value.trim(),phone:$("#v_ph").value.trim(),email:$("#v_em").value.trim(),website:$("#v_web").value.trim(),address:$("#v_addr").value.trim(),quote:+$("#v_q").value||0,rating:$("#v_rt").value.trim(),budgetLineId:$("#v_bl").value,optionUntil:$("#v_opt").value||"",reviews:$("#v_rev").value.trim(),pastEvents:$("#v_pe").value.trim(),notes:$("#v_nt").value.trim()};
       let vv;
       const E=ev();
       if(isNew){ vv=Object.assign({id:"v"+Date.now(),source:"",updated:""},data); E.vendors.push(vv); }
@@ -3838,7 +3869,7 @@ function openBilling(){
 function cloudDoLogin(email, pw){
   if(!email||!pw){ toast("Inserisci email e password"); return Promise.resolve(false); }
   return Cloud.login(email, pw).then(function(res){
-    if(res.cloudState){ STATE=res.cloudState; migrateBudgetV2(); migrateSeedLabels(); migrateTaskVendorCat(); migrateGuestsRoster2(); migrateMealSplit(); recompute(); render(); toast("Accesso ok · dati dal cloud"); }
+    if(res.cloudState){ STATE=res.cloudState; migrateBudgetV2(); migrateSeedLabels(); migrateTaskVendorCat(); migrateGuestsRoster2(); migrateMealSplit(); migrateVendorAddr(); recompute(); render(); toast("Accesso ok · dati dal cloud"); }
     else { Sync.notify(STATE); toast("Accesso ok · questo dispositivo diventa la copia madre"); }
     return true;
   }).catch(function(e){ toast("Accesso non riuscito: "+(e&&e.message||"")); Diag.log("cloud","login fallito", e&&e.message); return false; });
@@ -4140,6 +4171,7 @@ document.addEventListener("keydown", function(e){
   migrateTaskVendorCat(); // collega attivita' seed ai fornitori
   migrateGuestsRoster2(); // bonifica lista invitati (una tantum)
   migrateMealSplit(); // separa tipologia persona / menu (una tantum)
+  migrateVendorAddr(); // campo indirizzo fornitori (eredita da intestazione se location)
   // barra dei tab: frecce di scorrimento (una sola registrazione: #tabs e' fisso)
   try{
     const nav=$("#tabs");
@@ -4159,7 +4191,7 @@ document.addEventListener("keydown", function(e){
       // Se c'è già una sessione valida (login precedente), riprendi e tira giù il cloud.
       // Migrazione DOPO il pull: lo stato del cloud vince su quello locale,
       // quindi va migrato lui (Store.save dentro migrate rispinge nel cloud).
-      try{ const res=await Cloud.resume(); if(res && res.cloudState){ STATE=res.cloudState; migrateBudgetV2(); migrateSeedLabels(); migrateTaskVendorCat(); migrateGuestsRoster2(); migrateMealSplit(); recompute(); render(); } }
+      try{ const res=await Cloud.resume(); if(res && res.cloudState){ STATE=res.cloudState; migrateBudgetV2(); migrateSeedLabels(); migrateTaskVendorCat(); migrateGuestsRoster2(); migrateMealSplit(); migrateVendorAddr(); recompute(); render(); } }
       catch(e){ Diag.log("cloud","resume fallito", e&&e.message); }
     }
   }catch(e){ Diag.log("cloud","bootstrap fallito", e&&e.message); }

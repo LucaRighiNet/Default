@@ -1923,3 +1923,28 @@ scenario nozze a 10 giorni con previsione 70% -> card previsione + avviso
 alta + doppione + bimbo solo + fornitore senza contatti. Zero errori JS,
 zero overflow.
 sw.js v44->v45; APP_BUILD 2026-07-10.4.
+
+## Giro 68 (Claude Code) — Meteo guidato dalla location CONFERMATA
+
+Richiesta utente: il meteo deve basarsi sull'indirizzo della location
+confermata, non sull'intestazione evento.
+
+- Campo nuovo "Indirizzo" nella scheda fornitore (v.address), utile a tutto
+  il CRM; l'indirizzo del Benelli esce dalle note ed entra nel campo giusto.
+- meteoLocationQuery(): catena esplicita — fornitore LOCATION CONFERMATO con
+  indirizzo > intestazione evento (venueAddr/venue); estrae la città
+  (ultima parte, senza provincia tra parentesi).
+- meteoRefresh: la query entra nella cache (e.meteo.q). Se la location
+  confermata cambia (o cambia indirizzo), la cache è invalida: nuovo
+  geocoding e nuovi dati anche dentro la finestra delle 12h.
+- Migrazione migrateVendorAddr (idempotente, nei 4 punti della catena):
+  address="" dove mancante; se il fornitore è la location dell'intestazione
+  (stesso nome) eredita venueAddr — il meteo parte subito giusto.
+- Seed aggiornato (benelli con address, note ripulite).
+
+Verifica: alerts_test 29->31 (catena di scelta della località); suite
+completa verde; E2E: scenario E — col Benelli confermato il meteo geocodifica
+"Bellaria-Igea Marina"; scartato Benelli e confermato Fregnano con indirizzo
+a Verucchio, al reload la cache si invalida e card+dati passano a Verucchio.
+Zero errori JS.
+sw.js v45->v46; APP_BUILD 2026-07-10.5.
