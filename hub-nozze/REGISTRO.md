@@ -2082,3 +2082,16 @@ chi ha scelto esplicitamente "Per nucleo" mantiene la preferenza
 (localStorage hub_guestby). E2E: default gruppo su dispositivo nuovo,
 scelta nucleo persistente al reload. Suite verde.
 sw.js v54->v55; APP_BUILD 2026-07-10.14.
+
+## Giro 78 (Claude Code) — Vista per gruppo: ordine per lato e lato visibile
+
+Richiesta utente. Nella vista "Per gruppo" le sezioni sono ordinate per
+LATO (prima Righi, poi Biondi, in coda i gruppi con lati misti), a parità
+di lato in ordine alfabetico; la vista "Per nucleo" resta alfabetica.
+Nei gruppi a lati misti ogni riga mostra il tag del lato della persona
+(nei gruppi uniformi basta l'intestazione, niente rumore).
+
+Verifica: E2E con gruppo misto costruito ad hoc — sequenza dei ranghi di
+lato non decrescente (0000111222), tag presenti su tutte le righe del
+gruppo misto. Suite completa verde.
+sw.js v55->v56; APP_BUILD 2026-07-10.15.

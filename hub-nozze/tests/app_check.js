@@ -3,7 +3,7 @@
 (function(){
 // Versione visibile della build (ingranaggio -> prima riga). Serve a capire al
 // volo quale versione sta girando su un dispositivo (cache vs deploy).
-const APP_BUILD="2026-07-10.13";
+const APP_BUILD="2026-07-10.14";
 
 /* ============ DIAGNOSTICA / ERROR TRACKING (P0) ============ */
 // Senza backend gli errori di produzione sarebbero invisibili. Diag li cattura in
@@ -1575,20 +1575,27 @@ function viewGuests(){
   const fallback=byGroup?"Senza gruppo":"Senza nucleo";
   const keyOf=g=> byGroup ? (g.group||fallback) : (g.household||fallback);
   const hh={}; e.guests.forEach(g=>{ const k=keyOf(g); (hh[k]=hh[k]||[]).push(g); });
-  let blocks="";
-  Object.keys(hh).sort().forEach(name=>{
-    // Il contenitore residuo raccoglie persone di entrambi i lati: va spezzato
-    // per lato. Gli altri mostrano il lato solo se uniforme (altrimenti "lati misti").
-    const groups=[];
+  // Il contenitore residuo raccoglie persone di entrambi i lati: va spezzato
+  // per lato. Gli altri mostrano il lato solo se uniforme (altrimenti "lati misti").
+  const sections=[];
+  Object.keys(hh).forEach(name=>{
     if(name===fallback){
       const A=hh[name].filter(g=>g.side==="A"), B=hh[name].filter(g=>g.side!=="A");
-      if(A.length) groups.push({side:"A", members:A});
-      if(B.length) groups.push({side:"B", members:B});
+      if(A.length) sections.push({name:name, side:"A", members:A});
+      if(B.length) sections.push({name:name, side:"B", members:B});
     } else {
       const sides=new Set(hh[name].map(g=>g.side));
-      groups.push({side:sides.size===1?hh[name][0].side:null, members:hh[name]});
+      sections.push({name:name, side:sides.size===1?hh[name][0].side:null, members:hh[name]});
     }
-    groups.forEach(grp=>{
+  });
+  // Ordinamento: per gruppo prima il LATO (sposo, sposa, misti) poi il nome;
+  // per nucleo resta alfabetico.
+  const sideRank=s=> s==="A"?0:(s==="B"?1:2);
+  if(byGroup) sections.sort((x,y)=> sideRank(x.side)-sideRank(y.side) || x.name.localeCompare(y.name));
+  else sections.sort((x,y)=> x.name.localeCompare(y.name) || sideRank(x.side)-sideRank(y.side));
+  let blocks="";
+  sections.forEach(grp=>{
+    const name=grp.name;
     const sideLbl=grp.side?("lato "+(grp.side==="A"?meta().coupleA:meta().coupleB)):"lati misti";
     blocks+=`<tr class="row-group" data-hh="${esc(name)}"><td colspan="4">${esc(name)} <span class="muted" style="font-weight:400">· ${sideLbl}</span></td></tr>`;
     grp.members.forEach(g=>{
@@ -1598,13 +1605,13 @@ function viewGuests(){
       const crossTag=byGroup
         ? ((g.household&&g.household!=="Senza nucleo")?` <span class="tag">${esc(g.household)}</span>`:"")
         : (g.group?` <span class="tag">${esc(g.group)}</span>`:"");
+      const sideTag=grp.side===null?` <span class="tag">${g.side==="A"?esc(meta().coupleA):esc(meta().coupleB)}</span>`:"";
       blocks+=`<tr data-grow="1" data-rsvp="${g.rsvp}" data-name="${esc((g.name||'').toLowerCase())}">
-        <td>${dot}${esc(g.name)}${crossTag}${g.plusOne?` <span class="tag">+${g.plusOne}</span>`:""}${g.shuttle?' <span class="tag">navetta</span>':""}${g.accessibility?` <span class="tag">${esc(g.accessibility)}</span>`:""}${(function(){var _t=seatTableOf(g.id);return _t?` <span class="tag">${esc(_t.name)}</span>`:"";})()}</td>
+        <td>${dot}${esc(g.name)}${sideTag}${crossTag}${g.plusOne?` <span class="tag">+${g.plusOne}</span>`:""}${g.shuttle?' <span class="tag">navetta</span>':""}${g.accessibility?` <span class="tag">${esc(g.accessibility)}</span>`:""}${(function(){var _t=seatTableOf(g.id);return _t?` <span class="tag">${esc(_t.name)}</span>`:"";})()}</td>
         <td><button class="pill ${r[0]}" data-act="cycleRsvp" data-id="${g.id}" title="Clic per cambiare stato RSVP" style="cursor:pointer;border:none;font:inherit">${r[1]}</button></td>
         <td>${esc(g.meal||"normale")}${g.ptype==="bambino"?' <span class="tag">bambino</span>':""}${g.intolerances?` <span class="muted">· ${esc(g.intolerances)}</span>`:""}</td>
         <td class="num"><button class="btn sm ghost" data-act="editGuest" data-id="${g.id}" aria-label="Modifica ${esc(g.name)}" title="Modifica">&#9998;</button> <button class="btn sm danger" data-act="delGuest" data-id="${g.id}" aria-label="Elimina ${esc(g.name)}" title="Elimina">×</button></td>
       </tr>`;
-    });
     });
   });
   return `
