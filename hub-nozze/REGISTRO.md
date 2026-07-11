@@ -1983,3 +1983,19 @@ Verifica: misure E2E (filtri su una riga, bottoni del titolo allineati al
 bordo destro del contenitore), smoke su tutti gli 8 tab senza overflow,
 suite completa verde.
 sw.js v48->v49; APP_BUILD 2026-07-10.8.
+
+## Giro 72 (Claude Code) — Accompagnatori visibili nei totali ospiti
+
+Domanda utente: "perché nel totale degli ospiti non vedo gli
+accompagnatori?" — Erano solo il numero +N sull'invitato: contavano nei
+coperti confermati (d.head) ma non nei totali di lista.
+
+- DERIVED.plusAll: somma dei plusOne di tutta la lista.
+- Scheda Ospiti, card sorgente unica: "131 ospiti in lista + 3
+  accompagnatori (+1) = 134 persone".
+- Dashboard, KPI RSVP: "conf / 131+3" con etichetta "in lista 131 ospiti
+  e 3 accompagnatori · N a tavola".
+
+Verifica: E2E sui testi reali (134 persone; 131+3 in Dashboard); suite
+completa verde.
+sw.js v49->v50; APP_BUILD 2026-07-10.9.
