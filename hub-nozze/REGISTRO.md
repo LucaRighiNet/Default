@@ -1999,3 +1999,20 @@ coperti confermati (d.head) ma non nei totali di lista.
 Verifica: E2E sui testi reali (134 persone; 131+3 in Dashboard); suite
 completa verde.
 sw.js v49->v50; APP_BUILD 2026-07-10.9.
+
+## Giro 73 (Claude Code) — Lato corretto nelle intestazioni dei nuclei
+
+Bug segnalato dall'utente: ospiti "Senza nucleo" di lato Righi comparivano
+sotto un'intestazione "lato Biondi". Causa: l'etichetta prendeva il lato
+del PRIMO ospite del gruppo — e "Senza nucleo" contiene persone di
+entrambi i lati.
+
+Fix in viewGuests: "Senza nucleo" viene spezzato in due blocchi per lato
+(· lato Righi / · lato Biondi); i nuclei veri mostrano il lato solo se è
+uniforme, altrimenti "lati misti" (coerente con l'avviso qualità q_hhside).
+Il filtro nasconde/mostra le intestazioni come prima (data-hh invariato).
+
+Verifica: E2E che confronta OGNI intestazione con i lati reali delle righe
+sottostanti (37 gruppi, 0 incoerenze, Senza nucleo 2 blocchi coerenti,
+4 "lati misti" = i 4 nuclei dell'avviso qualità); suite completa verde.
+sw.js v50->v51; APP_BUILD 2026-07-10.10.
