@@ -3,7 +3,7 @@
 (function(){
 // Versione visibile della build (ingranaggio -> prima riga). Serve a capire al
 // volo quale versione sta girando su un dispositivo (cache vs deploy).
-const APP_BUILD="2026-07-10.12";
+const APP_BUILD="2026-07-10.13";
 
 /* ============ DIAGNOSTICA / ERROR TRACKING (P0) ============ */
 // Senza backend gli errori di produzione sarebbero invisibili. Diag li cattura in
@@ -1567,7 +1567,7 @@ const MEALS=["normale","vegetariano","celiaco","vegano"];
 const RSVP={conf:["ok","Confermato"],attesa:["warn","In attesa"],no:["no","Non viene"]};
 // Vista lista ospiti: raggruppata per nucleo O per gruppo (una alla volta,
 // per leggibilità su telefono). Preferenza per-dispositivo, non sincronizzata.
-let GUESTBY=(function(){ try{ return localStorage.getItem("hub_guestby")==="group"?"group":"hh"; }catch(e){ return "hh"; } })();
+let GUESTBY=(function(){ try{ const v=localStorage.getItem("hub_guestby"); return v==="hh"?"hh":"group"; }catch(e){ return "group"; } })(); // default: per gruppo
 function setGuestBy(v){ GUESTBY=(v==="group")?"group":"hh"; try{ localStorage.setItem("hub_guestby", GUESTBY); }catch(e){} render(); }
 function viewGuests(){
   const e=ev(), d=DERIVED;

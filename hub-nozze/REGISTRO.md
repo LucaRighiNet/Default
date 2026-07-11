@@ -2074,3 +2074,11 @@ Verifica: E2E — default per nucleo; switch a gruppo con Paolo Piraccini
 sotto "Amici famiglia Righi · lato Righi"; persistenza al reload; filtro
 con 1 riga e 1 intestazione visibili; zero overflow. Suite completa verde.
 sw.js v53->v54; APP_BUILD 2026-07-10.13.
+
+## Giro 77 (Claude Code) — Vista ospiti: default per gruppo
+
+Richiesta utente. Il default della vista ospiti passa a "Per gruppo";
+chi ha scelto esplicitamente "Per nucleo" mantiene la preferenza
+(localStorage hub_guestby). E2E: default gruppo su dispositivo nuovo,
+scelta nucleo persistente al reload. Suite verde.
+sw.js v54->v55; APP_BUILD 2026-07-10.14.
