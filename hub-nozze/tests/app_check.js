@@ -3,7 +3,7 @@
 (function(){
 // Versione visibile della build (ingranaggio -> prima riga). Serve a capire al
 // volo quale versione sta girando su un dispositivo (cache vs deploy).
-const APP_BUILD="2026-07-10.6";
+const APP_BUILD="2026-07-10.7";
 
 /* ============ DIAGNOSTICA / ERROR TRACKING (P0) ============ */
 // Senza backend gli errori di produzione sarebbero invisibili. Diag li cattura in
@@ -1594,10 +1594,12 @@ function viewGuests(){
   <div class="sec-title"><h2>Ospiti per nucleo</h2><span><button class="btn sm ghost" data-act="shareRsvp">Link RSVP</button> <button class="btn sm ghost" data-act="exportGuestsCsv">Esporta CSV</button> <button class="btn sm ghost" data-act="importGuests">Importa</button> <button class="btn sm" data-act="addGuest">+ Ospite</button></span></div>
   <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
     <span style="position:relative;flex:1;min-width:150px;display:inline-flex"><input class="inp" id="guestSearch" placeholder="Cerca ospite…" style="width:100%;padding-right:38px" aria-label="Cerca ospite"><button id="guestSearchClear" aria-label="Svuota ricerca" title="Svuota ricerca" style="display:none;position:absolute;right:4px;top:50%;transform:translateY(-50%);border:none;background:var(--card2);color:var(--ink-soft);border-radius:50%;width:28px;height:28px;min-height:28px;font-size:15px;line-height:1;padding:0;cursor:pointer">×</button></span>
-    <button class="btn sm ghost" data-gfilter="all">Tutti</button>
-    <button class="btn sm ghost" data-gfilter="conf">Confermati</button>
-    <button class="btn sm ghost" data-gfilter="attesa">In attesa</button>
-    <button class="btn sm ghost" data-gfilter="no">Non viene</button>
+    <span style="display:flex;gap:6px;flex:1 1 100%">
+      <button class="btn sm ghost" data-gfilter="all" style="flex:1;padding-left:4px;padding-right:4px">Tutti</button>
+      <button class="btn sm ghost" data-gfilter="conf" style="flex:1;padding-left:4px;padding-right:4px">Confermati</button>
+      <button class="btn sm ghost" data-gfilter="attesa" style="flex:1;padding-left:4px;padding-right:4px">In attesa</button>
+      <button class="btn sm ghost" data-gfilter="no" style="flex:1;padding-left:4px;padding-right:4px">Non viene</button>
+    </span>
   </div>
   <div class="scroll-x"><table class="tbl">
     <thead><tr><th>Nome</th><th>RSVP</th><th>Menù</th><th></th></tr></thead>
