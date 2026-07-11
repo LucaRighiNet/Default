@@ -2036,3 +2036,22 @@ niente ospite salvato); scritto "Amici famiglia Righi" l'ospite finisce
 sotto l'intestazione giusta col lato giusto. Suite completa verde.
 Il dato di Paolo va corretto una volta a mano: matita -> Nucleo.
 sw.js v51->v52; APP_BUILD 2026-07-10.11.
+
+## Giro 75 (Claude Code) — Gruppo visibile in lista (chiarimento caso Piraccini)
+
+Screenshot dell'utente: Paolo Piraccini ha Nucleo="Senza nucleo" e
+Gruppo="Amici famiglia Righi" — NON è il bug del giro 74: i dati sono
+salvati così, e la lista raggruppa per Nucleo (correttamente). La
+confusione nasceva dal fatto che il Gruppo in lista era solo un puntino
+colorato, invisibile su mobile.
+
+Fix UX: il nome del gruppo appare come etichetta accanto al nome
+dell'ospite (tag standard leggibile; il colore resta sul puntino).
+Distinzione ribadita all'utente: Nucleo = famiglia, vincolo forte ai
+tavoli (blocco); Gruppo = cerchia, affinità morbida — per gli amici è il
+campo giusto.
+
+Verifica: E2E con l'ospite ricreato come negli screenshot (tag "Amici
+famiglia Righi" visibile nella riga sotto "Senza nucleo · lato Righi");
+suite completa verde.
+sw.js v52->v53; APP_BUILD 2026-07-10.12.
