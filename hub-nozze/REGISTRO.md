@@ -1965,3 +1965,21 @@ Voci di spesa); "Scadenzario decisioni" spostato in FONDO alla lista
 fornitori (era in testa). Nessuna logica toccata. E2E sull'ordine delle
 sezioni in entrambe le viste; suite verde.
 sw.js v47->v48; APP_BUILD 2026-07-10.7.
+
+## Giro 71 (Claude Code) — Allineamento grafico intestazione Ospiti
+
+Segnalazione utente (screenshot): i bottoni di "Ospiti per nucleo" andavano
+a capo in modo disordinato ("+ Ospite" orfano e disallineato) e i filtri
+spezzavano con "Non viene" da solo.
+
+- CSS globale: le azioni dentro .sec-title>span ora sono flex con
+  flex-wrap, gap 6px e justify-content:flex-end — quando vanno a capo
+  restano righe ordinate allineate a destra, in ogni sezione dell'app.
+- Filtri ospiti: ricerca a tutta larghezza sulla prima riga; sotto, i 4
+  filtri come segmenti a larghezza uguale su UNA riga (misurato: stessa
+  riga a 390px, zero overflow).
+
+Verifica: misure E2E (filtri su una riga, bottoni del titolo allineati al
+bordo destro del contenitore), smoke su tutti gli 8 tab senza overflow,
+suite completa verde.
+sw.js v48->v49; APP_BUILD 2026-07-10.8.
