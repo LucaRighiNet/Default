@@ -3,7 +3,7 @@
 (function(){
 // Versione visibile della build (ingranaggio -> prima riga). Serve a capire al
 // volo quale versione sta girando su un dispositivo (cache vs deploy).
-const APP_BUILD="2026-07-10.16";
+const APP_BUILD="2026-07-10.17";
 
 /* ============ DIAGNOSTICA / ERROR TRACKING (P0) ============ */
 // Senza backend gli errori di produzione sarebbero invisibili. Diag li cattura in
@@ -1608,10 +1608,12 @@ function viewGuests(){
     }
   });
   // Ordinamento: per gruppo prima il LATO (sposo, sposa, misti) poi il nome;
-  // per nucleo resta alfabetico.
+  // per nucleo alfabetico. Il residuo ("Senza nucleo"/"Senza gruppo") va SEMPRE
+  // in fondo, fuori dall'ordine alfabetico.
   const sideRank=s=> s==="A"?0:(s==="B"?1:2);
-  if(byGroup) sections.sort((x,y)=> sideRank(x.side)-sideRank(y.side) || x.name.localeCompare(y.name));
-  else sections.sort((x,y)=> x.name.localeCompare(y.name) || sideRank(x.side)-sideRank(y.side));
+  const fbRank=x=> x.name===fallback?1:0;
+  if(byGroup) sections.sort((x,y)=> fbRank(x)-fbRank(y) || sideRank(x.side)-sideRank(y.side) || x.name.localeCompare(y.name));
+  else sections.sort((x,y)=> fbRank(x)-fbRank(y) || x.name.localeCompare(y.name) || sideRank(x.side)-sideRank(y.side));
   let blocks="";
   sections.forEach(grp=>{
     const name=grp.name;
