@@ -2108,3 +2108,22 @@ di lista (giro 72) ma il KPI "In attesa" contava solo gli invitati.
 
 Verifica: E2E sui testi renderizzati in entrambe le viste; suite verde.
 sw.js v56->v57; APP_BUILD 2026-07-10.16.
+
+## Giro 80 (Claude Code) — Documento catering: versione certa e più dettagli
+
+Richiesta utente: data di estrazione ben visibile e altri dettagli utili
+al catering.
+
+- Intestazione: "generato il gg/mm/aaaa alle HH:MM · revisione disposizione
+  XXXX" in grassetto. La sigla di revisione (hash djb2 su tavoli+posti)
+  cambia se cambia QUALSIASI posto: due stampe con sigle diverse non sono
+  la stessa disposizione. Nota esplicita su quale versione fa fede.
+- Riepilogo: riga "Minimo garantito contrattuale: N coperti", in rosso il
+  confronto se la disposizione attuale è sotto.
+- Nuova sezione "Orari della giornata": la scaletta della Timeline
+  (run-of-show) ordinata per ora — il catering sa quando servire.
+
+Verifica: E2E print completo rieseguito (totali=oracolo, A4 senza overflow,
+PDF reale rigenerato) + assert su data/ora, sigla, minimo garantito e
+scaletta nel documento generato. Suite completa verde.
+sw.js v57->v58; APP_BUILD 2026-07-10.17.
