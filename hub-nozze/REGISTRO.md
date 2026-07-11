@@ -2095,3 +2095,16 @@ Verifica: E2E con gruppo misto costruito ad hoc — sequenza dei ranghi di
 lato non decrescente (0000111222), tag presenti su tutte le righe del
 gruppo misto. Suite completa verde.
 sw.js v55->v56; APP_BUILD 2026-07-10.15.
+
+## Giro 79 (Claude Code) — Accompagnatori anche nel conteggio "In attesa"
+
+Richiamo utente: gli accompagnatori erano stati resi visibili nei totali
+di lista (giro 72) ma il KPI "In attesa" contava solo gli invitati.
+
+- DERIVED.plusAttesa: somma dei +1 degli ospiti in attesa.
+- KPI scheda Ospiti: "131 +3 · In attesa · 134 persone con gli
+  accompagnatori"; card RSVP in Dashboard: "131 +3 · In attesa (134 con
+  +1)". Il conteggio appare solo se ci sono +1 (niente rumore a zero).
+
+Verifica: E2E sui testi renderizzati in entrambe le viste; suite verde.
+sw.js v56->v57; APP_BUILD 2026-07-10.16.
