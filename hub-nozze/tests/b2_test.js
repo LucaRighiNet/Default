@@ -9,7 +9,7 @@ const SEAT_END = "/* ---- planimetria SVG nativa (B3) ---- */";
 const EXPORTS = ["seatCost","seatOptimize","seatRulesIdx","seatRulesIdxAll","seatPersonSimFn","seatSimilarity",
   "seatOptimizeTable","seatPlanAssignment","SEAT_CFG","seatPairs","seatPairsFor","seatPositions",
   "seatPeople","seatPersonById","seatCompanionsOf","seatOwnerId","seatSweepStale","seatVarValueOf","seatVars",
-  "seatPrintStats","seatMaxFor"];
+  "seatPrintStats","seatMaxFor","seatPairCost"];
 
 let evState = { guests: [], tables: [], seating: { rules: [] } };
 const S = sandbox(SEAT_START, SEAT_END, EXPORTS, { ev: () => evState, MEALS: ["normale","vegetariano","celiaco","vegano"] });
@@ -273,6 +273,69 @@ r.ok("seatOptimize: serpentina grande (60 posti) non peggiora e resta valida", (
   const res=S.seatOptimize(gids, 60, idx(["g0|g59"]), null, S.seatPairsFor({shape:"serpentine",seats:60}));
   assert.strictEqual(res.order.length, 60);
   assert(res.after<=res.before+1e-9);
+});
+
+r.ok("ottimizzatore (b): costo incrementale == ricalcolo intero (equivalenza)", () => {
+  function rng(seed){ let s=seed; return ()=>{ s=(s*1103515245+12345)&0x7fffffff; return s/0x7fffffff; }; }
+  let maxErr=0;
+  for(let t=0;t<120;t++){ const R=rng(t+1); const N=4+Math.floor(R()*30);
+    const gids=[]; for(let i=0;i<N;i++) gids.push("g"+i);
+    const ix={together:new Set(),separate:new Set()};
+    for(let k=0;k<N/4;k++){ const a="g"+Math.floor(R()*N),b="g"+Math.floor(R()*N); if(a!==b){ const key=a<b?a+"|"+b:b+"|"+a; (R()<0.5?ix.together:ix.separate).add(key);} }
+    const shape=["round","square","serpentine","rect"][Math.floor(R()*4)];
+    const pairs=S.seatPairsFor({shape,seats:N});
+    const sim=R()<0.5?null:((a,b)=>((a.charCodeAt(1)+b.charCodeAt(1))%5));
+    const res=S.seatOptimize(gids.slice(),N,ix,sim,pairs);
+    maxErr=Math.max(maxErr, Math.abs(res.after - S.seatCost(res.order,N,ix,sim,pairs)));
+  }
+  assert(maxErr<1e-9, "costo riportato diverge dal reale: "+maxErr);
+});
+r.ok("ottimizzatore: raggiunge l'ottimo VERO su n piccolo (brute force)", () => {
+  function rng(seed){ let s=seed; return ()=>{ s=(s*1103515245+12345)&0x7fffffff; return s/0x7fffffff; }; }
+  function perms(a){ if(a.length<=1)return[a]; const o=[]; a.forEach((x,i)=>{ perms(a.slice(0,i).concat(a.slice(i+1))).forEach(p=>o.push([x].concat(p))); }); return o; }
+  let hits=0, T=25;
+  for(let t=0;t<T;t++){ const R=rng(t*7+3); const N=7;
+    const gids=[]; for(let i=0;i<N;i++) gids.push("g"+i);
+    const ix={together:new Set(),separate:new Set()};
+    for(let k=0;k<4;k++){ const a="g"+Math.floor(R()*N),b="g"+Math.floor(R()*N); if(a!==b){ const key=a<b?a+"|"+b:b+"|"+a; (R()<0.5?ix.together:ix.separate).add(key);} }
+    const pairs=S.seatPairs(N);
+    let best=Infinity; perms(gids).forEach(p=>{ const c=S.seatCost(p,N,ix,null,pairs); if(c<best)best=c; });
+    const res=S.seatOptimize(gids.slice(),N,ix,null,pairs);
+    if(Math.abs(res.after-best)<1e-9) hits++;
+  }
+  assert.strictEqual(hits, T, "ottimo raggiunto solo "+hits+"/"+T);
+});
+r.ok("ottimizzatore: la disposizione restituita e' un ottimo LOCALE (nessuno swap migliora)", () => {
+  const N=40; const gids=[]; for(let i=0;i<N;i++)gids.push("g"+i);
+  const ix={together:new Set(),separate:new Set()};
+  for(let i=0;i<6;i++) ix.together.add("g"+(i*3)+"|g"+(i*3+1));
+  const pairs=S.seatPairsFor({shape:"serpentine",seats:N});
+  const res=S.seatOptimize(gids.slice(),N,ix,null,pairs);
+  const ord=res.order.slice(); let improving=0;
+  for(let i=0;i<N;i++)for(let j=i+1;j<N;j++){ const c0=S.seatCost(ord,N,ix,null,pairs);
+    const t=ord[i];ord[i]=ord[j];ord[j]=t; const c1=S.seatCost(ord,N,ix,null,pairs);
+    const t2=ord[i];ord[i]=ord[j];ord[j]=t2; if(c1<c0-1e-9) improving++; }
+  assert.strictEqual(improving, 0, improving+" swap migliorerebbero ancora");
+});
+r.ok("seatPairCost: fonte unica coerente con seatCost su tutte le coppie", () => {
+  const ix={together:new Set(["A|B"]),separate:new Set(["C|D"])};
+  const order=["A","B","C","D"]; const pairs=S.seatPairs(4);
+  let sum=0; pairs.forEach(pr=>sum+=S.seatPairCost(order,pr,ix,null));
+  assert.strictEqual(sum, S.seatCost(order,4,ix,null,pairs));
+});
+
+r.ok("seatPrintStats: tavolo lungo -> fila alta/bassa (2-file); tondo -> nessuna fila", () => {
+  evState = { guests:[{id:"a",name:"A",rsvp:"conf"},{id:"b",name:"B",rsvp:"conf"},{id:"c",name:"C",rsvp:"conf"}],
+    tables:[{id:"t1",name:"Serp",shape:"serpentine",seats:4,seatIds:["a","b","c",null]},
+            {id:"t2",name:"Tonda",shape:"round",seats:4,seatIds:["a",null,null,null]}], seating:{rules:[]} };
+  // NB: 'a' e' su due tavoli nel test -> seatPrintStats conta per posto, ok per il campo fila
+  const st=S.seatPrintStats();
+  const serp=st.rows.find(r=>r.name==="Serp");
+  assert.strictEqual(serp.long, true);
+  assert.deepStrictEqual(serp.people.map(p=>[p.seat,p.fila]), [[1,"alta"],[2,"bassa"],[3,"alta"]]);
+  const tonda=st.rows.find(r=>r.name==="Tonda");
+  assert.strictEqual(tonda.long, false);
+  assert.strictEqual(tonda.people[0].fila, "");
 });
 
 r.done();

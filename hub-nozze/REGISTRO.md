@@ -2162,3 +2162,40 @@ resta valida); E2E: creata serpentina 60 (60 posti disegnati, ottimizza
 senza errori), tondo con 60 richiesti clampato a 24. Suite verde, zero
 overflow.
 sw.js v59->v60; APP_BUILD 2026-07-10.19.
+
+## Giro 83 (Claude Code) — Tavoli lunghi: serpentina avvolta, ottimizzatore, catering
+
+Richiesta utente: supporto solido a uno-due tavoli a serpentina realistici
+(20-60 posti). Studio preliminare + implementazione del piano approvato.
+
+Ottimizzatore (studiato a fondo: su n=8 raggiungeva GIÀ l'ottimo vero
+100%; il limite era solo il budget). Due migliorie:
+- (a) budget scambi PER restart scalato su n² (prima condiviso 2000: a
+  n>=64 i restart casuali non partivano mai) — riporta i riavvii casuali
+  in gioco.
+- (b) costo INCREMENTALE: uno scambio (i,j) tocca solo le coppie incidenti
+  a i o j, quindi ricalcolo solo quelle (O(grado)) invece dell'intero
+  costo (O(n)). seatPairCost è la fonte unica; indice posizione->coppie +
+  dedup con generazione. Test di equivalenza (after == seatCost(order),
+  errore < 1e-9 su 120 casi random di ogni forma) + ottimo vero su n=7 +
+  ottimo-locale verificato a n=40. Tempi: n=40 15ms, n=60 32ms, n=134 123ms.
+
+Serpentina avvolta (P1+P3): seatPositions per serpentine ora dispone i
+posti a BANDE boustrophedon (righe alternate) che stanno nella larghezza
+del telefono. Aspetto: da 5:1 (40 posti) a 0.7:1; da 8:1 (60) a 0.9:1;
+zero sovrapposizioni. Piccole serpentine (<=16) restano una banda sola.
+seatBandRectsSvg disegna uno sfondo per banda in entrambi i render.
+CRITICO: l'adiacenza NON cambia (resta seatPairs 2-file) — ottimizzatore
+e disposizioni esistenti intatti, nessuna migrazione. Imperiale resta
+dritto (tavolo lungo classico); serpentina = compatto avvolto.
+
+Catering (P4-A): nelle schede dei tavoli lunghi nuova colonna "Fila"
+(alta/bassa = i due lati del tavolo, dal modello 2-file), con nota
+"sequenza posti dall'inizio". Larghezze colonne .pt.long corrette (niente
+sovrapposizione Fila/Ospite).
+
+Verifica: b2 48/48 (equivalenza, ottimo, ottimo-locale, fila); suite
+completa verde; E2E serpentina 40 avvolta (4 bande, screenshot) + 40/60
+auto-assegnati 100/100 + doc catering con colonna Fila senza overflow;
+regressioni print (tondi) e wizard tutte verdi.
+sw.js v60->v61; APP_BUILD 2026-07-10.20.
