@@ -2127,3 +2127,20 @@ Verifica: E2E print completo rieseguito (totali=oracolo, A4 senza overflow,
 PDF reale rigenerato) + assert su data/ora, sigla, minimo garantito e
 scaletta nel documento generato. Suite completa verde.
 sw.js v57->v58; APP_BUILD 2026-07-10.17.
+
+## Giro 81 (Claude Code) — Residuo senza nucleo/gruppo sempre in fondo
+
+Richiesta utente: nell'ordinamento della lista ospiti, ciò che è senza
+categoria/lato in relazione alla vista attiva va in fondo, fuori
+dall'ordine alfabetico.
+
+Fix in viewGuests: fbRank() porta le sezioni del contenitore residuo
+("Senza gruppo" in vista per gruppo, "Senza nucleo" in vista per nucleo)
+in coda, dopo tutte le sezioni con categoria; l'ordine interno delle
+altre resta invariato (per gruppo: lato poi nome; per nucleo: alfabetico).
+I due blocchi per lato del residuo restano in coda (prima Righi, poi
+Biondi).
+
+Verifica: E2E su entrambe le viste — le sezioni "Senza…" occupano le
+ultime posizioni; suite completa verde.
+sw.js v58->v59; APP_BUILD 2026-07-10.18.
