@@ -9,7 +9,7 @@ const SEAT_END = "/* ---- planimetria SVG nativa (B3) ---- */";
 const EXPORTS = ["seatCost","seatOptimize","seatRulesIdx","seatRulesIdxAll","seatPersonSimFn","seatSimilarity",
   "seatOptimizeTable","seatPlanAssignment","SEAT_CFG","seatPairs","seatPairsFor","seatPositions",
   "seatPeople","seatPersonById","seatCompanionsOf","seatOwnerId","seatSweepStale","seatVarValueOf","seatVars",
-  "seatPrintStats"];
+  "seatPrintStats","seatMaxFor"];
 
 let evState = { guests: [], tables: [], seating: { rules: [] } };
 const S = sandbox(SEAT_START, SEAT_END, EXPORTS, { ev: () => evState, MEALS: ["normale","vegetariano","celiaco","vegano"] });
@@ -259,6 +259,20 @@ r.ok("seatPlanAssignment: titolare e segnaposto +1 sullo stesso tavolo (via rego
   const tables=[{id:"t1",seats:2},{id:"t2",seats:2}];
   const plan=S.seatPlanAssignment(tables, people, i.together, i.separate, S.seatPersonSimFn());
   assert.strictEqual(tableOf(plan,"a"), tableOf(plan,"a#p1"));
+});
+
+r.ok("seatMaxFor: tondo/quadrato 24, tavoli lunghi 100", () => {
+  assert.strictEqual(S.seatMaxFor("round"), 24);
+  assert.strictEqual(S.seatMaxFor("square"), 24);
+  assert.strictEqual(S.seatMaxFor("rect"), 100);
+  assert.strictEqual(S.seatMaxFor("imperial"), 100);
+  assert.strictEqual(S.seatMaxFor("serpentine"), 100);
+});
+r.ok("seatOptimize: serpentina grande (60 posti) non peggiora e resta valida", () => {
+  const gids=[]; for(let i=0;i<60;i++) gids.push("g"+i);
+  const res=S.seatOptimize(gids, 60, idx(["g0|g59"]), null, S.seatPairsFor({shape:"serpentine",seats:60}));
+  assert.strictEqual(res.order.length, 60);
+  assert(res.after<=res.before+1e-9);
 });
 
 r.done();

@@ -246,7 +246,7 @@ input[type=checkbox]{accent-color:var(--sea); width:18px; height:18px}
 (function(){
 // Versione visibile della build (ingranaggio -> prima riga). Serve a capire al
 // volo quale versione sta girando su un dispositivo (cache vs deploy).
-const APP_BUILD="2026-07-10.18";
+const APP_BUILD="2026-07-10.19";
 
 /* ============ DIAGNOSTICA / ERROR TRACKING (P0) ============ */
 // Senza backend gli errori di produzione sarebbero invisibili. Diag li cattura in
@@ -1952,6 +1952,9 @@ const SEAT_SHAPES={round:'Tonda',rect:'Rettangolare',square:'Quadrata',imperial:
 // wNear/wFar alti: le regole esplicite (insieme/lontani) devono dominare sempre
 // la similarità pesata (max ~30 con tutte le variabili condivise).
 const SEAT_CFG={wNear:40,wFar:50,sideWeight:1.0,faceWeight:0.85,restarts:5,maxSwaps:2000};
+// Tetto posti per forma: tondo/quadrato limite fisico ~24; i tavoli lunghi da
+// banchetto (rett/imperiale/serpentina) arrivano a 100.
+function seatMaxFor(shape){ return (shape==="round"||shape==="square")?24:100; }
 function seatColRow(idx){ return {col:Math.floor(idx/2),row:idx%2}; }
 function seatAdjacency(n){
   const adj=[]; for(let i=0;i<n;i++) adj.push({side:[],face:null});
@@ -2321,11 +2324,13 @@ function tableEditor(id){
     `<div class="field"><label>Nome</label><input class="inp" id="tb_name" value="${esc(cur.name)}"></div>
      <div class="two">
        <div class="field"><label>Forma</label><select class="inp" id="tb_shape">${Object.keys(SEAT_SHAPES).map(k=>`<option value="${k}"${k===cur.shape?" selected":""}>${SEAT_SHAPES[k]}</option>`).join("")}</select></div>
-       <div class="field"><label>Posti</label><input class="inp" type="number" min="1" max="40" id="tb_seats" value="${cur.seats}"></div>
+       <div class="field"><label>Posti <span class="muted" style="font-size:11px">(tondo/quadrato max 24, tavoli lunghi max 100)</span></label><input class="inp" type="number" min="1" max="100" id="tb_seats" value="${cur.seats}"></div>
      </div>`,
     [{label:"Annulla"},{label:isNew?"Crea":"Salva",cls:"",fn:()=>{
        const name=($("#tb_name").value||"").trim()||"Tavolo";
-       const shape=$("#tb_shape").value, seats=Math.max(1,Math.min(40,+$("#tb_seats").value||8));
+       const shape=$("#tb_shape").value, cap=seatMaxFor(shape);
+       const want=+$("#tb_seats").value||8, seats=Math.max(1,Math.min(cap,want));
+       if(want>cap) toast("Massimo "+cap+" posti per la forma "+(SEAT_SHAPES[shape]||shape).toLowerCase());
        if(isNew){
          const idx=e.tables.length, cols=4;
          e.tables.push({id:"tb"+seatNextSeq(),name,shape,seats,seatIds:new Array(seats).fill(null),x:null,y:null});

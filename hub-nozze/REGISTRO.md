@@ -2144,3 +2144,21 @@ Biondi).
 Verifica: E2E su entrambe le viste — le sezioni "Senza…" occupano le
 ultime posizioni; suite completa verde.
 sw.js v58->v59; APP_BUILD 2026-07-10.18.
+
+## Giro 82 (Claude Code) — Limite posti per forma (serpentina/imperiale fino a 100)
+
+Domanda utente: perché la serpentina è limitata a 40 posti. Il 40 era un
+guardrail generico su TUTTE le forme, arbitrario. Per i tavoli lunghi da
+banchetto (rettangolare, imperiale, serpentina) è troppo basso: arrivano
+a 60-100 coperti.
+
+seatMaxFor(shape): tondo/quadrato max 24 (limite fisico), tavoli lunghi
+max 100. Il modale usa il cap per forma, con toast se si eccede; il
+campo posti passa a max=100 con nota. Nessun rischio prestazioni: i
+tavoli lunghi usano il modello 2-file O(n) dell'ottimizzatore.
+
+Verifica: b2 43/43 (seatMaxFor + serpentina 60 posti che non peggiora e
+resta valida); E2E: creata serpentina 60 (60 posti disegnati, ottimizza
+senza errori), tondo con 60 richiesti clampato a 24. Suite verde, zero
+overflow.
+sw.js v59->v60; APP_BUILD 2026-07-10.19.
