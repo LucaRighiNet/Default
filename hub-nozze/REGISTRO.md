@@ -2016,3 +2016,23 @@ Verifica: E2E che confronta OGNI intestazione con i lati reali delle righe
 sottostanti (37 gruppi, 0 incoerenze, Senza nucleo 2 blocchi coerenti,
 4 "lati misti" = i 4 nuclei dell'avviso qualità); suite completa verde.
 sw.js v50->v51; APP_BUILD 2026-07-10.10.
+
+## Giro 74 (Claude Code) — Guardia sul nucleo nuovo vuoto (caso Paolo Piraccini)
+
+Segnalazione: un ospite messo nel nucleo "Amici famiglia Righi" appariva
+"Senza nucleo". Il nome non è nel roster in codice: è un ospite aggiunto a
+mano, quindi il dato vive solo nello stato sincronizzato. Trappola trovata
+nel flusso: scegliendo "+ Nuovo…" per Nucleo (o Gruppo) e salvando con la
+casella vuota, il salvataggio ricadeva IN SILENZIO sul default ("Senza
+nucleo" / nessun gruppo) — nessun errore, dato perso.
+
+Fix: managedOk() — con "+ Nuovo…" selezionato e casella vuota il Salva è
+bloccato, toast esplicito, focus e bordo rosso sulla casella. Applicato a
+Nucleo e Gruppo nella scheda ospite (la Timeline era già protetta dal
+titolo obbligatorio).
+
+Verifica: E2E — Salva bloccato con nucleo nuovo vuoto (modale resta aperta,
+niente ospite salvato); scritto "Amici famiglia Righi" l'ospite finisce
+sotto l'intestazione giusta col lato giusto. Suite completa verde.
+Il dato di Paolo va corretto una volta a mano: matita -> Nucleo.
+sw.js v51->v52; APP_BUILD 2026-07-10.11.
