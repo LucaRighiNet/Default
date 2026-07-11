@@ -2055,3 +2055,22 @@ Verifica: E2E con l'ospite ricreato come negli screenshot (tag "Amici
 famiglia Righi" visibile nella riga sotto "Senza nucleo · lato Righi");
 suite completa verde.
 sw.js v52->v53; APP_BUILD 2026-07-10.12.
+
+## Giro 76 (Claude Code) — Vista ospiti: per nucleo O per gruppo
+
+Richiesta utente: poter scegliere la vista (una sola alla volta, per
+leggibilità su telefono).
+
+- Selettore "Per nucleo / Per gruppo" sopra la lista; titolo dinamico.
+- Vista per gruppo: intestazioni = gruppi ("Amici famiglia Righi", Pisti,
+  Testimoni...), residuo "Senza gruppo" spezzato per lato come il residuo
+  della vista per nucleo; stessa logica lato uniforme/misti.
+- L'etichetta accanto al nome mostra SEMPRE l'informazione nascosta dalla
+  vista corrente (per nucleo -> tag gruppo; per gruppo -> tag nucleo).
+- Preferenza per-dispositivo (localStorage hub_guestby), non sincronizzata.
+- Ricerca e filtri RSVP invariati (le intestazioni vuote si nascondono).
+
+Verifica: E2E — default per nucleo; switch a gruppo con Paolo Piraccini
+sotto "Amici famiglia Righi · lato Righi"; persistenza al reload; filtro
+con 1 riga e 1 intestazione visibili; zero overflow. Suite completa verde.
+sw.js v53->v54; APP_BUILD 2026-07-10.13.
