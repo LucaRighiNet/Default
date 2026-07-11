@@ -3,7 +3,7 @@
 (function(){
 // Versione visibile della build (ingranaggio -> prima riga). Serve a capire al
 // volo quale versione sta girando su un dispositivo (cache vs deploy).
-const APP_BUILD="2026-07-10.9";
+const APP_BUILD="2026-07-10.10";
 
 /* ============ DIAGNOSTICA / ERROR TRACKING (P0) ============ */
 // Senza backend gli errori di produzione sarebbero invisibili. Diag li cattura in
@@ -3452,6 +3452,15 @@ function managedSelect(id, current, options){
     +`<input class="inp" id="${id}_new" placeholder="Scrivi il nuovo valore" style="display:none;margin-top:6px">`;
 }
 function managedValue(id){ const sel=$("#"+id); if(!sel) return ""; if(sel.value==="__new__"){ const t=$("#"+id+"_new"); return t?(t.value||"").trim():""; } return sel.value; }
+// "+ Nuovo…" scelto ma casella vuota: PRIMA il salvataggio ricadeva in silenzio
+// sul valore di default (es. ospite finito "Senza nucleo" senza accorgersene).
+// Ora blocca e chiede di scrivere il valore o scegliere una voce esistente.
+function managedOk(id,msg){
+  const sel=$("#"+id); if(!sel||sel.value!=="__new__"||managedValue(id)) return true;
+  toast(msg||"Scrivi il nuovo valore o scegli una voce esistente");
+  const t=$("#"+id+"_new"); if(t){ t.classList.add("invalid"); try{ t.focus(); }catch(e){} setTimeout(()=>t.classList.remove("invalid"),1600); }
+  return false;
+}
 // Campi attributi per ospite (G2/C3): solo le variabili da compilare a mano —
 // nucleo, lato, età e gruppo si prendono dai campi qui sopra. Badge se manca qualcosa.
 function seatGuestAttrFields(x){
@@ -3491,6 +3500,8 @@ function editGuest(id){
      ${seatGuestAttrFields(x)}`,
     [{label:"Annulla"},{label:"Salva",cls:"",fn:()=>{
       if(!reqOk(["#g_name"])) return false; const name=$("#g_name").value.trim();
+      if(!managedOk("g_hh",'Scrivi il nome del nuovo nucleo (o scegli "Senza nucleo")')) return false;
+      if(!managedOk("g_group",'Scrivi il nome del nuovo gruppo (o scegli "— nessuno —")')) return false;
       const data={name,side:$("#g_side").value,household:managedValue("g_hh")||"Senza nucleo",group:managedValue("g_group"),rsvp:$("#g_rsvp").value,ptype:$("#g_ptype").value,meal:$("#g_meal").value,intolerances:$("#g_int").value.trim(),accessibility:$("#g_acc").value.trim(),shuttle:$("#g_sh").value==="1",plusOne:+$("#g_plus").value||0,attr:seatReadAttrFields(x.attr)};
       if(isNew){ ev().guests.push(Object.assign({id:"g"+Date.now(),gift:"",thanked:false},data)); }
       else { const cur=ev().guests.find(x=>x.id===id); if(!cur){ toast("Ospite non più presente (aggiornato da un altro dispositivo)"); return; } Object.assign(cur,data); }
