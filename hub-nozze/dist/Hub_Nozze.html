@@ -246,7 +246,7 @@ input[type=checkbox]{accent-color:var(--sea); width:18px; height:18px}
 (function(){
 // Versione visibile della build (ingranaggio -> prima riga). Serve a capire al
 // volo quale versione sta girando su un dispositivo (cache vs deploy).
-const APP_BUILD="2026-07-10.19";
+const APP_BUILD="2026-07-10.20";
 
 /* ============ DIAGNOSTICA / ERROR TRACKING (P0) ============ */
 // Senza backend gli errori di produzione sarebbero invisibili. Diag li cattura in
@@ -1492,6 +1492,7 @@ function cateringPlanSvg(){
     let shapeSvg;
     if(t.shape==='round') shapeSvg=`<circle cx="0" cy="0" r="${(f.lin/2).toFixed(2)}" fill="#f2f2f2" stroke="#444" stroke-width="0.05"/>`;
     else if(t.shape==='square'){ const sd=f.lin; shapeSvg=`<rect x="${(-sd/2).toFixed(2)}" y="${(-sd/2).toFixed(2)}" width="${sd.toFixed(2)}" height="${sd.toFixed(2)}" rx="0.12" fill="#f2f2f2" stroke="#444" stroke-width="0.05"/>`; }
+    else if(t.shape==='serpentine'){ shapeSvg=seatBandRectsSvg(t,"#f2f2f2","#444","0.12"); }
     else { const bw=f.lin, bh=Math.max(0.6,f.h-1.8); shapeSvg=`<rect x="${(-bw/2).toFixed(2)}" y="${(-bh/2).toFixed(2)}" width="${bw.toFixed(2)}" height="${bh.toFixed(2)}" rx="0.12" fill="#f2f2f2" stroke="#444" stroke-width="0.05"/>`; }
     const pos=seatPositions(t), ids=t.seatIds||[];
     let seats='';
@@ -1528,10 +1529,13 @@ function buildCateringDoc(){
     const rowsP=r.people.map(p=>{
       const tags=[p.kid?'<span class="tag">bambino</span>':'', p.plus?'<span class="tag">+1</span>':'', p.meal!=='normale'?'<span class="tag m">'+esc(MEAL_LBL[p.meal]||p.meal)+'</span>':''].join('');
       const note=[p.intol?'⚠ '+esc(p.intol):'', p.acc?esc(p.acc):''].filter(Boolean).join(' · ');
-      return `<tr><td class="n">${p.seat}</td><td>${esc(p.name)} ${tags}</td><td class="note">${note}</td></tr>`;
-    }).join('')||'<tr><td colspan="3" class="note">— tavolo vuoto —</td></tr>';
-    return `<div class="tc"><h3>${esc(r.name)} <span class="sub">${SEAT_SHAPES[r.shape]||esc(r.shape)} · ${r.people.length}/${r.seats} coperti${r.bambini?' · '+r.bambini+' bambini':''}</span></h3>`
-      +`<table class="pt"><thead><tr><th class="n">Posto</th><th>Ospite</th><th>Note</th></tr></thead><tbody>${rowsP}</tbody></table></div>`;
+      const filaCell=r.long?`<td class="n">${p.fila}</td>`:'';
+      return `<tr><td class="n">${p.seat}</td>${filaCell}<td>${esc(p.name)} ${tags}</td><td class="note">${note}</td></tr>`;
+    }).join('')||`<tr><td colspan="${r.long?4:3}" class="note">— tavolo vuoto —</td></tr>`;
+    const head=r.long?'<th class="n">Posto</th><th class="n">Fila</th><th>Ospite</th><th>Note</th>':'<th class="n">Posto</th><th>Ospite</th><th>Note</th>';
+    const hint=r.long?' <span class="sub">· tavolo lungo: sequenza posti dall\'inizio, fila alta/bassa = i due lati</span>':'';
+    return `<div class="tc"><h3>${esc(r.name)} <span class="sub">${SEAT_SHAPES[r.shape]||esc(r.shape)} · ${r.people.length}/${r.seats} coperti${r.bambini?' · '+r.bambini+' bambini':''}</span>${hint}</h3>`
+      +`<table class="pt${r.long?' long':''}"><thead><tr>${head}</tr></thead><tbody>${rowsP}</tbody></table></div>`;
   }).join('');
   const unseated=st.unseated.length?`<div class="warn"><b>Senza posto (${st.unseated.length}):</b> ${st.unseated.map(esc).join(', ')}</div>`:'';
   const css=`@page{size:A4;margin:13mm}
@@ -1556,7 +1560,9 @@ function buildCateringDoc(){
   .tag.m{font-weight:700}
   .pt{table-layout:fixed}
   .pt th:nth-child(1){width:44px}
-  .pt th:nth-child(3){width:32%}
+  .pt:not(.long) th:nth-child(3){width:32%}
+  .pt.long th:nth-child(2){width:46px}
+  .pt.long th:nth-child(4){width:26%}
   .note{font-size:11px;color:#333}
   .warn{border:1.5px solid #944;padding:6px 8px;font-size:12px;margin-top:10px}
   .conv{font-size:11px;color:#555;margin-top:6px}
@@ -1971,12 +1977,28 @@ function seatPairs(n){
   for(let i=0;i<n;i++){ if(adj[i].face!=null) add(i,adj[i].face,SEAT_CFG.faceWeight); adj[i].side.forEach(j=>add(i,j,SEAT_CFG.sideWeight)); }
   return pairs;
 }
+// Serpentina (P1/P3): tavolo lungo AVVOLTO su più bande (boustrophedon) per
+// restare leggibile sul telefono invece di un nastro 16:1. Piccole serpentine
+// (fino a ~16 posti) restano in una banda sola (dritte). L'adiacenza NON cambia
+// (resta il modello 2-file di seatPairs): l'ottimizzatore e le disposizioni
+// esistenti non sono toccati — cambia solo il disegno.
+const SEAT_SERP={CG:0.9, RG:0.5, BAND:2.2}; // colonna, mezza-fila, banda (unità mondo)
+function seatSegCols(cols){ return cols<=8 ? cols : Math.max(6, Math.ceil(Math.sqrt(cols*1.8))); }
+function seatSerpDims(s){
+  const cols=Math.max(1,Math.ceil(s/2)), seg=seatSegCols(cols), bands=Math.ceil(cols/seg);
+  return {cols, seg, bands};
+}
 function seatFootprint(t){
   const s=t.seats;
   if(t.shape==='round'){ const c=Math.max(s*0.6,3.77); const d=c/Math.PI; return {w:d+1.8,h:d+1.8,lin:d}; }
   if(t.shape==='square'){ const side=Math.max(1.2,Math.ceil(s/4)*0.7); return {w:side+1.8,h:side+1.8,lin:side}; }
-  const len=Math.max(1.6,Math.ceil(s/2)*0.65); const depth=(t.shape==='imperial'||t.shape==='serpentine')?1.0:0.9;
-  const lin=t.shape==='serpentine'?len*1.15:len; return {w:len+1.6,h:depth+1.8,lin:lin};
+  if(t.shape==='serpentine'){
+    const d=seatSerpDims(s), CG=SEAT_SERP.CG, RG=SEAT_SERP.RG, BAND=SEAT_SERP.BAND;
+    const bandW=(d.seg-1)*CG;
+    return {w:bandW+1.8, h:(d.bands-1)*BAND+2*RG+1.4, lin:bandW};
+  }
+  const len=Math.max(1.6,Math.ceil(s/2)*0.65); const depth=t.shape==='imperial'?1.0:0.9;
+  return {w:len+1.6,h:depth+1.8,lin:len};
 }
 // Geometria dei posti in unità "mondo" (coerenti con seatFootprint), centro tavolo a (0,0).
 // Per serpentine/imperial/rect usa il modello 2-file di seatColRow, così il disegno
@@ -1999,11 +2021,37 @@ function seatPositions(t){
     }
     return pos;
   }
+  if(t.shape==='serpentine'){
+    const d=seatSerpDims(n), CG=SEAT_SERP.CG, RG=SEAT_SERP.RG, BAND=SEAT_SERP.BAND;
+    const bandW=(d.seg-1)*CG, y0=((d.bands-1)*BAND)/2;
+    for(let i=0;i<n;i++){ const col=Math.floor(i/2), row=i%2;
+      const band=Math.floor(col/d.seg), colInBand=col%d.seg;
+      const xcol=(band%2===0)?colInBand:(d.seg-1-colInBand); // boustrophedon: righe alternate
+      pos.push({x:xcol*CG-bandW/2, y:band*BAND-y0+(row===0?-RG:RG)});
+    }
+    return pos;
+  }
   const cols=Math.max(1,Math.ceil(n/2)), colGap=(f.w-0.8)/cols, rowY=(f.h/2)-0.3;
   for(let i=0;i<n;i++){ const cr=seatColRow(i);
     pos.push({x:(cr.col-(cols-1)/2)*colGap, y:cr.row===0?-rowY:rowY});
   }
   return pos;
+}
+// Rettangoli di sfondo per la serpentina avvolta: uno per banda, dimensionato
+// sui posti reali della banda (l'ultima banda può essere corta). Usato da
+// entrambi i render (app + documento catering).
+function seatBandRectsSvg(t,fill,stroke,rx){
+  const n=Math.max(0,t.seats|0), d=seatSerpDims(n), CG=SEAT_SERP.CG, RG=SEAT_SERP.RG, BAND=SEAT_SERP.BAND;
+  const bandW=(d.seg-1)*CG, y0=((d.bands-1)*BAND)/2, pad=0.55; let svg="";
+  for(let b=0;b<d.bands;b++){
+    const c0=b*d.seg, c1=Math.min((b+1)*d.seg, d.cols)-1, cnt=c1-c0+1;
+    // x-extent reali della banda (tiene conto del boustrophedon)
+    let xs=[]; for(let c=c0;c<=c1;c++){ const cib=c%d.seg; xs.push(((b%2===0)?cib:(d.seg-1-cib))*CG-bandW/2); }
+    const xmin=Math.min.apply(null,xs), xmax=Math.max.apply(null,xs);
+    const cy=b*BAND-y0;
+    svg+=`<rect x="${(xmin-pad).toFixed(2)}" y="${(cy-RG-pad).toFixed(2)}" width="${(xmax-xmin+2*pad).toFixed(2)}" height="${(2*RG+2*pad).toFixed(2)}" rx="${rx}" fill="${fill}" stroke="${stroke}" stroke-width="0.05"/>`;
+  }
+  return svg;
 }
 // Adiacenze per FORMA: per tonda e quadrata i vicini sono quelli geometrici
 // reali del disegno (i 2 posti più vicini), non il modello 2-file — così
@@ -2048,35 +2096,59 @@ function seatShuffle(arr,rng){ for(let i=arr.length-1;i>0;i--){ const j=Math.flo
 // simFn(ga,gb) -> numero: similarità pesata reale (A3). Le regole esplicite
 // dominano (wNear/wFar >> similarità massima). pairs opzionale: adiacenze
 // precomputate per forma (seatPairsFor); default modello 2-file.
+// Contributo di UNA coppia adiacente al costo (fonte unica: usata sia dal costo
+// totale sia dal costo incrementale). Regole esplicite dominano la similarità.
+function seatPairCost(order,pr,rulesIdx,simFn){
+  const ga=order[pr.a],gb=order[pr.b];
+  if(ga===undefined||gb===undefined) return 0;
+  const key=ga<gb?ga+'|'+gb:gb+'|'+ga;
+  if(rulesIdx.separate.has(key)) return SEAT_CFG.wFar*pr.w;
+  if(rulesIdx.together.has(key)) return -SEAT_CFG.wNear*pr.w;
+  if(simFn) return -simFn(ga,gb)*pr.w;
+  return 0;
+}
 function seatCost(order,n,rulesIdx,simFn,pairs){
   pairs=pairs||seatPairs(n); let cost=0;
-  for(const pr of pairs){ const ga=order[pr.a],gb=order[pr.b];
-    if(ga===undefined||gb===undefined)continue;
-    const key=ga<gb?ga+'|'+gb:gb+'|'+ga;
-    if(rulesIdx.separate.has(key))cost+=SEAT_CFG.wFar*pr.w;
-    else if(rulesIdx.together.has(key))cost-=SEAT_CFG.wNear*pr.w;
-    else if(simFn)cost-=simFn(ga,gb)*pr.w;
-  }
+  for(const pr of pairs) cost+=seatPairCost(order,pr,rulesIdx,simFn);
   return cost;
 }
+// 2-opt multi-restart. Migliorie: (a) budget scambi PER restart scalato su n²
+// (i restart casuali non vengono più affamati); (b) costo INCREMENTALE — uno
+// scambio (i,j) tocca solo le coppie incidenti a i o j, quindi ricalcolo solo
+// quelle (O(grado)) invece dell'intero costo (O(n)). Il test di equivalenza
+// verifica che after == seatCost(order) esatto.
 function seatOptimize(gids,seats,rulesIdx,simFn,pairs){
-  pairs=pairs||seatPairs(seats); // precompute: seatCost gira ~2000 volte
+  pairs=pairs||seatPairs(seats);
   const people=gids.filter(x=>x!=null);
   const baseOrder=new Array(seats).fill(undefined); people.forEach((g,i)=>baseOrder[i]=g);
   const before=seatCost(baseOrder,seats,rulesIdx,simFn,pairs);
-  let bestOrder=baseOrder.slice(),bestCost=before,swapBudget=SEAT_CFG.maxSwaps;
-  const evalOrder=ord=>seatCost(ord,seats,rulesIdx,simFn,pairs);
-  for(let r=0;r<SEAT_CFG.restarts&&swapBudget>0;r++){
+  // indice posizione -> coppie incidenti (per il costo incrementale)
+  const p2p=[]; for(let i=0;i<seats;i++) p2p.push([]);
+  pairs.forEach(pr=>{ p2p[pr.a].push(pr); p2p[pr.b].push(pr); });
+  // somma dei contributi delle coppie toccate da i o j (dedup: la coppia {i,j}
+  // sta in entrambe le liste; un flag di generazione evita di contarla due volte).
+  const seen=new Int32Array(pairs.length); let gen=0;
+  const touchedCost=(order,i,j)=>{ gen++; let s=0;
+    const li=p2p[i]; for(let k=0;k<li.length;k++){ const pr=li[k]; if(seen[pr._i]!==gen){ seen[pr._i]=gen; s+=seatPairCost(order,pr,rulesIdx,simFn); } }
+    const lj=p2p[j]; for(let k=0;k<lj.length;k++){ const pr=lj[k]; if(seen[pr._i]!==gen){ seen[pr._i]=gen; s+=seatPairCost(order,pr,rulesIdx,simFn); } }
+    return s; };
+  pairs.forEach((pr,k)=>pr._i=k); // id coppia per il dedup
+  const budgetPer=Math.max(SEAT_CFG.maxSwaps, seats*seats*2); // ~ passi completi anche a n grande
+  let bestOrder=baseOrder.slice(),bestCost=before;
+  for(let r=0;r<SEAT_CFG.restarts;r++){
     let cur=baseOrder.slice();
     if(r>0){ const rng=seatRng(0x9E3779B9 ^ (r*2654435761)); const arr=people.slice(); seatShuffle(arr,rng); cur=new Array(seats).fill(undefined); const slots=[]; for(let i=0;i<seats;i++)slots.push(i); seatShuffle(slots,rng); arr.forEach((g,i)=>cur[slots[i]]=g); }
-    let curCost=evalOrder(cur),improved=true;
+    let curCost=seatCost(cur,seats,rulesIdx,simFn,pairs);
+    let swapBudget=budgetPer,improved=true;
     while(improved&&swapBudget>0){ improved=false;
       for(let i=0;i<seats&&swapBudget>0;i++){ for(let j=i+1;j<seats&&swapBudget>0;j++){
         if(cur[i]===undefined&&cur[j]===undefined)continue;
         swapBudget--;
+        const b=touchedCost(cur,i,j);
         const ti=cur[i]; cur[i]=cur[j]; cur[j]=ti;
-        const c=evalOrder(cur);
-        if(c<curCost-1e-9){ curCost=c; improved=true; }
+        const a=touchedCost(cur,i,j);
+        const delta=a-b;
+        if(delta<-1e-9){ curCost+=delta; improved=true; }
         else { const t2=cur[i]; cur[i]=cur[j]; cur[j]=t2; }
       } }
     }
@@ -2192,14 +2264,17 @@ function seatOptimizeTable(t){ return seatOptimize((t.seatIds||[]).slice(), t.se
 function seatPrintStats(){
   const tables=ev().tables||[]; const rows=[]; const tot={seats:0,seated:0,adulti:0,bambini:0,plus:0,intoll:0,meals:{}};
   MEALS.forEach(m=>tot.meals[m]=0);
+  const isLong=s=>(s==='serpentine'||s==='imperial'||s==='rect');
   tables.forEach(t=>{
-    const row={id:t.id,name:t.name,shape:t.shape,seats:t.seats,people:[],bambini:0,plus:0,intoll:[],acc:[],meals:{}};
+    const row={id:t.id,name:t.name,shape:t.shape,seats:t.seats,long:isLong(t.shape),people:[],bambini:0,plus:0,intoll:[],acc:[],meals:{}};
     MEALS.forEach(m=>row.meals[m]=0);
     (t.seatIds||[]).forEach((id,i)=>{ if(!id) return; const p=seatPersonById(id); if(!p) return;
       const isPlus=!!p._plusOf;
       const meal=isPlus?'normale':(p.meal||'normale');
       const kid=!isPlus&&p.ptype==='bambino';
-      row.people.push({seat:i+1,name:p.name,plus:isPlus,kid:kid,meal:meal,intol:isPlus?'':(p.intolerances||''),acc:isPlus?'':(p.accessibility||'')});
+      // tavoli lunghi (modello 2-file): posto pari = fila alta, dispari = fila bassa
+      const fila=isLong(t.shape)?(i%2===0?'alta':'bassa'):'';
+      row.people.push({seat:i+1,fila:fila,name:p.name,plus:isPlus,kid:kid,meal:meal,intol:isPlus?'':(p.intolerances||''),acc:isPlus?'':(p.accessibility||'')});
       row.meals[meal]=(row.meals[meal]||0)+1; if(kid)row.bambini++; if(isPlus)row.plus++;
       if(!isPlus&&p.intolerances){ row.intoll.push(p.name+': '+p.intolerances); tot.intoll++; }
       if(!isPlus&&p.accessibility){ row.acc.push(p.name+': '+p.accessibility); }
@@ -2287,6 +2362,7 @@ function renderPlanimetria(){
     let shapeSvg;
     if(t.shape==='round'){ shapeSvg=`<circle cx="0" cy="0" r="${(f.lin/2).toFixed(2)}" fill="#e9eef0" stroke="#9bb0b3" stroke-width="0.05"/>`; }
     else if(t.shape==='square'){ const sd=f.lin; shapeSvg=`<rect x="${(-sd/2).toFixed(2)}" y="${(-sd/2).toFixed(2)}" width="${sd.toFixed(2)}" height="${sd.toFixed(2)}" rx="0.15" fill="#e9eef0" stroke="#9bb0b3" stroke-width="0.05"/>`; }
+    else if(t.shape==='serpentine'){ shapeSvg=seatBandRectsSvg(t,"#e9eef0","#9bb0b3","0.15"); }
     else { const bw=f.lin, bh=Math.max(0.6,f.h-1.8); shapeSvg=`<rect x="${(-bw/2).toFixed(2)}" y="${(-bh/2).toFixed(2)}" width="${bw.toFixed(2)}" height="${bh.toFixed(2)}" rx="0.15" fill="#e9eef0" stroke="#9bb0b3" stroke-width="0.05"/>`; }
     const pos=seatPositions(t), ids=t.seatIds||[];
     let seats="";
