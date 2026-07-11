@@ -3,7 +3,7 @@
 (function(){
 // Versione visibile della build (ingranaggio -> prima riga). Serve a capire al
 // volo quale versione sta girando su un dispositivo (cache vs deploy).
-const APP_BUILD="2026-07-10.15";
+const APP_BUILD="2026-07-10.16";
 
 /* ============ DIAGNOSTICA / ERROR TRACKING (P0) ============ */
 // Senza backend gli errori di produzione sarebbero invisibili. Diag li cattura in
@@ -1264,10 +1264,19 @@ function cateringPlanSvg(){
 // Documento per il catering (stampa/PDF): intestazione, riepilogo operativo,
 // matrice menù per tavolo, planimetria, schede tavolo con posti numerati.
 // Puro (ritorna l'HTML completo): testabile e riusabile.
+// Sigla di revisione della disposizione: cambia se cambia QUALSIASI posto o
+// tavolo — due stampe con sigle diverse NON sono la stessa versione.
+function cateringRev(){
+  const src=JSON.stringify((ev().tables||[]).map(t=>[t.id,t.name,t.seats,t.shape,t.seatIds||[]]));
+  let h=5381; for(let i=0;i<src.length;i++){ h=((h<<5)+h+src.charCodeAt(i))|0; }
+  return ('0000'+(h>>>0).toString(16).toUpperCase()).slice(-8).slice(0,4);
+}
 function buildCateringDoc(){
-  const m=meta(), st=seatPrintStats();
+  const m=meta(), st=seatPrintStats(), e=ev();
   const MEAL_LBL={normale:'Normale',vegetariano:'Vegetariano',celiaco:'Celiaco',vegano:'Vegano'};
-  const oggi=new Date(); const gen=('0'+oggi.getDate()).slice(-2)+'/'+('0'+(oggi.getMonth()+1)).slice(-2)+'/'+oggi.getFullYear();
+  const oggi=new Date();
+  const gen=('0'+oggi.getDate()).slice(-2)+'/'+('0'+(oggi.getMonth()+1)).slice(-2)+'/'+oggi.getFullYear()
+    +' alle '+('0'+oggi.getHours()).slice(-2)+':'+('0'+oggi.getMinutes()).slice(-2);
   const special=MEALS.filter(x=>x!=='normale').reduce((s,x)=>s+st.tot.meals[x],0);
   const matrix=`<table class="mt"><thead><tr><th>Tavolo</th><th class="n">Coperti</th>${MEALS.map(x=>`<th class="n">${MEAL_LBL[x]||esc(x)}</th>`).join('')}<th class="n">Bambini</th><th class="n">Intoll.</th></tr></thead><tbody>`
     +st.rows.map(r=>`<tr><td>${esc(r.name)}</td><td class="n">${r.people.length}</td>${MEALS.map(x=>`<td class="n">${r.meals[x]||''}</td>`).join('')}<td class="n">${r.bambini||''}</td><td class="n">${r.intoll.length||''}</td></tr>`).join('')
@@ -1315,12 +1324,21 @@ function buildCateringDoc(){
     +'<title>Disposizione tavoli — '+esc(m.coupleA)+' e '+esc(m.coupleB)+'</title><style>'+css+'</style></head><body>'
     +'<div class="toolbar"><button onclick="window.print()">Stampa / Salva PDF</button></div>'
     +'<div class="head"><h1>Disposizione tavoli</h1><div class="sub">'+esc(m.coupleA)+' e '+esc(m.coupleB)+' — '+esc(fdate(m.date))
-    +(m.venue?'<br>'+esc(m.venue)+(m.venueAddr?' · '+esc(m.venueAddr):''):'')+'<br>Documento per il catering · generato il '+gen+'</div></div>'
+    +(m.venue?'<br>'+esc(m.venue)+(m.venueAddr?' · '+esc(m.venueAddr):''):'')
+    +'<br><b>Documento per il catering · generato il '+gen+' · revisione disposizione '+cateringRev()+'</b>'
+    +'<br><span style="font-size:11px">Se ricevete due versioni, fa fede quella con data/ora più recente; sigle di revisione diverse = disposizioni diverse.</span></div></div>'
     +'<h2>Riepilogo</h2>'
     +'<div class="kpis"><span><b>'+st.rows.length+'</b> tavoli</span><span><b>'+st.tot.seated+'</b> coperti</span><span><b>'+st.tot.adulti+'</b> adulti</span><span><b>'+st.tot.bambini+'</b> bambini</span><span><b>'+special+'</b> menù speciali</span><span><b>'+st.tot.intoll+'</b> intolleranze</span></div>'
     +matrix
+    +(m.minGuaranteed?'<div style="font-size:13px;margin-top:6px">Minimo garantito contrattuale: <b>'+m.minGuaranteed+' coperti</b>'+(st.tot.seated<m.minGuaranteed?' <span style="color:#944">(disposizione attuale: '+st.tot.seated+')</span>':'')+'</div>':'')
     +'<div class="conv">Convenzioni: gli accompagnatori (+1) sono conteggiati come menù normale; le intolleranze sono dettagliate nelle schede tavolo.</div>'
     +unseated
+    +(function(){
+      const rs=(e.runshow||[]).filter(r=>r.time||r.title).sort((a,b)=>(a.time||'').localeCompare(b.time||''));
+      if(!rs.length) return '';
+      return '<h2>Orari della giornata</h2><table class="mt"><thead><tr><th class="n">Ora</th><th>Momento</th></tr></thead><tbody>'
+        +rs.map(r=>'<tr><td class="n">'+esc(r.time||'—')+'</td><td>'+esc(r.title||'')+'</td></tr>').join('')+'</tbody></table>';
+    })()
     +'<div class="plan"><h2>Planimetria</h2>'+cateringPlanSvg()+'</div>'
     +'<div class="tables"><h2>Schede tavolo</h2>'+cards+'</div>'
     +'</body></html>';
