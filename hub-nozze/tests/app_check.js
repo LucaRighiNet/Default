@@ -3,7 +3,7 @@
 (function(){
 // Versione visibile della build (ingranaggio -> prima riga). Serve a capire al
 // volo quale versione sta girando su un dispositivo (cache vs deploy).
-const APP_BUILD="2026-07-10.10";
+const APP_BUILD="2026-07-10.11";
 
 /* ============ DIAGNOSTICA / ERROR TRACKING (P0) ============ */
 // Senza backend gli errori di produzione sarebbero invisibili. Diag li cattura in
@@ -1588,7 +1588,7 @@ function viewGuests(){
       const r=RSVP[g.rsvp]||["todo","?"];
       const dot=`<span class="gdot" style="background:${seatGroupColor(g.group)};margin-right:6px;vertical-align:middle" title="${esc(g.group||'nessun gruppo')}"></span>`;
       blocks+=`<tr data-grow="1" data-rsvp="${g.rsvp}" data-name="${esc((g.name||'').toLowerCase())}">
-        <td>${dot}${esc(g.name)}${g.plusOne?` <span class="tag">+${g.plusOne}</span>`:""}${g.shuttle?' <span class="tag">navetta</span>':""}${g.accessibility?` <span class="tag">${esc(g.accessibility)}</span>`:""}${(function(){var _t=seatTableOf(g.id);return _t?` <span class="tag">${esc(_t.name)}</span>`:"";})()}</td>
+        <td>${dot}${esc(g.name)}${g.group?` <span class="tag">${esc(g.group)}</span>`:""}${g.plusOne?` <span class="tag">+${g.plusOne}</span>`:""}${g.shuttle?' <span class="tag">navetta</span>':""}${g.accessibility?` <span class="tag">${esc(g.accessibility)}</span>`:""}${(function(){var _t=seatTableOf(g.id);return _t?` <span class="tag">${esc(_t.name)}</span>`:"";})()}</td>
         <td><button class="pill ${r[0]}" data-act="cycleRsvp" data-id="${g.id}" title="Clic per cambiare stato RSVP" style="cursor:pointer;border:none;font:inherit">${r[1]}</button></td>
         <td>${esc(g.meal||"normale")}${g.ptype==="bambino"?' <span class="tag">bambino</span>':""}${g.intolerances?` <span class="muted">· ${esc(g.intolerances)}</span>`:""}</td>
         <td class="num"><button class="btn sm ghost" data-act="editGuest" data-id="${g.id}" aria-label="Modifica ${esc(g.name)}" title="Modifica">&#9998;</button> <button class="btn sm danger" data-act="delGuest" data-id="${g.id}" aria-label="Elimina ${esc(g.name)}" title="Elimina">×</button></td>
