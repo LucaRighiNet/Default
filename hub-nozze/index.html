@@ -247,7 +247,7 @@ input[type=checkbox]{accent-color:var(--sea); width:18px; height:18px}
 (function(){
 // Versione visibile della build (ingranaggio -> prima riga). Serve a capire al
 // volo quale versione sta girando su un dispositivo (cache vs deploy).
-const APP_BUILD="2026-07-10.24";
+const APP_BUILD="2026-07-10.25";
 
 /* ============ DIAGNOSTICA / ERROR TRACKING (P0) ============ */
 // Senza backend gli errori di produzione sarebbero invisibili. Diag li cattura in
@@ -1767,6 +1767,76 @@ function budgetAdvisorCard(){
     <div class="muted" style="font-size:11px;margin-top:3px">Benchmark indicativi per matrimoni in Italia: i tuoi preventivi restano la verità. Solo informativo, non modifica nulla.</div>
   </div>`;
 }
+/* ============ BUDGET: PROIEZIONE & SCENARI (predittivo) ============ */
+// Funzione PURA (testabile): proietta il costo finale in base agli RSVP reali.
+// Le voci "a coperto" (costType perGuest) scalano col numero di teste; le fisse
+// no. Modella il MINIMO GARANTITO del catering (paghi comunque N coperti anche
+// se ne confermi meno) sulla voce a coperto più cara (tipicamente il catering).
+// Nessun dato modificato: solo stime, etichettate come tali.
+function budgetForecast(){
+  const e=ev(), m=meta(), lines=e.budget||[];
+  let fixedBase=0, rateAll=0, cateringRate=0, cateringName="", quoteSum=0;
+  lines.forEach(b=>{
+    quoteSum += (+b.quote||0);
+    if(b.costType==="perGuest"){
+      const ph=+b.perHead||0; rateAll+=ph;
+      if(ph>cateringRate){ cateringRate=ph; cateringName=b.item||""; }
+    } else {
+      fixedBase += (+b.actual||0) || (+b.quote||0) || (+b.estimated||0);
+    }
+  });
+  const rateOther=rateAll-cateringRate;
+  const heads=arr=>arr.reduce((s,x)=>s+1+(+x.plusOne||0),0);
+  const headsConf=heads(e.guests.filter(x=>x.rsvp==="conf"));
+  const headsAttesa=heads(e.guests.filter(x=>x.rsvp==="attesa"));
+  const planned=+m.plannedGuests||0, minG=+m.minGuaranteed||0;
+  // Coperti fatturati per il catering = max(teste, minimo garantito).
+  const proj=H=> fixedBase + cateringRate*Math.max(H,minG) + rateOther*H;
+  const scenarios=[
+    {key:"conf",   label:"Confermati",  heads:headsConf,             cost:proj(headsConf)},
+    {key:"attesa", label:"+ In attesa", heads:headsConf+headsAttesa, cost:proj(headsConf+headsAttesa)},
+    {key:"planned",label:"Previsti",    heads:planned,               cost:proj(planned)}
+  ];
+  const worstHeads=Math.max(headsConf+headsAttesa, planned);
+  const worst=proj(worstHeads);
+  const cont=Math.round(quoteSum*(m.contingencyPct||0)/100);
+  const ceiling=quoteSum+cont;
+  const perHeadReal= headsConf? Math.round(proj(headsConf)/headsConf) : 0;
+  const emptyCovers=Math.max(0, minG-headsConf);
+  const wasted=Math.round(cateringRate*emptyCovers);
+  let verdict="na";
+  if(ceiling>0){ const r=worst/ceiling; verdict = r>1?"over":(r>=0.9?"warn":"ok"); }
+  return {fixedBase,rateAll,rateOther,cateringRate,cateringName,quoteSum,ceiling,
+    headsConf,headsAttesa,planned,minG,scenarios,worstHeads,worst,perHeadReal,emptyCovers,wasted,verdict};
+}
+function budgetForecastCard(){
+  const f=budgetForecast();
+  if(!f.rateAll && !f.fixedBase) return `<div class="card"><span class="muted" style="font-size:13px">Compila i preventivi (e marca le voci "a coperto") per vedere la proiezione sugli RSVP.</span></div>`;
+  const V={ok:["ok","In linea col budget"], warn:["warn","Vicino al tetto"], over:["no","Rischio sforamento"], na:["todo","Proiezione"]};
+  const v=V[f.verdict]||V.na;
+  const band = f.ceiling? ` · tetto ${money(f.ceiling)}${f.verdict==="over"?` · <b>${money(f.worst-f.ceiling)} oltre</b>`:""}`:"";
+  const scRows=f.scenarios.map(s=>{
+    const over=f.ceiling&&s.cost>f.ceiling;
+    return `<tr><td>${esc(s.label)}</td><td class="num">${dnum(s.heads)}</td><td class="num">${money(s.cost)}</td><td>${f.ceiling?`<span class="pill ${over?"no":"ok"}">${over?"oltre":"ok"}</span>`:"<span class='muted'>—</span>"}</td></tr>`;
+  }).join("");
+  return `<div class="card" style="border-left:4px solid var(--${f.verdict==="over"?"no":(f.verdict==="warn"?"gold":(f.verdict==="ok"?"sea":"line"))})">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+      <div><span class="pill ${v[0]}">${v[1]}</span></div>
+      <div class="muted" style="font-size:12px">Proiezione peggiore (${dnum(f.worstHeads)} coperti): <b style="color:var(--ink)">${money(f.worst)}</b>${band}</div>
+    </div>
+    <div class="grid cards" style="grid-template-columns:1fr 1fr;margin-top:10px">
+      <div class="card kpi"><div class="v">${f.headsConf?money(f.perHeadReal):"—"}</div><div class="l">Costo per invitato confermato (tutto incluso)</div></div>
+      <div class="card kpi"><div class="v">${money(f.cateringRate)}</div><div class="l">Catering a coperto${f.cateringName?` · ${esc(f.cateringName)}`:""}</div></div>
+    </div>
+    ${f.minG?`<div class="card" style="margin-top:2px;${f.emptyCovers>0?'':'opacity:.85'}"><h3 style="font-size:14px">Minimo garantito catering: ${dnum(f.minG)} coperti</h3>
+      ${f.emptyCovers>0
+        ? `<div style="font-size:13px">Confermati ora <b>${dnum(f.headsConf)}</b> → paghi comunque <b>${dnum(f.minG)}</b>: <b style="color:var(--no)">${dnum(f.emptyCovers)} coperti a vuoto ≈ ${money(f.wasted)}</b>. Servono ancora ${dnum(f.emptyCovers)} conferme per non sprecarli.</div>`
+        : `<div class="muted" style="font-size:13px">Confermati ${dnum(f.headsConf)} ≥ minimo: nessun coperto pagato a vuoto. ✓</div>`}
+    </div>`:""}
+    <div class="scroll-x" style="margin-top:8px"><table class="tbl"><thead><tr><th>Scenario RSVP</th><th class="num">Coperti</th><th class="num">Costo proiettato</th><th></th></tr></thead><tbody>${scRows}</tbody></table></div>
+    <div class="muted" style="font-size:11px;margin-top:6px">Stima: voci "a coperto" scalate sulle teste (accompagnatori inclusi), fisse invariate, minimo garantito sul catering. I preventivi restano la verità.</div>
+  </div>`;
+}
 function viewBudget(){
   const e=ev(), m=meta(), d=DERIVED;
   let rows="";
@@ -1839,6 +1909,9 @@ function viewBudget(){
   </table></div>
   <p class="muted" style="font-size:13px;margin-top:8px">Cash-flow mensile: ${Object.keys(DERIVED.cf).sort().map(k=>k+" → "+money(DERIVED.cf[k])).join(" · ")||"—"}</p>`;
   })()}
+
+  <div class="sec-title" style="margin-top:14px"><h2>Proiezione & scenari</h2><span class="pill">predittivo</span></div>
+  ${budgetForecastCard()}
 
   <div class="sec-title" style="margin-top:14px"><h2>Analisi intelligente</h2><span class="pill">benchmark Italia</span></div>
   ${budgetAdvisorCard()}
