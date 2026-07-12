@@ -246,7 +246,7 @@ input[type=checkbox]{accent-color:var(--sea); width:18px; height:18px}
 (function(){
 // Versione visibile della build (ingranaggio -> prima riga). Serve a capire al
 // volo quale versione sta girando su un dispositivo (cache vs deploy).
-const APP_BUILD="2026-07-10.21";
+const APP_BUILD="2026-07-10.22";
 
 /* ============ DIAGNOSTICA / ERROR TRACKING (P0) ============ */
 // Senza backend gli errori di produzione sarebbero invisibili. Diag li cattura in
@@ -1854,6 +1854,10 @@ const RSVP={conf:["ok","Confermato"],attesa:["warn","In attesa"],no:["no","Non v
 // per leggibilità su telefono). Preferenza per-dispositivo, non sincronizzata.
 let GUESTBY=(function(){ try{ const v=localStorage.getItem("hub_guestby"); return v==="hh"?"hh":"group"; }catch(e){ return "group"; } })(); // default: per gruppo
 function setGuestBy(v){ GUESTBY=(v==="group")?"group":"hh"; try{ localStorage.setItem("hub_guestby", GUESTBY); }catch(e){} render(); }
+// Comprimi/espandi la lista ospiti (lista lunga -> evita tap involontari quando
+// si scorre ai riepiloghi in fondo). Preferenza per-dispositivo.
+let GUESTLIST_OPEN=(function(){ try{ return localStorage.getItem("hub_guestlist")!=="0"; }catch(e){ return true; } })();
+function toggleGuestList(){ GUESTLIST_OPEN=!GUESTLIST_OPEN; try{ localStorage.setItem("hub_guestlist", GUESTLIST_OPEN?"1":"0"); }catch(e){} render(); }
 function viewGuests(){
   const e=ev(), d=DERIVED;
   const byGroup=GUESTBY==="group";
@@ -1911,7 +1915,8 @@ function viewGuests(){
 
   <div class="card" style="margin-top:14px"><span class="pill todo">sorgente unica</span> ${ev().guests.length} ospiti in lista${d.plusAll?` + ${d.plusAll} accompagnatori (+1) = <b>${ev().guests.length+d.plusAll} persone</b>`:""}. Con Importa aggiungi in blocco da Excel, Google Sheets o CSV: incolli o carichi il file, mappi le colonne e confermi. Da qui i dati alimentano catering e tavoli.</div>
 
-  <div class="sec-title"><h2>Ospiti per ${byGroup?"gruppo":"nucleo"}</h2><span><button class="btn sm ghost" data-act="shareRsvp">Link RSVP</button> <button class="btn sm ghost" data-act="exportGuestsCsv">Esporta CSV</button> <button class="btn sm ghost" data-act="importGuests">Importa</button> <button class="btn sm" data-act="addGuest">+ Ospite</button></span></div>
+  <div class="sec-title"><h2>Ospiti per ${byGroup?"gruppo":"nucleo"}</h2><span><button class="btn sm ghost" data-act="toggleGuestList" title="${GUESTLIST_OPEN?"Comprimi la lista per scorrere veloce ai riepiloghi":"Mostra la lista"}">${GUESTLIST_OPEN?"▲ Comprimi":"▼ Espandi"}</button> <button class="btn sm ghost" data-act="shareRsvp">Link RSVP</button> <button class="btn sm ghost" data-act="exportGuestsCsv">Esporta CSV</button> <button class="btn sm ghost" data-act="importGuests">Importa</button> <button class="btn sm" data-act="addGuest">+ Ospite</button></span></div>
+  ${GUESTLIST_OPEN?`
   <div style="display:flex;gap:6px;margin-bottom:8px">
     <button class="btn sm ${byGroup?"ghost":""}" data-act="guestsBy" data-by="hh" style="flex:1">Per nucleo</button>
     <button class="btn sm ${byGroup?"":"ghost"}" data-act="guestsBy" data-by="group" style="flex:1">Per gruppo</button>
@@ -1930,6 +1935,9 @@ function viewGuests(){
     <tbody>${blocks}</tbody>
   </table></div>
   <div id="guestEmpty" class="muted" style="display:none;padding:10px;font-size:13px">Nessun ospite corrisponde al filtro.</div>
+  `:`
+  <div class="card" data-act="toggleGuestList" role="button" tabindex="0" style="cursor:pointer;text-align:center;padding:16px"><b>${ev().guests.length} ospiti</b> · lista compressa <span class="muted" style="display:block;font-size:12px;margin-top:2px">Tocca per espandere e modificare</span></div>
+  `}
 
   ${(function(){
     // Report catering filtrabile: il pill cicla confermati -> in attesa -> tutti.
@@ -1974,6 +1982,7 @@ function viewGuests(){
 // intrattenimento/servizi. scope: conf | attesa | all. I "coperti" contano gli
 // accompagnatori (+1) come adulti/menù normale/stesso lato/stessa navetta.
 let STATS_SCOPE="conf";
+let STATS_GROUPS_ALL=false;
 function statEta(g){ return (g.attr&&g.attr.eta) || (g.ptype==="bambino"?"Bambino":"Adulto"); }
 function statStato(g){ return (g.attr&&g.attr.stato) || ""; }
 function guestStats(scope){
@@ -1981,10 +1990,11 @@ function guestStats(scope){
   const sel=(e.guests||[]).filter(x=> scope==="all"?true : x.rsvp===scope);
   const S={ scope:scope, invitati:sel.length, plus:0, heads:0, bambini:0,
     lato:{A:0,B:0}, eta:{Bambino:0,Giovane:0,Adulto:0,Anziano:0}, stato:{},
-    groups:{}, meals:{}, intoll:0, access:0, shuttle:0,
+    groups:{}, meals:{}, intoll:0, access:0, shuttle:0, rsvp:{conf:0,attesa:0,no:0},
     households:{}, insights:[] };
   MEALS.forEach(k=>S.meals[k]=0);
   sel.forEach(g=>{
+    if(S.rsvp[g.rsvp]!=null) S.rsvp[g.rsvp]+=(1+(+g.plusOne||0));
     const w=1+(+g.plusOne||0); S.plus+=(+g.plusOne||0); S.heads+=w;
     S.lato[g.side==="A"?"A":"B"]+=w;
     if(g.ptype==="bambino") S.bambini++;
@@ -2036,17 +2046,22 @@ function guestStatsCard(){
   <div class="grid cards">
     <div class="card kpi"><div class="v">${S.heads}</div><div class="l">Persone totali${S.plus?` (${S.invitati}+${S.plus})`:""}</div></div>
     <div class="card kpi"><div class="v">${S.adulti}/${S.bambini}</div><div class="l">Adulti / Bambini</div></div>
-    <div class="card kpi"><div class="v">${S.nuclei}</div><div class="l">Nuclei${S.nucleoMax?` · max ${S.nucleoMax}`:""}</div></div>
+    <div class="card kpi"><div class="v">${S.nuclei}</div><div class="l">Nuclei familiari${S.nucleoMax?`</div><div class="l" style="margin-top:2px">il più grande: ${S.nucleoMax} persone`:""}</div></div>
   </div>
+  ${sc==="all"?`<div class="card"><h3>Stato RSVP</h3>
+    ${statBar("Confermati", S.rsvp.conf, S.heads, "#1a8a4a")}
+    ${statBar("In attesa", S.rsvp.attesa, S.heads, "#d4af37")}
+    ${statBar("Non vengono", S.rsvp.no, S.heads, "#c0605a")}
+    <div class="muted" style="font-size:12px;margin-top:4px">Su ${S.heads} persone in lista (accompagnatori inclusi).</div></div>`:""}
   <div class="grid" style="grid-template-columns:1fr 1fr;gap:14px">
     <div class="card"><h3>Per lato</h3>
       ${statBar(m.coupleA, S.lato.A, S.heads, "#0C5A63")}
       ${statBar(m.coupleB, S.lato.B, S.heads, "#c08a87")}</div>
     <div class="card"><h3>Fasce d'età</h3>
       ${etaOrder.filter(k=>S.eta[k]).map(k=>statBar(k, S.eta[k], S.invitati+S.plus, k==="Bambino"?"#b58a5a":(k==="Anziano"?"#8a7ea6":"var(--sea)"))).join("")||'<span class="muted" style="font-size:12px">Età non compilata.</span>'}</div>
-    <div class="card" style="grid-column:1 / -1"><h3>Gruppi</h3>
-      ${S.groupsTop.slice(0,8).map(g=>statBar(g[0], g[1], S.heads, grpColor(g[0]))).join("")}
-      ${S.groupsTop.length>8?`<div class="muted" style="font-size:12px">…e altri ${S.groupsTop.length-8} gruppi</div>`:""}</div>
+    <div class="card" style="grid-column:1 / -1"><h3>Gruppi <span class="muted" style="font-weight:400;font-size:12px">(${S.groupsTop.length})</span></h3>
+      ${(STATS_GROUPS_ALL?S.groupsTop:S.groupsTop.slice(0,8)).map(g=>statBar(g[0], g[1], S.heads, grpColor(g[0]))).join("")}
+      ${S.groupsTop.length>8?`<div style="text-align:center;margin-top:6px"><button class="btn sm ghost" data-act="toggleStatsGroups">${STATS_GROUPS_ALL?"▲ Comprimi":"▼ Vedi tutti i "+S.groupsTop.length+" gruppi"}</button></div>`:""}</div>
     ${Object.keys(S.stato).length?`<div class="card"><h3>Stato</h3>${Object.keys(S.stato).sort((a,b)=>S.stato[b]-S.stato[a]).map(k=>statBar(k,S.stato[k],S.invitati)).join("")}</div>`:""}
     <div class="card"${Object.keys(S.stato).length?"":' style="grid-column:1 / -1"'}><h3>Servizi</h3>
       ${statBar("Navetta", S.shuttle, S.heads, "#5aa0a6")}
@@ -4201,7 +4216,7 @@ const Session=(function(){ let role="owner"; return {
   canEdit(){ return role==="owner"||role==="editor"; }
 }; })();
 // Azioni non-mutanti sempre permesse (navigazione/aiuto/account/diagnostica).
-const READONLY_ACTS={ openGuide:1, openAccount:1, openDiag:1, hideTip:1, exportGuestsCsv:1, printTables:1, seatZoomIn:1, seatZoomOut:1, seatZoomReset:1, openAlerts:1, goAlert:1, togglePrivacy:1, goTab:1, cycleCateringScope:1, cycleStatsScope:1 };
+const READONLY_ACTS={ openGuide:1, openAccount:1, openDiag:1, hideTip:1, exportGuestsCsv:1, printTables:1, seatZoomIn:1, seatZoomOut:1, seatZoomReset:1, openAlerts:1, goAlert:1, togglePrivacy:1, goTab:1, cycleCateringScope:1, cycleStatsScope:1, toggleGuestList:1, toggleStatsGroups:1 };
 function actIsMutating(act){ return !READONLY_ACTS[act]; }
 function permBlocks(act){ return !Session.canEdit() && actIsMutating(act); }
 /* ==== fine blocco permessi ==== */
@@ -4328,6 +4343,7 @@ document.addEventListener("click",e=>{ try{
   else if(act==="addGuest") editGuest(null);
   else if(act==="editGuest") editGuest(id);
   else if(act==="guestsBy") setGuestBy(a.getAttribute("data-by"));
+  else if(act==="toggleGuestList") toggleGuestList();
   else if(act==="cycleRsvp"){ const e=ev(), g=e.guests.find(x=>x.id===id); if(g){ const seq=["conf","attesa","no"]; g.rsvp=seq[(seq.indexOf(g.rsvp)+1)%seq.length]; if(g.rsvp==="no"){ e.seating=e.seating||{rules:[]}; e.seating.rules=seatPurgeGuest(e.tables, e.seating.rules||[], g.id); } commit("RSVP: "+(RSVP[g.rsvp]?RSVP[g.rsvp][1]:g.rsvp)); } }
   else if(act==="delGuest") delGuest(id);
   else if(act==="addVendor") editVendor(null);
@@ -4370,6 +4386,7 @@ document.addEventListener("click",e=>{ try{
   else if(act==="goTab"){ active=a.getAttribute("data-target")||"dash"; render(); }
   else if(act==="cycleCateringScope"){ CATERING_SCOPE=CATERING_SCOPE==="conf"?"attesa":(CATERING_SCOPE==="attesa"?"all":"conf"); render(); }
   else if(act==="cycleStatsScope"){ STATS_SCOPE=STATS_SCOPE==="conf"?"attesa":(STATS_SCOPE==="attesa"?"all":"conf"); render(); }
+  else if(act==="toggleStatsGroups"){ STATS_GROUPS_ALL=!STATS_GROUPS_ALL; render(); }
   else if(act==="openAlerts") openAlerts();
   else if(act==="goAlert"){
     if(_alertsModal){ _alertsModal.close(); _alertsModal=null; }

@@ -2226,3 +2226,24 @@ sezione interattiva sul roster reale (barre lato/età/gruppi/stato/servizi/
 spunti, screenshot), scope conf->attesa, zero overflow; snapshot presente
 nel documento catering. Zero errori JS.
 sw.js v61->v62; APP_BUILD 2026-07-10.21.
+
+## Giro 85 (Claude Code) — Collapse lista ospiti + rifiniture BI
+
+Richieste utente:
+- Lista ospiti lunga -> tap involontari scorrendo ai riepiloghi. Aggiunto
+  toggle "▲ Comprimi / ▼ Espandi" nel titolo (preferenza per-dispositivo
+  hub_guestlist): da compressa mostra una card "N ospiti · lista compressa,
+  tocca per espandere" — zero superficie di click accidentale.
+- BI Gruppi: bottone "Vedi tutti i N gruppi / Comprimi" (STATS_GROUPS_ALL);
+  prima mostrava solo i primi 8.
+- Etichetta nuclei chiarita: "Nuclei familiari · il più grande: M persone"
+  (il "max" era ambiguo — è la dimensione del nucleo più numeroso, non il
+  numero di nuclei).
+- Composizione ospiti su "tutti in lista": nuova card "Stato RSVP"
+  (Confermati / In attesa / Non vengono, +1 inclusi). guestStats.rsvp.
+
+Verifica: stats_test 13/13 (+rsvp); suite completa verde; E2E: collapse
+comprime (131->0 righe) e persiste al reload; gruppi 8->12 all'espansione;
+card RSVP presente su scope=all e assente su scope=confermati; zero
+overflow. Zero errori JS.
+sw.js v62->v63; APP_BUILD 2026-07-10.22.
