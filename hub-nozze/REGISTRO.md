@@ -2305,3 +2305,32 @@ servizi con dettaglio, all, nome mancante); suite completa verde (21 suite).
 E2E 390px: 22 valori cliccabili, popup con 131 nomi, chiusura con X e con
 clic fuori, KPI Persone totali apre l'elenco completo; zero errori JS.
 sw.js v64->v65; APP_BUILD 2026-07-10.24.
+
+## Giro 88 (Claude Code) — Budget predittivo (proiezione RSVP + minimo garantito)
+
+Idea scelta dall'utente dopo ricerca web sui trend 2026 ("predictive
+planning"). Filtrata sui vincoli reali dell'app (nessun backend, offline):
+nuovo layer PREDITTIVO che si affianca al benchmark "Analisi intelligente"
+già esistente, senza toccarlo.
+
+Nuova funzione pura budgetForecast(): proietta il costo finale in base agli
+RSVP reali. Le voci "a coperto" (costType perGuest) scalano col numero di
+teste (accompagnatori inclusi), le fisse restano; modella il MINIMO
+GARANTITO del catering (meta.minGuaranteed, finora inutilizzato in UI) sulla
+voce a coperto più cara: paghi comunque N coperti anche se ne confermi meno.
+
+Card "Proiezione & scenari" nella scheda Budget:
+- semaforo verdetto (in linea / vicino al tetto / rischio sforamento) dal
+  confronto proiezione peggiore vs tetto (preventivi + contingency);
+- KPI costo-per-invitato confermato (tutto incluso) e catering-a-coperto;
+- avviso minimo garantito: "confermati N < 170 -> M coperti a vuoto ≈ €X";
+- tabella 3 scenari RSVP (Confermati / + In attesa / Previsti) con coperti,
+  costo proiettato e ok/oltre-tetto per riga.
+Tutte stime etichettate; nessun dato modificato.
+
+Verifica: nuova suite budget_forecast_test 7/7 (rate/catering-max,
+minimo garantito e coperti a vuoto, scenario +attesa, semaforo over/ok/na);
+suite completa verde (22 suite). E2E 390px scheda Budget: sezione resa,
+3 scenari ordinati, semaforo presente, KPI presenti, zero errori JS.
+Numeri seed verificati a mano (0 confermati -> €63.300 per il solo minimo
+garantito). sw.js v65->v66; APP_BUILD 2026-07-10.25.
