@@ -2334,3 +2334,29 @@ suite completa verde (22 suite). E2E 390px scheda Budget: sezione resa,
 3 scenari ordinati, semaforo presente, KPI presenti, zero errori JS.
 Numeri seed verificati a mano (0 confermati -> €63.300 per il solo minimo
 garantito). sw.js v65->v66; APP_BUILD 2026-07-10.25.
+
+## Giro 89 (Claude Code) — Voci di spesa comprimibili + proiezione più utile
+
+Due richieste utente.
+
+1) Voci di spesa comprimibili (come già la lista ospiti): nuovo
+BUDGETLIST_OPEN (localStorage hub_budgetlist, per-dispositivo), toggle
+"▲ Comprimi / ▼ Espandi" nel titolo e card "N voci · lista compressa"
+cliccabile per riespandere. toggleBudgetList in READONLY_ACTS.
+
+2) Proiezione & scenari più utile (era "poco utile"):
+- Il costo a invitato ora si vede ANCHE senza conferme. Due KPI sempre
+  disponibili: "costo di ogni invitato in più (a coperto)" = somma delle
+  tariffe a coperto (marginale, indipendente dagli RSVP) e "costo medio a
+  invitato tutto incluso" sullo scenario di riferimento (previsti > tutti in
+  lista > confermati > minimo).
+- Più scenari: Minimo garantito, Confermati, Metà attesa conferma, Tutti gli
+  invitati, Previsti — deduplicati per numero di coperti e ordinati crescente.
+- Nuova colonna "€/invitato" (medio, tutto incluso) per ogni scenario.
+
+Verifica: budget_forecast_test 7->10 (scenario minimo a sé, metà/tutti
+attesa, riferimento €/invitato = previsti, marginale sempre presente);
+suite completa verde (22 suite). E2E 390px scheda Budget: comprimi/espandi
+voci + persistenza al reload; colonna €/invitato, 4 scenari, KPI marginale e
+medio presenti, costo a invitato mostrato anche con 0 confermati (€127);
+zero errori JS. sw.js v66->v67; APP_BUILD 2026-07-10.26.
