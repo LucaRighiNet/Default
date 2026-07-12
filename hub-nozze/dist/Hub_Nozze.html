@@ -246,7 +246,7 @@ input[type=checkbox]{accent-color:var(--sea); width:18px; height:18px}
 (function(){
 // Versione visibile della build (ingranaggio -> prima riga). Serve a capire al
 // volo quale versione sta girando su un dispositivo (cache vs deploy).
-const APP_BUILD="2026-07-10.22";
+const APP_BUILD="2026-07-10.23";
 
 /* ============ DIAGNOSTICA / ERROR TRACKING (P0) ============ */
 // Senza backend gli errori di produzione sarebbero invisibili. Diag li cattura in
@@ -1583,7 +1583,7 @@ function buildCateringDoc(){
     +'<div class="conv">Convenzioni: gli accompagnatori (+1) sono conteggiati come menù normale; le intolleranze sono dettagliate nelle schede tavolo.</div>'
     +unseated
     +(function(){
-      const rs=(e.runshow||[]).filter(r=>r.time||r.title).sort((a,b)=>(a.time||'').localeCompare(b.time||''));
+      const rs=(e.runshow||[]).filter(r=>r.time||r.title).sort((a,b)=>rsTimeKey(a.time)-rsTimeKey(b.time));
       if(!rs.length) return '';
       return '<h2>Orari della giornata</h2><table class="mt"><thead><tr><th class="n">Ora</th><th>Momento</th></tr></thead><tbody>'
         +rs.map(r=>'<tr><td class="n">'+esc(r.time||'—')+'</td><td>'+esc(r.title||'')+'</td></tr>').join('')+'</tbody></table>';
@@ -3544,7 +3544,7 @@ function viewTimeline(){
     </tr>`;
   }).join("");
   const responsibles=[...new Set(e.runshow.map(r=>r.who).filter(Boolean))];
-  const rs=[...e.runshow].sort((a,b)=>(a.time||"").localeCompare(b.time||"")).filter(r=>!rsFilter||r.who===rsFilter);
+  const rs=[...e.runshow].sort((a,b)=>rsTimeKey(a.time)-rsTimeKey(b.time)).filter(r=>!rsFilter||r.who===rsFilter);
   const rsrows=rs.map(r=>{
     const pl=musicUrl(r.playlist);
     const plLink=pl?`<div style="margin-top:2px"><a href="${esc(pl)}" target="_blank" rel="noopener" class="pill todo" style="text-decoration:none;display:inline-block">&#9654; ${esc(musicLabel(pl))}</a></div>`:"";
@@ -3557,7 +3557,7 @@ function viewTimeline(){
   </div>
   <div class="sec-title"><h2>Checklist</h2><span><button class="btn sm ghost" data-act="genChecklist">Genera standard</button> <button class="btn sm" data-act="addTask">+ Attività</button></span></div>
   <div class="scroll-x"><table class="tbl"><thead><tr><th></th><th>Attività</th><th>Scadenza</th><th></th></tr></thead><tbody>${trows||'<tr><td colspan="4" class="muted">Nessuna attività. Usa Genera standard.</td></tr>'}</tbody></table></div>
-  <div class="sec-title"><h2>Scaletta</h2><span><button class="btn sm ghost" data-act="genRunShow">Scaletta standard</button> <button class="btn sm" data-act="addRs">+ Momento</button></span></div>
+  <div class="sec-title"><h2>Scaletta</h2><span><button class="btn sm ghost" data-act="shareScaletta" title="Link di sola lettura per gli altri organizzatori">Condividi</button> <button class="btn sm ghost" data-act="printScaletta">Stampa</button> <button class="btn sm ghost" data-act="genRunShow">Scaletta standard</button> <button class="btn sm" data-act="addRs">+ Momento</button></span></div>
   <div class="card" style="margin-bottom:10px"><div class="field"><label>Filtra per responsabile</label><select class="inp" id="rs_filter"><option value="">Tutti</option>${responsibles.map(w=>`<option value="${esc(w)}"${rsFilter===w?" selected":""}>${esc(w)}</option>`).join("")}</select></div></div>
   <div class="scroll-x"><table class="tbl"><thead><tr><th>Ora</th><th>Momento</th><th>Responsabile</th><th></th></tr></thead><tbody>${rsrows||'<tr><td colspan="4" class="muted">Nessun momento.</td></tr>'}</tbody></table></div>
   `;
@@ -4216,7 +4216,7 @@ const Session=(function(){ let role="owner"; return {
   canEdit(){ return role==="owner"||role==="editor"; }
 }; })();
 // Azioni non-mutanti sempre permesse (navigazione/aiuto/account/diagnostica).
-const READONLY_ACTS={ openGuide:1, openAccount:1, openDiag:1, hideTip:1, exportGuestsCsv:1, printTables:1, seatZoomIn:1, seatZoomOut:1, seatZoomReset:1, openAlerts:1, goAlert:1, togglePrivacy:1, goTab:1, cycleCateringScope:1, cycleStatsScope:1, toggleGuestList:1, toggleStatsGroups:1 };
+const READONLY_ACTS={ openGuide:1, openAccount:1, openDiag:1, hideTip:1, exportGuestsCsv:1, printTables:1, seatZoomIn:1, seatZoomOut:1, seatZoomReset:1, openAlerts:1, goAlert:1, togglePrivacy:1, goTab:1, cycleCateringScope:1, cycleStatsScope:1, toggleGuestList:1, toggleStatsGroups:1, shareScaletta:1, printScaletta:1 };
 function actIsMutating(act){ return !READONLY_ACTS[act]; }
 function permBlocks(act){ return !Session.canEdit() && actIsMutating(act); }
 /* ==== fine blocco permessi ==== */
@@ -4234,6 +4234,31 @@ function buildRsvpPayload(token, form){
     intolerances:String(form.intolerances||"").trim(), ts:new Date().toISOString() };
 }
 function rsvpParam(){ try{ const m=(location.search||"").match(/[?&]rsvp=([^&]+)/); return m?decodeURIComponent(m[1]):null; }catch(e){ return null; } }
+/* ---- Scaletta condivisibile in sola lettura (autocontenuta nell'URL) ----
+   Il cloud è dormiente, quindi il link non è "vivo" lato server: la scaletta
+   viaggia CODIFICATA nell'URL (base64url UTF-8 safe). Chi apre il link vede una
+   pagina pulita di sola lettura, su qualunque dispositivo, senza login. È uno
+   snapshot: se cambi la scaletta rigeneri il link. ---- */
+function encodeScaletta(obj){
+  const json=JSON.stringify(obj);
+  return btoa(unescape(encodeURIComponent(json))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+}
+function decodeScaletta(str){
+  try{ let b=String(str).replace(/-/g,"+").replace(/_/g,"/"); while(b.length%4) b+="=";
+    return JSON.parse(decodeURIComponent(escape(atob(b)))); }catch(e){ return null; }
+}
+function scalettaParam(){ try{ const m=(location.search||"").match(/[?&]scaletta=([^&]+)/); return m?m[1]:null; }catch(e){ return null; } }
+// Ordinamento "giorno delle nozze": le ore dopo mezzanotte (prima delle 06:00)
+// appartengono alla notte successiva, quindi vanno IN FONDO (01:00 dopo 23:00).
+// Orari mancanti/invalidi in coda. (Hoisted: usata anche dalla vista Timeline.)
+function rsTimeKey(t){ const m=String(t||"").match(/^(\d{1,2}):(\d{2})/); if(!m) return 1e9; let mins=(+m[1])*60+(+m[2]); if(+m[1]<6) mins+=1440; return mins; }
+// Payload compatto della scaletta corrente (chiavi corte per URL brevi).
+function scalettaData(){
+  const e=ev(), m=meta();
+  const rows=[...((e&&e.runshow)||[])].filter(r=>r.time||r.title).sort((a,b)=>rsTimeKey(a.time)-rsTimeKey(b.time))
+    .map(r=>({t:r.time||"", m:r.title||"", w:r.who||"", p:(typeof musicUrl==="function"?musicUrl(r.playlist):r.playlist)||""}));
+  return { a:m.coupleA||"", b:m.coupleB||"", d:m.date||"", v:m.venue||"", r:rows };
+}
 function inviteRoleParam(){ try{ const m=(location.search||"").match(/[?&]role=([^&]+)/); return m?decodeURIComponent(m[1]):null; }catch(e){ return null; } }
 // Scheda di partenza da URL: ?tab=dash (o #dash). Abilita i "widget"/scorciatoie
 // della Home iPhone (app Shortcuts o long-press dell'icona PWA) ad aprire l'app
@@ -4323,6 +4348,44 @@ function renderPublicRSVP(token){
   });
 }
 
+// Pagina pubblica read-only della scaletta (decodificata dall'URL).
+function renderPublicScaletta(data){
+  try{ const tb=document.getElementById("tabs"); if(tb) tb.style.display="none"; }catch(e){}
+  try{ const gb=document.getElementById("gearBtn"); if(gb) gb.style.display="none"; const sc=document.getElementById("syncChip"); if(sc) sc.style.display="none"; const ab=document.getElementById("alertBell"); if(ab) ab.style.display="none"; }catch(e){}
+  try{ const br=document.querySelector(".brand"); if(br){ br.removeAttribute("data-act"); br.style.cursor="default"; } const pn=document.getElementById("editPencil"); if(pn) pn.style.display="none"; }catch(e){}
+  const v=document.getElementById("view"); if(!v) return;
+  if(!data||!data.r){ v.innerHTML='<div class="card" style="max-width:560px;margin:16px auto"><h2>Scaletta non leggibile</h2><p class="muted" style="font-size:13px">Il link sembra incompleto. Chiedi di rigenerarlo.</p></div>'; return; }
+  try{ const et=document.getElementById("evTitle"); if(et) et.textContent=((data.a||"")+(data.b?" × "+data.b:""))||"Le nostre nozze"; const es=document.getElementById("evSub"); if(es) es.textContent=(data.v?data.v+" · ":"")+(data.d?fdate(data.d):""); const cd=document.getElementById("cd"); if(cd&&cd.parentNode) cd.parentNode.style.display="none"; }catch(e){}
+  const rows=(data.r||[]).map(function(r){
+    const pl=r.p?'<div style="margin-top:3px"><a href="'+esc(r.p)+'" target="_blank" rel="noopener" class="pill todo" style="text-decoration:none;display:inline-block">&#9654; playlist</a></div>':"";
+    return '<tr><td class="num" style="white-space:nowrap;font-weight:600">'+esc(r.t||"—")+'</td><td>'+esc(r.m||"")+pl+'</td><td class="muted">'+esc(r.w||"")+'</td></tr>';
+  }).join("")||'<tr><td colspan="3" class="muted">Scaletta vuota.</td></tr>';
+  v.innerHTML='<div class="card" style="max-width:560px;margin:16px auto">'
+    +'<div class="sec-title" style="margin-top:2px"><h2>Scaletta del giorno</h2><span class="pill todo">sola lettura</span></div>'
+    +'<div class="scroll-x"><table class="tbl"><thead><tr><th>Ora</th><th>Momento</th><th>Chi</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
+    +'<p class="muted" style="font-size:12px;margin-top:10px">Versione di sola lettura condivisa dagli sposi. Gli aggiornamenti richiedono un nuovo link.</p></div>';
+}
+// Documento stampabile della scaletta (PDF/carta).
+function buildScalettaDoc(){
+  const d=scalettaData();
+  const rows=d.r.map(function(r){ return '<tr><td class="n">'+esc(r.t||"—")+'</td><td>'+esc(r.m||"")+(r.p?' <span class="pl">'+esc(r.p)+'</span>':"")+'</td><td>'+esc(r.w||"")+'</td></tr>'; }).join("")||'<tr><td colspan="3">Scaletta vuota.</td></tr>';
+  const css='@page{size:A4;margin:16mm}body{font-family:Georgia,\'Times New Roman\',serif;color:#1a1a1a;margin:0;padding:20px}.head{text-align:center;border-bottom:2px solid #1a1a1a;padding-bottom:10px;margin-bottom:16px}.head h1{font-size:24px;font-weight:600;margin:0}.head .sub{font-size:13px;color:#444;margin-top:4px}table{border-collapse:collapse;width:100%;font-size:13px}th,td{border:1px solid #bbb;padding:6px 8px;text-align:left;vertical-align:top}th{background:#efefef}td.n{width:70px;white-space:nowrap;font-weight:600}.pl{display:block;font-size:11px;color:#555;word-break:break-all}.toolbar{text-align:center;margin:0 0 14px}.toolbar button{font-size:15px;padding:8px 22px;cursor:pointer}@media print{.toolbar{display:none}}';
+  return '<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Scaletta — '+esc(d.a)+' e '+esc(d.b)+'</title><style>'+css+'</style></head><body>'
+    +'<div class="toolbar"><button onclick="window.print()">Stampa / Salva PDF</button></div>'
+    +'<div class="head"><h1>Scaletta del giorno</h1><div class="sub">'+esc(d.a)+(d.b?' e '+esc(d.b):"")+(d.d?' — '+esc(fdate(d.d)):"")+(d.v?'<br>'+esc(d.v):"")+'</div></div>'
+    +'<table><thead><tr><th class="n">Ora</th><th>Momento</th><th>Responsabile</th></tr></thead><tbody>'+rows+'</tbody></table></body></html>';
+}
+function shareScaletta(){
+  const obj=scalettaData();
+  if(!obj.r.length){ toast("Aggiungi prima qualche momento alla scaletta"); return; }
+  const url=location.origin+location.pathname+"?scaletta="+encodeScaletta(obj);
+  showShareLink("Scaletta da condividere (sola lettura)", url, "Ecco la scaletta del giorno:");
+}
+function printScaletta(){
+  const obj=scalettaData(); if(!obj.r.length){ toast("Scaletta vuota"); return; }
+  const w=window.open("","_blank"); if(!w){ toast("Consenti i popup per stampare"); return; }
+  w.document.write(buildScalettaDoc()); w.document.close();
+}
 /* ============ EVENTS ============ */
 document.addEventListener("click",e=>{ try{
   const tab=e.target.closest("[data-tab]"); if(tab){ active=tab.getAttribute("data-tab"); render(); return; }
@@ -4340,6 +4403,8 @@ document.addEventListener("click",e=>{ try{
   else if(act==="importGuests") importWizard();
   else if(act==="exportGuestsCsv") exportGuestsCsv();
   else if(act==="shareRsvp"){ const t=eventRsvpToken(); commit("Link RSVP pronto"); showShareLink("Link RSVP per gli invitati", rsvpURL(location.origin, location.pathname, t), "Confermi la tua presenza alle nostre nozze?"); }
+  else if(act==="shareScaletta") shareScaletta();
+  else if(act==="printScaletta") printScaletta();
   else if(act==="addGuest") editGuest(null);
   else if(act==="editGuest") editGuest(id);
   else if(act==="guestsBy") setGuestBy(a.getAttribute("data-by"));
@@ -4445,6 +4510,7 @@ document.addEventListener("keydown", function(e){
 (async function(){
   // Pagina pubblica RSVP per gli ospiti: schermata dedicata, non l'app intera.
   if(rsvpParam()){ renderPublicRSVP(rsvpParam()); return; }
+  if(scalettaParam()){ renderPublicScaletta(decodeScaletta(scalettaParam())); return; }
   STATE=await Store.load();
   if(!STATE||!STATE.events){ STATE=seedState(); Store.save(STATE); }
   migrateBudgetV2(); // stima -> preventivo (una tantum, vedi funzione)

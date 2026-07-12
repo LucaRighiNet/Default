@@ -2247,3 +2247,34 @@ comprime (131->0 righe) e persiste al reload; gruppi 8->12 all'espansione;
 card RSVP presente su scope=all e assente su scope=confermati; zero
 overflow. Zero errori JS.
 sw.js v62->v63; APP_BUILD 2026-07-10.22.
+
+## Giro 86 (Claude Code) — Scaletta condivisibile in sola lettura
+
+Richiesta utente: rendere la scaletta condivisibile in visualizzazione ad
+altri organizzatori. Studiate 3 soluzioni; scelte e implementate A+B.
+
+A — Link read-only AUTOCONTENUTO: il cloud è dormiente, quindi niente link
+"vivo" lato server. La scaletta viaggia CODIFICATA nell'URL (base64url
+UTF-8 safe, ?scaletta=...): chi apre vede una pagina pulita di sola
+lettura (sposi/data/location + tabella ora/momento/chi + link playlist),
+su qualunque dispositivo senza login. È uno snapshot (per aggiornare si
+rigenera il link). ~560 char per una scaletta tipica.
+B — Stampa/PDF: "Stampa" apre un documento A4 della scaletta (come il
+catering) da salvare in PDF o carta.
+
+Pulsanti "Condividi" e "Stampa" nel titolo Scaletta. Boot: se rileva
+?scaletta= mostra renderPublicScaletta (chrome dell'app nascosta, nessuna
+azione di modifica). encodeScaletta/decodeScaletta puri e testati.
+
+BUG pre-esistente corretto (emerso nell'anteprima): le ore dopo mezzanotte
+ordinavano male (01:00 in cima). Nuovo comparatore rsTimeKey "giorno delle
+nozze" (ore < 06:00 = notte successiva, in fondo), applicato a vista
+Timeline, link condiviso e sezione orari del documento catering.
+
+Verifica: nuova suite scaletta_test 8/8 (encode/decode round-trip con
+accenti/emoji, base64url pulito, input invalido -> null, payload
+ordinato/filtrato, sort giorno-nozze); suite completa verde (21 suite);
+E2E: Condividi genera URL con ?scaletta=, la pagina pubblica rende
+read-only (tab nascosti, nessun editRs, zero overflow), Stampa apre il
+doc; ordinamento 01:00-in-fondo verificato in app. Zero errori JS.
+sw.js v63->v64; APP_BUILD 2026-07-10.23.
