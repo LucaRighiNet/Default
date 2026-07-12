@@ -3,7 +3,7 @@
 (function(){
 // Versione visibile della build (ingranaggio -> prima riga). Serve a capire al
 // volo quale versione sta girando su un dispositivo (cache vs deploy).
-const APP_BUILD="2026-07-10.22";
+const APP_BUILD="2026-07-10.23";
 
 /* ============ DIAGNOSTICA / ERROR TRACKING (P0) ============ */
 // Senza backend gli errori di produzione sarebbero invisibili. Diag li cattura in
@@ -1788,9 +1788,44 @@ function guestStats(scope){
   }
   return S;
 }
-function statBar(label, value, total, color){
+// Drill-down: nomi degli ospiti dietro a un valore della dashboard. Ritorna un
+// array di stringhe già leggibili. Dove il valore conta gli accompagnatori (+N)
+// li annota sul nome dell'invitato (non hanno un nome proprio), così la somma
+// delle persone elencate coincide con il numero mostrato nella barra.
+function statMembers(scope, dim, key){
+  const e=ev();
+  const sel=(e.guests||[]).filter(x=> scope==="all"?true : x.rsvp===scope);
+  const nm=g=> (g.name&&String(g.name).trim()) || "— senza nome";
+  const plus=g=> (+g.plusOne||0);
+  const withPlus=g=> nm(g)+(plus(g)>0?` (+${plus(g)})`:"");
+  const out=[];
+  sel.forEach(g=>{
+    switch(dim){
+      case "all": out.push(withPlus(g)); break;
+      case "bambini": if(g.ptype==="bambino") out.push(nm(g)); break;
+      case "lato": if((g.side==="A"?"A":"B")===key) out.push(withPlus(g)); break;
+      case "eta": {
+        const et=statEta(g);
+        if(key==="Adulto"){
+          if(et==="Adulto") out.push(withPlus(g));
+          else if(plus(g)>0) out.push(nm(g)+" — solo accompagnatori (+"+plus(g)+")");
+        } else if(et===key) out.push(nm(g));
+        break; }
+      case "grp": if((g.group||"— senza gruppo")===key) out.push(withPlus(g)); break;
+      case "stato": if(statStato(g)===key) out.push(nm(g)); break;
+      case "rsvp": if(g.rsvp===key) out.push(withPlus(g)); break;
+      case "shuttle": if(g.shuttle) out.push(withPlus(g)); break;
+      case "mealspecial": if(g.meal&&g.meal!=="normale") out.push(nm(g)+" · "+g.meal); break;
+      case "intoll": if(g.intolerances) out.push(nm(g)+" · "+g.intolerances); break;
+      case "access": if(g.accessibility) out.push(nm(g)+" · "+g.accessibility); break;
+    }
+  });
+  return out;
+}
+function statBar(label, value, total, color, drill){
   const p= total? Math.round(value*100/total):0;
-  return `<div style="margin:5px 0"><div style="display:flex;justify-content:space-between;font-size:13px"><span>${esc(label)}</span><span class="muted">${value}${total?` · ${p}%`:""}</span></div>`
+  const d= drill ? ` data-act="statDrill" data-dim="${esc(drill.dim)}" data-key="${esc(drill.key==null?"":drill.key)}" data-label="${esc(drill.label||label)}" role="button" tabindex="0" title="Vedi i nomi" style="margin:5px 0;cursor:pointer"` : ' style="margin:5px 0"';
+  return `<div${d}><div style="display:flex;justify-content:space-between;font-size:13px"><span>${esc(label)}</span><span class="muted">${value}${total?` · ${p}%`:""}</span></div>`
     +`<div style="height:7px;background:var(--line);border-radius:5px;overflow:hidden"><div style="height:100%;width:${p}%;background:${color||"var(--sea)"}"></div></div></div>`;
 }
 function guestStatsCard(){
@@ -1801,33 +1836,45 @@ function guestStatsCard(){
   const etaOrder=["Bambino","Giovane","Adulto","Anziano"];
   return `<div class="sec-title"><h2>Composizione ospiti</h2><button class="pill ${lab[0]}" data-act="cycleStatsScope" title="Clic per cambiare: confermati / in attesa / tutti" style="cursor:pointer;border:none;font:inherit">${lab[1]} &#8635;</button></div>
   <div class="grid cards">
-    <div class="card kpi"><div class="v">${S.heads}</div><div class="l">Persone totali${S.plus?` (${S.invitati}+${S.plus})`:""}</div></div>
+    <div class="card kpi" data-act="statDrill" data-dim="all" data-key="" data-label="Tutte le persone in lista" role="button" tabindex="0" title="Vedi i nomi" style="cursor:pointer"><div class="v">${S.heads}</div><div class="l">Persone totali${S.plus?` (${S.invitati}+${S.plus})`:""}</div></div>
     <div class="card kpi"><div class="v">${S.adulti}/${S.bambini}</div><div class="l">Adulti / Bambini</div></div>
     <div class="card kpi"><div class="v">${S.nuclei}</div><div class="l">Nuclei familiari${S.nucleoMax?`</div><div class="l" style="margin-top:2px">il più grande: ${S.nucleoMax} persone`:""}</div></div>
   </div>
   ${sc==="all"?`<div class="card"><h3>Stato RSVP</h3>
-    ${statBar("Confermati", S.rsvp.conf, S.heads, "#1a8a4a")}
-    ${statBar("In attesa", S.rsvp.attesa, S.heads, "#d4af37")}
-    ${statBar("Non vengono", S.rsvp.no, S.heads, "#c0605a")}
+    ${statBar("Confermati", S.rsvp.conf, S.heads, "#1a8a4a", {dim:"rsvp",key:"conf",label:"Confermati"})}
+    ${statBar("In attesa", S.rsvp.attesa, S.heads, "#d4af37", {dim:"rsvp",key:"attesa",label:"In attesa"})}
+    ${statBar("Non vengono", S.rsvp.no, S.heads, "#c0605a", {dim:"rsvp",key:"no",label:"Non vengono"})}
     <div class="muted" style="font-size:12px;margin-top:4px">Su ${S.heads} persone in lista (accompagnatori inclusi).</div></div>`:""}
   <div class="grid" style="grid-template-columns:1fr 1fr;gap:14px">
     <div class="card"><h3>Per lato</h3>
-      ${statBar(m.coupleA, S.lato.A, S.heads, "#0C5A63")}
-      ${statBar(m.coupleB, S.lato.B, S.heads, "#c08a87")}</div>
+      ${statBar(m.coupleA, S.lato.A, S.heads, "#0C5A63", {dim:"lato",key:"A",label:"Lato "+(m.coupleA||"A")})}
+      ${statBar(m.coupleB, S.lato.B, S.heads, "#c08a87", {dim:"lato",key:"B",label:"Lato "+(m.coupleB||"B")})}</div>
     <div class="card"><h3>Fasce d'età</h3>
-      ${etaOrder.filter(k=>S.eta[k]).map(k=>statBar(k, S.eta[k], S.invitati+S.plus, k==="Bambino"?"#b58a5a":(k==="Anziano"?"#8a7ea6":"var(--sea)"))).join("")||'<span class="muted" style="font-size:12px">Età non compilata.</span>'}</div>
+      ${etaOrder.filter(k=>S.eta[k]).map(k=>statBar(k, S.eta[k], S.invitati+S.plus, k==="Bambino"?"#b58a5a":(k==="Anziano"?"#8a7ea6":"var(--sea)"), {dim:"eta",key:k,label:"Età: "+k})).join("")||'<span class="muted" style="font-size:12px">Età non compilata.</span>'}</div>
     <div class="card" style="grid-column:1 / -1"><h3>Gruppi <span class="muted" style="font-weight:400;font-size:12px">(${S.groupsTop.length})</span></h3>
-      ${(STATS_GROUPS_ALL?S.groupsTop:S.groupsTop.slice(0,8)).map(g=>statBar(g[0], g[1], S.heads, grpColor(g[0]))).join("")}
+      ${(STATS_GROUPS_ALL?S.groupsTop:S.groupsTop.slice(0,8)).map(g=>statBar(g[0], g[1], S.heads, grpColor(g[0]), {dim:"grp",key:g[0],label:"Gruppo: "+g[0]})).join("")}
       ${S.groupsTop.length>8?`<div style="text-align:center;margin-top:6px"><button class="btn sm ghost" data-act="toggleStatsGroups">${STATS_GROUPS_ALL?"▲ Comprimi":"▼ Vedi tutti i "+S.groupsTop.length+" gruppi"}</button></div>`:""}</div>
-    ${Object.keys(S.stato).length?`<div class="card"><h3>Stato</h3>${Object.keys(S.stato).sort((a,b)=>S.stato[b]-S.stato[a]).map(k=>statBar(k,S.stato[k],S.invitati)).join("")}</div>`:""}
+    ${Object.keys(S.stato).length?`<div class="card"><h3>Stato</h3>${Object.keys(S.stato).sort((a,b)=>S.stato[b]-S.stato[a]).map(k=>statBar(k,S.stato[k],S.invitati,null,{dim:"stato",key:k,label:"Stato: "+k})).join("")}</div>`:""}
     <div class="card"${Object.keys(S.stato).length?"":' style="grid-column:1 / -1"'}><h3>Servizi</h3>
-      ${statBar("Navetta", S.shuttle, S.heads, "#5aa0a6")}
-      ${statBar("Menù speciali", MEALS.filter(k=>k!=="normale").reduce((s,k)=>s+S.meals[k],0), S.heads, "#d4af37")}
-      ${statBar("Intolleranze", S.intoll, S.invitati, "#c08a87")}
-      ${S.access?statBar("Accessibilità", S.access, S.invitati, "#8a7ea6"):""}</div>
+      ${statBar("Navetta", S.shuttle, S.heads, "#5aa0a6", {dim:"shuttle",label:"Usano la navetta"})}
+      ${statBar("Menù speciali", MEALS.filter(k=>k!=="normale").reduce((s,k)=>s+S.meals[k],0), S.heads, "#d4af37", {dim:"mealspecial",label:"Menù speciali"})}
+      ${statBar("Intolleranze", S.intoll, S.invitati, "#c08a87", {dim:"intoll",label:"Intolleranze"})}
+      ${S.access?statBar("Accessibilità", S.access, S.invitati, "#8a7ea6", {dim:"access",label:"Accessibilità"}):""}</div>
   </div>
   ${S.insights.length?`<div class="card" style="margin-top:2px"><h3>Spunti per le decisioni</h3>${S.insights.map(i=>`<div style="display:flex;gap:8px;padding:5px 0;font-size:13px;border-bottom:1px solid var(--line)"><span aria-hidden="true">${i.ic}</span><span>${esc(i.t)}</span></div>`).join("")}</div>`:""}
   `;
+}
+// Popup drill-down: clic su un valore della dashboard -> elenco dei nomi dietro.
+// Si chiude con la X ("✕ Chiudi"), con Esc o cliccando fuori (gestiti da modal()).
+function openStatDrill(dim, key, label){
+  const sc=({conf:1,attesa:1,all:1}[STATS_SCOPE])?STATS_SCOPE:"conf";
+  const names=statMembers(sc, dim, key);
+  const scLbl={conf:"solo confermati",attesa:"solo in attesa",all:"tutta la lista"}[sc];
+  const list = names.length
+    ? `<ol style="margin:0;padding-left:22px;line-height:1.7;font-size:14px">${names.map(n=>`<li>${esc(n)}</li>`).join("")}</ol>`
+    : `<div class="muted" style="font-size:13px">Nessun nome per questo valore.</div>`;
+  const body = `<div class="muted" style="font-size:12px;margin:-4px 0 10px">${names.length} in elenco · filtro: ${esc(scLbl)}</div>${list}`;
+  modal(label||"Dettaglio", body, [{label:"✕ Chiudi", close:true}]);
 }
 
 /* ============ TAVOLI (riepilogo dal Tableau; l'editor è il Tableau) ============ */
@@ -3973,7 +4020,7 @@ const Session=(function(){ let role="owner"; return {
   canEdit(){ return role==="owner"||role==="editor"; }
 }; })();
 // Azioni non-mutanti sempre permesse (navigazione/aiuto/account/diagnostica).
-const READONLY_ACTS={ openGuide:1, openAccount:1, openDiag:1, hideTip:1, exportGuestsCsv:1, printTables:1, seatZoomIn:1, seatZoomOut:1, seatZoomReset:1, openAlerts:1, goAlert:1, togglePrivacy:1, goTab:1, cycleCateringScope:1, cycleStatsScope:1, toggleGuestList:1, toggleStatsGroups:1, shareScaletta:1, printScaletta:1 };
+const READONLY_ACTS={ openGuide:1, openAccount:1, openDiag:1, hideTip:1, exportGuestsCsv:1, printTables:1, seatZoomIn:1, seatZoomOut:1, seatZoomReset:1, openAlerts:1, goAlert:1, togglePrivacy:1, goTab:1, cycleCateringScope:1, cycleStatsScope:1, toggleGuestList:1, toggleStatsGroups:1, statDrill:1, shareScaletta:1, printScaletta:1 };
 function actIsMutating(act){ return !READONLY_ACTS[act]; }
 function permBlocks(act){ return !Session.canEdit() && actIsMutating(act); }
 /* ==== fine blocco permessi ==== */
@@ -4209,6 +4256,7 @@ document.addEventListener("click",e=>{ try{
   else if(act==="cycleCateringScope"){ CATERING_SCOPE=CATERING_SCOPE==="conf"?"attesa":(CATERING_SCOPE==="attesa"?"all":"conf"); render(); }
   else if(act==="cycleStatsScope"){ STATS_SCOPE=STATS_SCOPE==="conf"?"attesa":(STATS_SCOPE==="attesa"?"all":"conf"); render(); }
   else if(act==="toggleStatsGroups"){ STATS_GROUPS_ALL=!STATS_GROUPS_ALL; render(); }
+  else if(act==="statDrill"){ openStatDrill(a.getAttribute("data-dim"), a.getAttribute("data-key"), a.getAttribute("data-label")); }
   else if(act==="openAlerts") openAlerts();
   else if(act==="goAlert"){
     if(_alertsModal){ _alertsModal.close(); _alertsModal=null; }

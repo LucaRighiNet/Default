@@ -2278,3 +2278,30 @@ E2E: Condividi genera URL con ?scaletta=, la pagina pubblica rende
 read-only (tab nascosti, nessun editRs, zero overflow), Stampa apre il
 doc; ordinamento 01:00-in-fondo verificato in app. Zero errori JS.
 sw.js v63->v64; APP_BUILD 2026-07-10.23.
+
+## Giro 87 (Claude Code) — Dashboard BI: clic su un valore -> popup coi nomi
+
+Richiesta utente: cliccando un qualsiasi valore della dashboard di business
+intelligence (Composizione ospiti) aprire un popup con la lista dei nomi
+corrispondenti; si chiude con la X o cliccando fuori.
+
+Ogni barra della dashboard (Per lato, Fasce d'età, Gruppi, Stato, Servizi,
+Stato RSVP) e la KPI "Persone totali" ora sono cliccabili
+(data-act="statDrill" con dim/key/label). Nuova funzione pura
+statMembers(scope, dim, key): ritorna i nomi dietro al valore, rispettando
+il filtro attivo (confermati/in attesa/tutti). Dove il valore conta gli
+accompagnatori (+N) — lato, età "Adulto", gruppi, RSVP, navetta — questi
+sono annotati sul nome dell'invitato ("Anna (+2)"), così la somma delle
+persone elencate coincide col numero della barra. Menù speciali/intolleranze
+/accessibilità mostrano anche il dettaglio ("Mario · celiaco").
+
+openStatDrill riusa il motore modal(): chiusura con "✕ Chiudi", con Esc e
+cliccando fuori (backdrop) — già supportati da modal(). statDrill è azione
+in sola lettura (READONLY_ACTS): funziona anche per gli ospiti condivisi.
+
+Verifica: stats_test 13->20 (7 nuovi casi su statMembers: lato con +N,
+età Adulto con soli accompagnatori, rsvp per scope, gruppo/senza gruppo,
+servizi con dettaglio, all, nome mancante); suite completa verde (21 suite).
+E2E 390px: 22 valori cliccabili, popup con 131 nomi, chiusura con X e con
+clic fuori, KPI Persone totali apre l'elenco completo; zero errori JS.
+sw.js v64->v65; APP_BUILD 2026-07-10.24.

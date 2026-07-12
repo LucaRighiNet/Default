@@ -5,7 +5,7 @@ const { sandbox, runner } = require("./_harness");
 
 const START = "/* ============ COMPOSIZIONE OSPITI (business intelligence) ============ */";
 const END = "/* ============ TAVOLI (riepilogo dal Tableau; l'editor è il Tableau) ============ */";
-const EXPORTS = ["guestStats","statEta","statStato"];
+const EXPORTS = ["guestStats","statEta","statStato","statMembers"];
 
 let evState = { guests: [], meta: {} };
 const S = sandbox(START, END, EXPORTS, {
@@ -115,6 +115,45 @@ r.ok("rsvp: breakdown per stato con +1 inclusi (scope all)", () => {
   assert.strictEqual(s.rsvp.conf, 3); // 2 conf + 1 accompagnatore
   assert.strictEqual(s.rsvp.attesa, 1);
   assert.strictEqual(s.rsvp.no, 1);
+});
+
+r.ok("statMembers lato: nomi del lato con +N annotato, somma = heads della barra", () => {
+  evState = { meta:{}, guests:[ G({name:"Anna", side:"A", plusOne:2}), G({name:"Bea", side:"A"}), G({name:"Carlo", side:"B"}) ] };
+  const a=S.statMembers("conf","lato","A");
+  assert.deepStrictEqual(a, ["Anna (+2)","Bea"]);
+  assert.deepStrictEqual(S.statMembers("conf","lato","B"), ["Carlo"]);
+});
+r.ok("statMembers eta Adulto: include invitati adulti e i soli accompagnatori", () => {
+  evState = { meta:{}, guests:[ G({name:"Ada", ptype:"adulto"}), G({name:"Bimbo", ptype:"bambino", plusOne:1}), G({name:"Cesare", ptype:"adulto", plusOne:1}) ] };
+  const a=S.statMembers("conf","eta","Adulto");
+  // Ada (adulto), Cesare adulto con +1, Bimbo contribuisce solo l'accompagnatore
+  assert.deepStrictEqual(a, ["Ada","Bimbo — solo accompagnatori (+1)","Cesare (+1)"]);
+  assert.deepStrictEqual(S.statMembers("conf","eta","Bambino"), ["Bimbo"]);
+});
+r.ok("statMembers rsvp: rispetta lo scope e annota +N", () => {
+  evState = { meta:{}, guests:[ G({name:"A", rsvp:"conf", plusOne:1}), G({name:"B", rsvp:"attesa"}), G({name:"C", rsvp:"no"}) ] };
+  assert.deepStrictEqual(S.statMembers("all","rsvp","conf"), ["A (+1)"]);
+  assert.deepStrictEqual(S.statMembers("all","rsvp","no"), ["C"]);
+});
+r.ok("statMembers gruppo: '— senza gruppo' e gruppi reali", () => {
+  evState = { meta:{}, guests:[ G({name:"A", group:"Amici"}), G({name:"B", group:""}) ] };
+  assert.deepStrictEqual(S.statMembers("conf","grp","Amici"), ["A"]);
+  assert.deepStrictEqual(S.statMembers("conf","grp","— senza gruppo"), ["B"]);
+});
+r.ok("statMembers servizi: navetta con +N, menù speciali/intolleranze annotati", () => {
+  evState = { meta:{}, guests:[ G({name:"A", shuttle:true, plusOne:1, meal:"celiaco", intolerances:"noci"}), G({name:"B", meal:"normale"}) ] };
+  assert.deepStrictEqual(S.statMembers("conf","shuttle",null), ["A (+1)"]);
+  assert.deepStrictEqual(S.statMembers("conf","mealspecial",null), ["A · celiaco"]);
+  assert.deepStrictEqual(S.statMembers("conf","intoll",null), ["A · noci"]);
+});
+r.ok("statMembers all: tutti gli invitati dello scope, con +N", () => {
+  evState = { meta:{}, guests:[ G({name:"A", plusOne:1}), G({name:"B", rsvp:"no"}) ] };
+  assert.deepStrictEqual(S.statMembers("conf","all",null), ["A (+1)"]);
+  assert.strictEqual(S.statMembers("all","all",null).length, 2);
+});
+r.ok("statMembers: nome mancante -> placeholder", () => {
+  evState = { meta:{}, guests:[ G({name:"", side:"A"}) ] };
+  assert.deepStrictEqual(S.statMembers("conf","lato","A"), ["— senza nome"]);
 });
 
 r.done();
