@@ -109,4 +109,12 @@ r.ok("statEta/statStato: fallback e override", () => {
   assert.strictEqual(S.statStato(G({attr:{}})), "");
 });
 
+r.ok("rsvp: breakdown per stato con +1 inclusi (scope all)", () => {
+  evState = { meta:{}, guests:[ G({rsvp:"conf", plusOne:1}), G({rsvp:"attesa"}), G({rsvp:"no"}), G({rsvp:"conf"}) ] };
+  const s=S.guestStats("all");
+  assert.strictEqual(s.rsvp.conf, 3); // 2 conf + 1 accompagnatore
+  assert.strictEqual(s.rsvp.attesa, 1);
+  assert.strictEqual(s.rsvp.no, 1);
+});
+
 r.done();
