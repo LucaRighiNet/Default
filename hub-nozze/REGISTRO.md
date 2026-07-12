@@ -2199,3 +2199,30 @@ completa verde; E2E serpentina 40 avvolta (4 bande, screenshot) + 40/60
 auto-assegnati 100/100 + doc catering con colonna Fila senza overflow;
 regressioni print (tondi) e wizard tutte verdi.
 sw.js v60->v61; APP_BUILD 2026-07-10.20.
+
+## Giro 84 (Claude Code) — Composizione ospiti (business intelligence)
+
+Richiesta utente: sotto "Report catering" (scheda Ospiti) un capitolo non
+logistico ma STATISTICO — capire la composizione del parco invitati per
+decidere su intrattenimento/servizi, con filtri/raggruppamenti.
+
+guestStats(scope) puro (conf/attesa/tutti): coperti con +1 come adulti/
+menù normale/stesso lato/stessa navetta; ripartizioni per lato, fasce
+d'età (da attr.eta o ptype), gruppi ordinati per numerosità, nuclei
+(quanti, max, con bambini), menù, intolleranze, navetta, stato
+single/coppia/famiglia. Genera INSIGHT decisionali: bambini→animazione,
+anziani→volume/accessibilità, giovani→open bar/DJ, navetta→n. bus,
+menù speciali+intolleranze→conferma catering, single→socializzazione,
+gruppo dominante→area dedicata.
+
+Sezione "Composizione ospiti" in Ospiti (sotto Report catering e Navetta)
+con pill scope conf/attesa/tutti e barre proporzionali colorate. Snapshot
+statico "Composizione ospiti (confermati)" aggiunto anche al documento
+catering (per servizi/intrattenimento).
+
+Verifica: nuova suite stats_test 12/12 (scope, +1 nei coperti, età/menù,
+gruppi, nuclei, servizi, insight, casi vuoti); suite completa verde; E2E:
+sezione interattiva sul roster reale (barre lato/età/gruppi/stato/servizi/
+spunti, screenshot), scope conf->attesa, zero overflow; snapshot presente
+nel documento catering. Zero errori JS.
+sw.js v61->v62; APP_BUILD 2026-07-10.21.
