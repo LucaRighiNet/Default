@@ -246,7 +246,7 @@ input[type=checkbox]{accent-color:var(--sea); width:18px; height:18px}
 (function(){
 // Versione visibile della build (ingranaggio -> prima riga). Serve a capire al
 // volo quale versione sta girando su un dispositivo (cache vs deploy).
-const APP_BUILD="2026-07-10.26";
+const APP_BUILD="2026-07-10.27";
 
 /* ============ DIAGNOSTICA / ERROR TRACKING (P0) ============ */
 // Senza backend gli errori di produzione sarebbero invisibili. Diag li cattura in
@@ -1794,11 +1794,11 @@ function budgetForecast(){
   const mk=(key,label,H)=>({key,label,heads:H,cost:proj(H),perHead:H?Math.round(proj(H)/H):0});
   // Più scenari, così il costo si legge anche senza conferme (minimo/previsti).
   const cand=[];
-  if(minG>0)          cand.push(mk("min","Minimo garantito",minG));
-  if(headsConf>0)     cand.push(mk("conf","Confermati",headsConf));
-  if(headsAttesa>0){  cand.push(mk("half","Metà attesa conferma",headsConf+Math.ceil(headsAttesa/2)));
-                      cand.push(mk("all","Tutti gli invitati",headsConf+headsAttesa)); }
-  if(planned>0)       cand.push(mk("planned","Previsti (pianificazione)",planned));
+  if(minG>0)          cand.push(mk("min","Minimo garantito catering",minG));
+  if(headsConf>0)     cand.push(mk("conf","Solo chi ha già confermato",headsConf));
+  if(headsAttesa>0){  cand.push(mk("half","Se metà degli in attesa conferma",headsConf+Math.ceil(headsAttesa/2)));
+                      cand.push(mk("all","Se confermano tutti gli invitati",headsConf+headsAttesa)); }
+  if(planned>0)       cand.push(mk("planned","Ospiti previsti (pianificazione)",planned));
   // Dedup per numero di teste (tiene la prima etichetta), ordina crescente.
   const seen={}, scenarios=[];
   cand.sort((a,b)=>a.heads-b.heads).forEach(s=>{ if(seen[s.heads])return; seen[s.heads]=1; scenarios.push(s); });
@@ -1821,9 +1821,9 @@ function budgetForecast(){
 function budgetForecastCard(){
   const f=budgetForecast();
   if(!f.rateAll && !f.fixedBase) return `<div class="card"><span class="muted" style="font-size:13px">Compila i preventivi (e marca le voci "a coperto") per vedere la proiezione sugli RSVP.</span></div>`;
-  const V={ok:["ok","In linea col budget"], warn:["warn","Vicino al tetto"], over:["no","Rischio sforamento"], na:["todo","Proiezione"]};
+  const V={ok:["ok","Rientri nel budget"], warn:["warn","Vicino al budget massimo"], over:["no","Rischi di sforare il budget"], na:["todo","Proiezione di spesa"]};
   const v=V[f.verdict]||V.na;
-  const band = f.ceiling? ` · tetto ${money(f.ceiling)}${f.verdict==="over"?` · <b>${money(f.worst-f.ceiling)} oltre</b>`:""}`:"";
+  const band = f.ceiling? ` · budget massimo ${money(f.ceiling)}${f.verdict==="over"?` · <b>${money(f.worst-f.ceiling)} oltre</b>`:""}`:"";
   const scRows=f.scenarios.map(s=>{
     const over=f.ceiling&&s.cost>f.ceiling;
     return `<tr><td>${esc(s.label)}</td><td class="num">${dnum(s.heads)}</td><td class="num">${money(s.cost)}</td><td class="num">${money(s.perHead)}</td><td>${f.ceiling?`<span class="pill ${over?"no":"ok"}">${over?"oltre":"ok"}</span>`:"<span class='muted'>—</span>"}</td></tr>`;
@@ -1831,20 +1831,20 @@ function budgetForecastCard(){
   return `<div class="card" style="border-left:4px solid var(--${f.verdict==="over"?"no":(f.verdict==="warn"?"gold":(f.verdict==="ok"?"sea":"line"))})">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
       <div><span class="pill ${v[0]}">${v[1]}</span></div>
-      <div class="muted" style="font-size:12px">Proiezione peggiore (${dnum(f.worstHeads)} coperti): <b style="color:var(--ink)">${money(f.worst)}</b>${band}</div>
+      <div class="muted" style="font-size:12px">Nello scenario più caro (${dnum(f.worstHeads)} coperti) spendi <b style="color:var(--ink)">${money(f.worst)}</b>${band}</div>
     </div>
     <div class="grid cards" style="grid-template-columns:1fr 1fr 1fr;margin-top:10px">
-      <div class="card kpi"><div class="v">${f.rateAll?money(f.rateAll):"—"}</div><div class="l">Costo di ogni invitato in più (a coperto)</div></div>
-      <div class="card kpi"><div class="v">${f.perHeadRef?money(f.perHeadRef):"—"}</div><div class="l">Costo medio a invitato, tutto incluso${f.perHeadRefLabel?` · ${esc(f.perHeadRefLabel.replace(/\s*\(.*\)/,"").toLowerCase())}`:""}</div></div>
-      <div class="card kpi"><div class="v">${money(f.cateringRate)}</div><div class="l">Catering a coperto${f.cateringName?` · ${esc(f.cateringName)}`:""}</div></div>
+      <div class="card kpi"><div class="v">${f.rateAll?money(f.rateAll):"—"}</div><div class="l">Quanto costa un invitato in più <span class="muted" style="font-weight:400">(solo voci a coperto)</span></div></div>
+      <div class="card kpi"><div class="v">${f.perHeadRef?money(f.perHeadRef):"—"}</div><div class="l">Costo medio a testa, tutto incluso${f.perHeadRefLabel?` <span class="muted" style="font-weight:400">(scenario: ${esc(f.perHeadRefLabel.replace(/\s*\(.*\)/,"").toLowerCase())})</span>`:""}</div></div>
+      <div class="card kpi"><div class="v">${money(f.cateringRate)}</div><div class="l">Prezzo del catering a coperto <span class="muted" style="font-weight:400">(preventivo ÷ ospiti previsti)</span></div></div>
     </div>
-    ${f.minG?`<div class="card" style="margin-top:2px;${f.emptyCovers>0?'':'opacity:.85'}"><h3 style="font-size:14px">Minimo garantito catering: ${dnum(f.minG)} coperti</h3>
+    ${f.minG?`<div class="card" style="margin-top:2px;${f.emptyCovers>0?'':'opacity:.85'}"><h3 style="font-size:14px">Minimo garantito catering: ${dnum(f.minG)} coperti <span class="muted" style="font-weight:400;font-size:12px">(li paghi anche se confermi meno persone)</span></h3>
       ${f.emptyCovers>0
-        ? `<div style="font-size:13px">Confermati ora <b>${dnum(f.headsConf)}</b> → paghi comunque <b>${dnum(f.minG)}</b>: <b style="color:var(--no)">${dnum(f.emptyCovers)} coperti a vuoto ≈ ${money(f.wasted)}</b>. Servono ancora ${dnum(f.emptyCovers)} conferme per non sprecarli.</div>`
-        : `<div class="muted" style="font-size:13px">Confermati ${dnum(f.headsConf)} ≥ minimo: nessun coperto pagato a vuoto. ✓</div>`}
+        ? `<div style="font-size:13px">Confermati finora <b>${dnum(f.headsConf)}</b>, ma paghi comunque <b>${dnum(f.minG)}</b> coperti: <b style="color:var(--no)">${dnum(f.emptyCovers)} pasti pagati a vuoto ≈ ${money(f.wasted)}</b>. Ti servono ancora ${dnum(f.emptyCovers)} conferme per non sprecarli.</div>`
+        : `<div class="muted" style="font-size:13px">Confermati ${dnum(f.headsConf)}, sopra il minimo di ${dnum(f.minG)}: nessun pasto pagato a vuoto. ✓</div>`}
     </div>`:""}
-    <div class="scroll-x" style="margin-top:8px"><table class="tbl"><thead><tr><th>Scenario RSVP</th><th class="num">Coperti</th><th class="num">Costo proiettato</th><th class="num">€/invitato</th><th></th></tr></thead><tbody>${scRows}</tbody></table></div>
-    <div class="muted" style="font-size:11px;margin-top:6px">Stima: voci "a coperto" scalate sulle teste (accompagnatori inclusi), fisse invariate, minimo garantito sul catering. "€/invitato" = costo medio tutto incluso a quel numero di coperti. I preventivi restano la verità.</div>
+    <div class="scroll-x" style="margin-top:8px"><table class="tbl"><thead><tr><th>Se alla fine vengono…</th><th class="num">Coperti</th><th class="num">Spesa totale stimata</th><th class="num">A testa</th><th></th></tr></thead><tbody>${scRows}</tbody></table></div>
+    <div class="muted" style="font-size:11px;margin-top:6px">Come leggerla: le voci "a coperto" (catering, navetta…) crescono col numero di persone, le voci fisse (fiori, foto…) no. Il minimo garantito si applica al catering. "A testa" = spesa totale ÷ coperti di quello scenario. Restano stime: i tuoi preventivi sono la verità.</div>
   </div>`;
 }
 // Comprimi/espandi le voci di spesa (sono ~50: evita scroll infinito verso i
