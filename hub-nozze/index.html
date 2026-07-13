@@ -250,7 +250,7 @@ input[type=checkbox]{accent-color:var(--sea); width:18px; height:18px}
 (function(){
 // Versione visibile della build (ingranaggio -> prima riga). Serve a capire al
 // volo quale versione sta girando su un dispositivo (cache vs deploy).
-const APP_BUILD="2026-07-10.34";
+const APP_BUILD="2026-07-10.35";
 
 /* ============ DIAGNOSTICA / ERROR TRACKING (P0) ============ */
 // Senza backend gli errori di produzione sarebbero invisibili. Diag li cattura in
@@ -3187,7 +3187,10 @@ function vendorCard(v){
 let DEC_SHOWHIDDEN=false;
 function vendorDeadlinesCard(){
   const dls=vendorDeadlines(); if(!dls.length) return "";
-  const shown=dls.filter(dl=>!dl.off||DEC_SHOWHIDDEN), hidden=dls.filter(dl=>dl.off);
+  // Ordina per SCADENZA crescente (la più vicina in alto): è uno scadenzario,
+  // non un elenco per categoria. A parità di data, ordine alfabetico.
+  const byDate=(a,b)=> (a.deadline||"").localeCompare(b.deadline||"") || a.cat.localeCompare(b.cat);
+  const shown=dls.filter(dl=>!dl.off||DEC_SHOWHIDDEN).sort(byDate), hidden=dls.filter(dl=>dl.off).sort(byDate);
   const anyCustom=dls.some(dl=>dl.custom);
   const rows=shown.map(dl=>{
     let pill;

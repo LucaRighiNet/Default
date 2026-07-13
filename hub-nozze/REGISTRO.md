@@ -2545,3 +2545,15 @@ Verifica: suite completa verde (24 suite; i18n_test 5/5 invariato). E2E 390px:
 il menu non ha più il selettore; forzando lang=en nello stato e ricaricando, i
 tab tornano italiani senza residui inglesi; zero errori JS. sw.js v74->v75;
 APP_BUILD 2026-07-10.34.
+
+## Giro 98 (Claude Code) — Scadenzario decisioni ordinato per data
+
+Domanda utente: perché lo scadenzario non è in ordine di data? Verifica: era
+ordinato per CATEGORIA (ordine fisso di VCATS), non per scadenza, quindi le date
+saltavano. Corretto: ordino le righe per deadline crescente (la più vicina in
+alto), con pareggio alfabetico sulla categoria. Solo il layer di rendering
+(vendorDeadlinesCard); vendorDeadlines/avvisi invariati.
+
+Verifica: suite completa verde (24 suite; decisions_test cerca per categoria,
+indifferente all'ordine). E2E 390px: le 11 date risultano crescenti (17 lug
+2026 -> 17 apr 2027); zero errori JS. sw.js v75->v76; APP_BUILD 2026-07-10.35.
