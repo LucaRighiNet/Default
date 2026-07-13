@@ -249,7 +249,7 @@ input[type=checkbox]{accent-color:var(--sea); width:18px; height:18px}
 (function(){
 // Versione visibile della build (ingranaggio -> prima riga). Serve a capire al
 // volo quale versione sta girando su un dispositivo (cache vs deploy).
-const APP_BUILD="2026-07-10.37";
+const APP_BUILD="2026-07-10.38";
 
 /* ============ DIAGNOSTICA / ERROR TRACKING (P0) ============ */
 // Senza backend gli errori di produzione sarebbero invisibili. Diag li cattura in
@@ -1133,16 +1133,44 @@ function budgetAdvisor(){
   });
   const denom=d.ceiling||tot||1;
   const rows=BUDGET_BENCH.map(x=>{
+    const t=benchTarget(x.id);
     const val=sums[x.id]||0, pct=Math.round(val*100/denom);
     let verdict="—";
-    if(val>0) verdict=pct>x.hi?"sopra":(pct<x.lo?"sotto":"ok");
-    return {id:x.id, name:x.name, val:val, pct:pct, lo:x.lo, hi:x.hi, verdict:verdict};
+    if(val>0) verdict=pct>t.hi?"sopra":(pct<t.lo?"sotto":"ok");
+    return {id:x.id, name:x.name, col:x.col, val:val, pct:pct, lo:t.lo, hi:t.hi, verdict:verdict, custom:benchIsCustom(x.id)};
   });
   // proiezione: per le macro-voci chiave ancora a zero, ipotizza il punto medio del range
   let projected=tot;
   rows.forEach(rw=>{ if(rw.val===0) projected+=Math.round(denom*(rw.lo+rw.hi)/200); });
   return {rows:rows, unclassified:unclassified, total:tot, denom:denom, projected:projected};
 }
+/* ============ ANALISI: target benchmark personalizzabili ============ */
+// I range % "tipici" (lo-hi) delle macro-voci sono di DEFAULT quelli di prassi
+// (BUDGET_BENCH). La coppia può ritararli per il proprio stile: l'override vive
+// in e.benchTargets[id]={lo?,hi?} (per-evento), unica fonte per analisi e
+// proiezione. Non si CREANO macro-voci nuove (il benchmark è dato di dominio);
+// si personalizzano le 9 esistenti.
+function benchTarget(id){
+  const def=BUDGET_BENCH.find(x=>x.id===id)||{lo:0,hi:0};
+  const o=((ev().benchTargets)||{})[id]||{};
+  return { lo:(o.lo!=null?+o.lo:def.lo), hi:(o.hi!=null?+o.hi:def.hi) };
+}
+function benchIsCustom(id){
+  const def=BUDGET_BENCH.find(x=>x.id===id)||{lo:0,hi:0}, t=benchTarget(id);
+  return t.lo!==def.lo || t.hi!==def.hi;
+}
+// Salva solo lo scostamento dal default; normalizza 0-100 e lo<=hi.
+function benchSet(id, lo, hi){
+  const e=ev(); e.benchTargets=e.benchTargets||{};
+  const def=BUDGET_BENCH.find(x=>x.id===id); if(!def) return;
+  lo=Math.max(0,Math.min(100,Math.round(+lo||0))); hi=Math.max(0,Math.min(100,Math.round(+hi||0)));
+  if(hi<lo){ const t=lo; lo=hi; hi=t; }
+  const diff={};
+  if(lo!==def.lo) diff.lo=lo;
+  if(hi!==def.hi) diff.hi=hi;
+  if(Object.keys(diff).length) e.benchTargets[id]=diff; else delete e.benchTargets[id];
+}
+/* ============ fine target benchmark ============ */
 /* ---- Meteo (I4): Open-Meteo, gratuito e senza chiave ---- */
 // Località di riferimento: l'indirizzo del fornitore LOCATION CONFERMATO
 // comanda; in mancanza, l'intestazione evento. Ritorna la città (ultima
@@ -1815,14 +1843,35 @@ function budgetAdvisorCard(){
   const P={ok:["ok","in linea"],sopra:["no","sopra"],sotto:["warn","sotto"],"—":["todo","—"]};
   const rows=a.rows.filter(r=>r.val>0||r.lo>=4).map(r=>{
     const p=P[r.verdict]||P["—"];
-    return `<tr><td>${esc(r.name)}</td><td class="num">${r.val?money(r.val):"—"}</td><td class="num">${r.val?r.pct+"%":"—"}</td><td class="num muted">${r.lo}–${r.hi}%</td><td><span class="pill ${p[0]}">${p[1]}</span></td></tr>`;
+    return `<tr><td><span class="gdot" style="background:${r.col};margin-right:6px;vertical-align:middle"></span>${esc(r.name)}</td><td class="num">${r.val?money(r.val):"—"}</td><td class="num">${r.val?r.pct+"%":"—"}</td><td class="num muted">${r.lo}–${r.hi}%${r.custom?' <span title="Personalizzato" style="color:var(--sea)">•</span>':""}</td><td><span class="pill ${p[0]}">${p[1]}</span></td></tr>`;
   }).join("");
   return `<div class="card">
     <div class="scroll-x"><table class="tbl"><thead><tr><th>Macro-voce</th><th class="num">Impegnato</th><th class="num">Quota</th><th class="num">Tipico</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
     ${a.unclassified?`<div class="muted" style="font-size:12px;margin-top:6px">Voci non classificate: ${money(a.unclassified)} (fuori analisi, nessun automatismo).</div>`:""}
     <div style="font-size:13px;margin-top:6px">Proiezione di spesa finale plausibile (macro-voci mancanti al valore tipico): <b>${money(a.projected)}</b></div>
-    <div class="muted" style="font-size:11px;margin-top:3px">Benchmark indicativi per matrimoni in Italia: i tuoi preventivi restano la verità. Solo informativo, non modifica nulla.</div>
+    <div class="muted" style="font-size:11px;margin-top:3px">La colonna "Tipico" sono i target % con cui l'analisi giudica: di default i valori di prassi per l'Italia, ma con "Personalizza" li adatti al vostro stile. I tuoi preventivi restano la verità.</div>
   </div>`;
+}
+// Editor dei target % (personalizza le 9 macro-voci; non se ne creano di nuove).
+function editBenchTargets(){
+  const rows=BUDGET_BENCH.map(x=>{ const t=benchTarget(x.id);
+    return `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--line)">
+      <span class="gdot" style="background:${x.col};flex:0 0 auto"></span>
+      <span style="flex:1;min-width:0;font-size:13px">${esc(x.name)}</span>
+      <input class="inp" type="number" id="bt_lo_${x.id}" value="${t.lo}" min="0" max="100" inputmode="numeric" style="width:56px;padding:6px" aria-label="minimo ${esc(x.name)}">
+      <span class="muted">–</span>
+      <input class="inp" type="number" id="bt_hi_${x.id}" value="${t.hi}" min="0" max="100" inputmode="numeric" style="width:56px;padding:6px" aria-label="massimo ${esc(x.name)}">
+      <span class="muted" style="font-size:12px">%</span>
+    </div>`;
+  }).join("");
+  modal("Personalizza i target %",
+    `<p class="muted" style="font-size:12px;margin:-2px 0 6px">Le percentuali sul budget massimo con cui l'analisi giudica "in linea / sopra / sotto" e stima la spesa finale. La somma dei massimi di solito è ~100%. Vuoto/uguali = torna al default.</p>${rows}`,
+    [{label:"Ripristina",cls:"ghost",fn:()=>{ ev().benchTargets={}; commit("Target ripristinati"); }},
+     {label:"Annulla"},
+     {label:"Salva",cls:"",fn:()=>{
+        BUDGET_BENCH.forEach(x=>{ benchSet(x.id, $("#bt_lo_"+x.id).value, $("#bt_hi_"+x.id).value); });
+        commit("Target aggiornati");
+     }}]);
 }
 /* ============ BUDGET: PROIEZIONE & SCENARI (predittivo) ============ */
 // Funzione PURA (testabile): proietta il costo finale in base agli RSVP reali.
@@ -1894,7 +1943,7 @@ function budgetForecastCard(){
     <div class="grid cards" style="grid-template-columns:1fr 1fr 1fr;margin-top:10px">
       <div class="card kpi"><div class="v">${f.rateAll?money(f.rateAll):"—"}</div><div class="l">Quanto costa un invitato in più <span class="muted" style="font-weight:400">(solo voci a coperto)</span></div></div>
       <div class="card kpi"><div class="v">${f.perHeadRef?money(f.perHeadRef):"—"}</div><div class="l">Costo medio a testa, tutto incluso${f.perHeadRefLabel?` <span class="muted" style="font-weight:400">(scenario: ${esc(f.perHeadRefLabel.replace(/\s*\(.*\)/,"").toLowerCase())})</span>`:""}</div></div>
-      <div class="card kpi"><div class="v">${money(f.cateringRate)}</div><div class="l">Prezzo del catering a coperto <span class="muted" style="font-weight:400">(preventivo ÷ ospiti previsti)</span></div></div>
+      <div class="card kpi"><div class="v">${money(f.cateringRate)}</div><div class="l">Prezzo del catering a coperto <span class="muted" style="font-weight:400">(tariffa a persona, modificabile nella voce)</span></div></div>
     </div>
     ${f.minG?`<div class="card" style="margin-top:2px;${f.emptyCovers>0?'':'opacity:.85'}"><h3 style="font-size:14px">Minimo garantito catering: ${dnum(f.minG)} coperti <span class="muted" style="font-weight:400;font-size:12px">(li paghi anche se confermi meno persone)</span></h3>
       ${f.emptyCovers>0
@@ -1989,7 +2038,7 @@ function viewBudget(){
   <div class="sec-title" style="margin-top:14px"><h2>Proiezione & scenari</h2><span class="pill">predittivo</span></div>
   ${budgetForecastCard()}
 
-  <div class="sec-title" style="margin-top:14px"><h2>Analisi intelligente</h2><span class="pill">benchmark Italia</span></div>
+  <div class="sec-title" style="margin-top:14px"><h2>Analisi intelligente</h2><span><button class="btn sm ghost" data-act="editBench">Personalizza</button> <span class="pill">${BUDGET_BENCH.some(x=>benchIsCustom(x.id))?"target personalizzati":"benchmark Italia"}</span></span></div>
   ${budgetAdvisorCard()}
   `;
 }
@@ -3912,6 +3961,7 @@ function editBudget(id){
        <div class="field"><label>Preventivo (€)</label><input class="inp" type="number" id="f_quote" value="${b.quote||0}"></div>
        <div class="field"><label>Effettivo (€)</label><input class="inp" type="number" id="f_act" value="${b.actual||0}"></div>
      </div>
+     <div class="field"><label>Prezzo a coperto (€) <span class="muted" style="font-size:11px">(vuoto = costo fisso; se compilato, la voce scala col numero di ospiti)</span></label><input class="inp" type="number" id="f_perhead" min="0" value="${b.costType==="perGuest"?(b.perHead||""):""}" inputmode="numeric" placeholder="es. 100"></div>
      <div class="field"><label>Stato</label><select class="inp" id="f_paid"><option value="0"${!b.paid?" selected":""}>Da pagare</option><option value="1"${b.paid?" selected":""}>Pagata</option></select></div>
      <div class="field"><label>Macro-voce <span class="muted" style="font-size:11px">(analisi intelligente)</span></label>
        <select class="inp" id="f_macro">
@@ -3929,6 +3979,10 @@ function editBudget(id){
       if(!cur){ toast("Voce non più presente (aggiornata da un altro dispositivo)"); return; }
       cur.item=$("#f_item").value.trim();
       cur.quote=+$("#f_quote").value||0; cur.actual=+$("#f_act").value||0; cur.paid=$("#f_paid").value==="1";
+      // Prezzo a coperto: >0 -> voce "a coperto" (scala con gli ospiti); vuoto -> costo fisso.
+      const ph=Math.max(0, +$("#f_perhead").value||0);
+      if(ph>0){ cur.costType="perGuest"; cur.perHead=ph; }
+      else if(cur.costType==="perGuest"){ cur.costType="fixed"; cur.perHead=0; }
       const mv=$("#f_macro").value; if(mv) cur.macro=mv; else delete cur.macro; // "" = automatica
       commit("Voce aggiornata");
     }}]);
@@ -4779,6 +4833,7 @@ document.addEventListener("click",e=>{ try{
   else if(act==="guestsBy") setGuestBy(a.getAttribute("data-by"));
   else if(act==="toggleGuestList") toggleGuestList();
   else if(act==="toggleBudgetList") toggleBudgetList();
+  else if(act==="editBench") editBenchTargets();
   else if(act==="editDecision") editDecision(a.getAttribute("data-cat"));
   else if(act==="resetDecisions") resetDecisions();
   else if(act==="toggleHiddenDecisions"){ DEC_SHOWHIDDEN=!DEC_SHOWHIDDEN; render(); }

@@ -2590,3 +2590,29 @@ Verifica: suite completa verde (24 suite). E2E 390px: default Torta->Torta con
 pallino colorato; override a "Foto e video" (label+colore cambiano) e persiste
 al reload; "fuori analisi"; ritorno ad Automatica; zero errori JS. sw.js
 v77->v78; APP_BUILD 2026-07-10.37.
+
+## Giro 101 (Claude Code) — Target benchmark personalizzabili + prezzo a coperto modificabile
+
+Due cose. (A) "Procedi con la tua idea": pannello per ritarare i target % delle
+9 macro-voci (non se ne creano di nuove: il benchmark è dato di dominio).
+Nuove funzioni pure benchTarget/benchIsCustom/benchSet (override in
+e.benchTargets[id]={lo?,hi?}, salva-solo-diff, normalizza 0-100 e lo<=hi);
+budgetAdvisor ora usa i target effettivi (analisi + proiezione coerenti).
+Bottone "Personalizza" nel titolo Analisi intelligente -> editor con pallino
+colore + lo/hi per voce, Ripristina; pill "target personalizzati"; "•" sulle
+righe custom; pallino colore anche nella tabella analisi.
+
+(B) Bug segnalato: cambiando gli ospiti previsti, il "prezzo del catering a
+coperto" in Proiezione & scenari non cambia. Diagnosi: NON è un bug di calcolo
+— la tariffa a coperto è un PREZZO UNITARIO (perHead), fisso per contratto; a
+cambiare col numero di ospiti è il TOTALE (scenario "Previsti") e il costo medio
+a testa, non la tariffa. Il difetto era l'ETICHETTA fuorviante "(preventivo ÷
+ospiti previsti)" -> corretta in "(tariffa a persona, modificabile nella voce)".
+Inoltre mancava il controllo: aggiunto in Modifica voce il campo "Prezzo a
+coperto (€)" (vuoto = costo fisso; compilato = la voce scala con gli ospiti),
+che setta perHead/costType. Così la tariffa si cambia direttamente.
+
+Verifica: nuova suite bench_test 6/6; suite completa verde (25 suite). E2E 390px:
+Foto e video 8-12% -> 10-18% con pill "personalizzati" e Ripristina; prezzo
+catering a coperto 100->130 € modificando la voce, persistente; zero errori JS.
+sw.js v78->v79; APP_BUILD 2026-07-10.38.
