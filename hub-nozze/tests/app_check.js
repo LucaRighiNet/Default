@@ -1508,6 +1508,7 @@ function viewDash(){
   const alerts=alertsCompute(); // stessa fonte della campanella
   const pct=d.ceiling?Math.min(100,Math.round(d.committed/d.ceiling*100)):0;
   return `
+  ${setupCard()}
   <div class="grid cards">
     <div class="card kpi" data-act="goTab" data-target="budget" role="link" title="Apri Budget & Finanze"><div class="v">${blurMoney("k_ceiling",money(d.ceiling))}</div><div class="l">Budget massimo (preventivi + ${m.contingencyPct}% imprevisti)</div></div>
     <div class="card kpi" data-act="goTab" data-target="budget" role="link" title="Apri Budget & Finanze"><div class="v">${blurMoney("k_committed",money(d.committed))}</div><div class="l">Impegnato (spese o preventivi accettati)</div>
@@ -4005,7 +4006,14 @@ function exportEvent(){
 function importEvent(){
   const inp=document.createElement("input"); inp.type="file"; inp.accept="application/json";
   inp.onchange=()=>{ const f=inp.files[0]; if(!f) return; const r=new FileReader();
-    r.onload=()=>{ try{ const s=JSON.parse(r.result); if(s&&s.events){ STATE=s; commit("Evento importato"); } else toast("File non valido"); }catch(e){ toast("File non valido"); } };
+    r.onload=()=>{ try{ const s=JSON.parse(r.result);
+      if(s&&s.events){
+        // MERGE additivo: aggiunge/aggiorna gli eventi del file senza cancellare
+        // quelli già presenti (stesso id -> aggiornato). Passa a quello importato.
+        let n=0; Object.keys(s.events).forEach(k=>{ STATE.events[k]=s.events[k]; n++; });
+        if(s.activeEventId&&STATE.events[s.activeEventId]) STATE.activeEventId=s.activeEventId;
+        commit(n>1?(n+" eventi importati"):"Evento importato");
+      } else toast("File non valido"); }catch(e){ toast("File non valido"); } };
     r.readAsText(f); };
   inp.click();
 }
@@ -4015,31 +4023,147 @@ function resetEvent(){
     [{label:"Esporta prima",cls:"ghost",fn:()=>exportEvent(),close:false},
      {label:"Reset comunque",cls:"danger",fn:()=>{ STATE=seedState(); commit("Evento ripristinato al seed"); }}]);
 }
-function newEvent(){
-  modal("Nuovo evento vuoto",
-    `<p>Crea un evento generico vuoto (motore riutilizzabile). Esporta prima l'evento attuale se vuoi conservarlo.</p>`,
-    [{label:"Esporta attuale",cls:"ghost",fn:()=>exportEvent(),close:false},
-     {label:"Crea vuoto",cls:"",fn:()=>{
-        const s=seedState(); const e=s.events.rb27;
-        // Svuotamento COMPLETO: il seed riempie anche vendors/tasks/lists/tables/
-        // sim/seating, che prima restavano e rendevano l'evento solo parzialmente
-        // vuoto (handoff 8.1). Azzerati tutti i dati specifici dell'evento.
-        e.budget.forEach(b=>{b.quote=0;b.actual=0;b.paid=false;}); e.guests=[]; e.payments=[];
-        e.vendors=[]; e.tasks=[]; e.lists=[]; e.tables=[]; e.runshow=[];
-        e.sim.scenarios=[]; e.seating.rules=[];
-        // Una stazione generica di default invece delle 4 specifiche del seed,
-        // cosi' il simulatore parte usabile ma non eredita dati altrui.
-        e.sim.stations=[{id:1,name:"Bar / Bere",service:25,pop:1.5,servers:3,welcome:true,lines:1,color:"#2563eb"}];
-        e.sim.seq=1;
-        e.meta.coupleA="Sposo"; e.meta.coupleB="Sposa"; e.meta.groom=""; e.meta.venue="Location";
-        e.meta.contacts=[]; STATE=s; commit("Nuovo evento creato");
-     }}]);
+/* ============ MULTI-EVENTO: gestione, creazione, guida ============ */
+// L'app è multi-evento: STATE.events{} contiene TUTTI gli eventi, activeEventId
+// quello mostrato. Creare un nuovo evento è ADDITIVO (il precedente resta
+// archiviato, non viene sovrascritto). Queste funzioni sono l'unico punto che
+// tocca l'elenco eventi; le pure sono testabili in isolamento.
+function evNewId(){ return "ev"+Date.now().toString(36)+Math.floor(Math.random()*1000).toString(36); }
+// Evento vuoto pulito: parte dallo scheletro del seed e azzera TUTTI i dati
+// specifici, così il motore è pronto ma non eredita nulla dall'evento vecchio.
+function evBlank(id){
+  const s=seedState(), e=s.events.rb27;
+  e.id=id;
+  (e.budget||[]).forEach(b=>{ b.quote=0; b.actual=0; b.paid=false; });
+  e.guests=[]; e.payments=[]; e.vendors=[]; e.tasks=[]; e.lists=[]; e.tables=[]; e.runshow=[];
+  if(e.sim){ e.sim.scenarios=[]; e.sim.stations=[{id:1,name:"Bar / Bere",service:25,pop:1.5,servers:3,welcome:true,lines:1,color:"#2563eb"}]; e.sim.seq=1; }
+  if(e.seating) e.seating.rules=[];
+  e.decisions={};
+  e.meta.coupleA="Sposo"; e.meta.coupleB="Sposa"; e.meta.groom=""; e.meta.venue="Location"; e.meta.venueAddr=""; e.meta.date=""; e.meta.contacts=[];
+  e.fresh=true; // fa comparire il pannello "inizia da qui" finché è vuoto
+  delete e.setupHidden;
+  return e;
 }
+function eventSummary(e){ const m=(e&&e.meta)||{}; return { id:e&&e.id, name:((m.coupleA||"Sposo")+" × "+(m.coupleB||"Sposa")), date:m.date||"", venue:m.venue||"", guests:((e&&e.guests)||[]).length }; }
+function eventIsFresh(e){ return !!(e&&e.fresh); }
+// Passi minimi per avviare un evento; done calcolato dai dati reali.
+function setupSteps(e){
+  e=e||{}; const m=e.meta||{};
+  const named=!!(m.coupleA&&m.coupleA!=="Sposo"&&m.coupleB&&m.coupleB!=="Sposa");
+  const dated=!!m.date;
+  const guests=!!(e.guests&&e.guests.length);
+  const budget=(e.budget||[]).some(b=>(+b.quote>0)||(+b.actual>0));
+  return [
+    {k:"header", done:named&&dated, label:"Nomi degli sposi e data"},
+    {k:"guests", done:guests,       label:"Aggiungi gli invitati"},
+    {k:"budget", done:budget,       label:"Imposta il budget"}
+  ];
+}
+function setupAllDone(e){ return setupSteps(e).every(s=>s.done); }
+function switchEvent(id){ if(STATE.events[id]){ STATE.activeEventId=id; commit("Sei su: "+eventSummary(STATE.events[id]).name); } }
+function duplicateEvent(id){
+  const src=STATE.events[id]; if(!src) return;
+  const copy=JSON.parse(JSON.stringify(src)); const nid=evNewId();
+  copy.id=nid; copy.meta=copy.meta||{}; copy.meta.coupleA=(copy.meta.coupleA||"Sposo")+" (copia)";
+  copy.fresh=false; delete copy.setupHidden;
+  STATE.events[nid]=copy; STATE.activeEventId=nid; commit("Evento duplicato");
+}
+function deleteEventById(id){
+  const ids=Object.keys(STATE.events); if(ids.length<=1) return false; // mai lasciare 0 eventi
+  delete STATE.events[id];
+  if(STATE.activeEventId===id) STATE.activeEventId=Object.keys(STATE.events)[0];
+  return true;
+}
+function newEventBlank(){
+  const id=evNewId(); STATE.events[id]=evBlank(id); STATE.activeEventId=id;
+  commit("Nuovo evento creato"); editEventHeader(); // primo passo guidato: nomi + data
+}
+/* ============ fine multi-evento ============ */
+function newEvent(){
+  modal("Nuovo evento",
+    `<p>Creo un nuovo evento vuoto e ti ci porto dentro. <b>Il matrimonio attuale non viene toccato</b>: resta archiviato in "I miei eventi", puoi tornarci quando vuoi.</p>`,
+    [{label:"Annulla"},{label:"Crea e inizia",cls:"",close:false,fn:()=>{ newEventBlank(); }}]);
+}
+function renameEvent(id){
+  const e=STATE.events[id]; if(!e) return; const m=e.meta||(e.meta={});
+  modal("Rinomina evento",
+    `<div class="two">
+       <div class="field"><label>Nome 1 <span class="muted" style="font-size:11px">(lato A)</span></label><input class="inp" id="rn_a" value="${esc(m.coupleA||"")}"></div>
+       <div class="field"><label>Nome 2 <span class="muted" style="font-size:11px">(lato B)</span></label><input class="inp" id="rn_b" value="${esc(m.coupleB||"")}"></div>
+     </div>
+     <div class="field"><label>Location</label><input class="inp" id="rn_venue" value="${esc(m.venue||"")}"></div>
+     <div class="field"><label>Data</label><input class="inp" type="date" id="rn_date" value="${esc(m.date||"")}"></div>`,
+    [{label:"Annulla"},{label:"Salva",cls:"",fn:()=>{
+       m.coupleA=($("#rn_a").value||"").trim()||"Sposo"; m.coupleB=($("#rn_b").value||"").trim()||"Sposa";
+       m.venue=($("#rn_venue").value||"").trim(); const d=($("#rn_date").value||"").trim(); m.date=d;
+       commit("Evento aggiornato"); openEvents();
+    }}]);
+}
+function exportOneEvent(id){
+  const e=STATE.events[id]; if(!e) return; const s={schema:1, activeEventId:id, events:{}}; s.events[id]=e;
+  const m=e.meta||{}; const blob=new Blob([JSON.stringify(s,null,2)],{type:"application/json"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+  a.download="hub_nozze_"+((m.coupleA||"evento")+"_"+(m.coupleB||"")).replace(/\s+/g,"")+".json"; a.click();
+  toast("Evento esportato");
+}
+function confirmDeleteEvent(id){
+  const e=STATE.events[id]; if(!e) return; const s=eventSummary(e);
+  if(Object.keys(STATE.events).length<=1){ toast("È l'unico evento: non puoi eliminarlo"); return; }
+  modal("Eliminare questo evento?",
+    `<p>Rimuovo <b>${esc(s.name)}</b> (${s.guests} invitati) in modo definitivo. Se vuoi conservarlo, esportalo prima.</p>`,
+    [{label:"Esporta prima",cls:"ghost",fn:()=>exportOneEvent(id),close:false},
+     {label:"Annulla"},
+     {label:"Elimina",cls:"danger",fn:()=>{ if(deleteEventById(id)) commit("Evento eliminato"); openEvents(); }}]);
+}
+function openEvents(){
+  const ids=Object.keys(STATE.events);
+  const rows=ids.map(id=>{
+    const s=eventSummary(STATE.events[id]), active=(id===STATE.activeEventId);
+    return `<div class="card" style="margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
+        <div style="min-width:0"><b>${esc(s.name)}</b> ${active?'<span class="pill ok">attivo</span>':''}</div>
+      </div>
+      <div class="muted" style="font-size:12px;margin:2px 0 8px">${s.date?fdate(s.date):"data da definire"}${s.venue&&s.venue!=="Location"?" · "+esc(s.venue):""} · ${s.guests} invitati</div>
+      <div style="display:flex;gap:5px;flex-wrap:wrap">
+        ${active?'<span class="btn sm" style="opacity:.5;pointer-events:none">In uso</span>':`<button class="btn sm" data-act="evActivate" data-id="${id}">Apri</button>`}
+        <button class="btn sm ghost" data-act="evRename" data-id="${id}">Rinomina</button>
+        <button class="btn sm ghost" data-act="evDup" data-id="${id}">Duplica</button>
+        <button class="btn sm ghost" data-act="evExport" data-id="${id}">Esporta</button>
+        ${ids.length>1?`<button class="btn sm danger" data-act="evDelete" data-id="${id}">Elimina</button>`:''}
+      </div></div>`;
+  }).join("");
+  modal("I miei eventi",
+    rows+`<div style="text-align:center;margin-top:4px"><button class="btn" data-act="evNew">+ Nuovo evento</button></div>
+    <p class="muted" style="font-size:11px;margin-top:8px">Ogni evento è indipendente e resta archiviato qui. "Esporta" salva un file del singolo evento (ricaricabile con Importa).</p>`,
+    [{label:"Chiudi"}]);
+}
+// Pannello "inizia da qui": compare solo sugli eventi nuovi finché non sono avviati.
+function setupCard(){
+  const e=ev(); if(!eventIsFresh(e)||e.setupHidden||setupAllDone(e)) return "";
+  const steps=setupSteps(e), done=steps.filter(s=>s.done).length;
+  return `<div class="card" style="border-left:4px solid var(--sea);margin-bottom:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center"><h3 style="margin:0">Inizia da qui · nuovo evento</h3><span class="muted" style="font-size:12px">${done}/${steps.length}</span></div>
+    <div class="muted" style="font-size:13px;margin:6px 0 4px">Popola il nuovo evento in pochi passi:</div>
+    ${steps.map(s=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line)">
+      <span style="font-size:14px">${s.done?'✓':'○'} ${esc(s.label)}</span>
+      ${s.done?'<span class="pill ok">fatto</span>':`<button class="btn sm" data-act="setupGo" data-step="${s.k}">${s.k==="header"?"Imposta":"Vai"}</button>`}
+    </div>`).join("")}
+    <div style="text-align:right;margin-top:8px"><button class="btn sm ghost" data-act="setupHide">Nascondi</button></div>
+  </div>`;
+}
+function setupGo(step){
+  if(step==="header"){ editEventHeader(); return; }
+  if(step==="guests"){ active="guests"; render(); return; }
+  if(step==="budget"){ active="budget"; render(); return; }
+}
+function setupHide(){ const e=ev(); e.setupHidden=true; commit("Guida nascosta"); }
 function openGear(){
   modal("Gestione evento",
     `<p class="muted" style="margin-bottom:10px">Motore generico: un evento attivo, riutilizzabile e portabile.<br>Versione app: <b>${esc(APP_BUILD)}</b></p>`,
-    [{label:"Intestazione e data",cls:"ghost",fn:()=>{editEventHeader();},close:false},
-     {label:"Esporta",cls:"ghost",fn:()=>exportEvent(),close:false},
+    [{label:"I miei eventi",cls:"ghost",fn:()=>{openEvents();},close:false},
+     {label:"Nuovo evento",cls:"ghost",fn:()=>{newEvent();},close:false},
+     {label:"Intestazione e data",cls:"ghost",fn:()=>{editEventHeader();},close:false},
+     {label:"Esporta backup (tutti)",cls:"ghost",fn:()=>exportEvent(),close:false},
      {label:"Importa",cls:"ghost",fn:()=>{importEvent();},},
      {label:"Guida",cls:"ghost",fn:()=>{openGuide(0);},close:false},
      {label:"Account e sync",cls:"ghost",fn:()=>{openAccount();},close:false},
@@ -4047,7 +4171,6 @@ function openGear(){
      {label:"Privacy e dati",cls:"ghost",fn:()=>{openPrivacy();},close:false},
      {label:"Abbonamento",cls:"ghost",fn:()=>{openBilling();},close:false},
      {label:"Lingua (IT/EN)",cls:"ghost",fn:()=>{toggleLang();}},
-     {label:"Nuovo evento vuoto",cls:"ghost",fn:()=>{newEvent();},close:false},
      {label:"Reset al seed",cls:"danger",fn:()=>{resetEvent();},close:false}]);
 }
 
@@ -4180,7 +4303,7 @@ const Session=(function(){ let role="owner"; return {
   canEdit(){ return role==="owner"||role==="editor"; }
 }; })();
 // Azioni non-mutanti sempre permesse (navigazione/aiuto/account/diagnostica).
-const READONLY_ACTS={ openGuide:1, openAccount:1, openDiag:1, hideTip:1, exportGuestsCsv:1, printTables:1, seatZoomIn:1, seatZoomOut:1, seatZoomReset:1, openAlerts:1, goAlert:1, togglePrivacy:1, goTab:1, cycleCateringScope:1, cycleStatsScope:1, toggleGuestList:1, toggleBudgetList:1, toggleStatsGroups:1, statDrill:1, toggleHiddenDecisions:1, shareScaletta:1, printScaletta:1 };
+const READONLY_ACTS={ openGuide:1, openAccount:1, openDiag:1, hideTip:1, exportGuestsCsv:1, printTables:1, seatZoomIn:1, seatZoomOut:1, seatZoomReset:1, openAlerts:1, goAlert:1, togglePrivacy:1, goTab:1, cycleCateringScope:1, cycleStatsScope:1, toggleGuestList:1, toggleBudgetList:1, toggleStatsGroups:1, statDrill:1, toggleHiddenDecisions:1, evActivate:1, evExport:1, setupGo:1, shareScaletta:1, printScaletta:1 };
 function actIsMutating(act){ return !READONLY_ACTS[act]; }
 function permBlocks(act){ return !Session.canEdit() && actIsMutating(act); }
 /* ==== fine blocco permessi ==== */
@@ -4377,6 +4500,14 @@ document.addEventListener("click",e=>{ try{
   else if(act==="editDecision") editDecision(a.getAttribute("data-cat"));
   else if(act==="resetDecisions") resetDecisions();
   else if(act==="toggleHiddenDecisions"){ DEC_SHOWHIDDEN=!DEC_SHOWHIDDEN; render(); }
+  else if(act==="evActivate"){ switchEvent(id); try{ $("#modalRoot").innerHTML=""; }catch(e){} }
+  else if(act==="evRename"){ renameEvent(id); }
+  else if(act==="evDup"){ duplicateEvent(id); openEvents(); }
+  else if(act==="evExport"){ exportOneEvent(id); }
+  else if(act==="evDelete"){ confirmDeleteEvent(id); }
+  else if(act==="evNew"){ try{ $("#modalRoot").innerHTML=""; }catch(e){} newEvent(); }
+  else if(act==="setupGo"){ setupGo(a.getAttribute("data-step")); }
+  else if(act==="setupHide"){ setupHide(); }
   else if(act==="cycleRsvp"){ const e=ev(), g=e.guests.find(x=>x.id===id); if(g){ const seq=["conf","attesa","no"]; g.rsvp=seq[(seq.indexOf(g.rsvp)+1)%seq.length]; if(g.rsvp==="no"){ e.seating=e.seating||{rules:[]}; e.seating.rules=seatPurgeGuest(e.tables, e.seating.rules||[], g.id); } commit("RSVP: "+(RSVP[g.rsvp]?RSVP[g.rsvp][1]:g.rsvp)); } }
   else if(act==="delGuest") delGuest(id);
   else if(act==="addVendor") editVendor(null);
