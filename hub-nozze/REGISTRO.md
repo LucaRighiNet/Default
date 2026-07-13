@@ -2402,3 +2402,26 @@ Solo CSS, nessuna logica.
 Verifica: screenshot Playwright 390px prima/dopo (prima "CASTELLO BENELLI · 1…",
 dopo "CASTELLO BENELLI · 17 LUG 2027" su due righe, intero). Suite completa
 verde (22 suite). sw.js v68->v69; APP_BUILD 2026-07-10.28.
+
+## Giro 92 (Claude Code) — Header ridisegnato: compatto, più spazio all'app
+
+Feedback utente: il fix del Giro 91 (sottotitolo su 2 righe) rendeva il banner
+troppo spesso, rubando spazio utile. Ripensato il layout dell'header.
+
+Prima: header flex-row con titolo grande (fino a 34px) che andava a capo su
+2 righe + sottotitolo (nel .brand, stretto) su 2 righe -> ~126px.
+Ora: header flex-column. Riga 1 (.topbar): titolo su UNA riga
+(clamp 19-27px, ellipsis di sicurezza) + countdown compatto + campanella +
+ingranaggio (42px). Riga 2: sottotitolo location·data a TUTTA larghezza, una
+riga, senza troncamento per i contenuti tipici (ellipsis solo di sicurezza).
+Countdown rimpicciolito (b 24->20, "giorni" 10px), gap e padding ridotti.
+Risultato: header ~75px (da ~126), −40% di altezza, sottotitolo intero.
+Solo HTML+CSS; #evSub/#evTitle/#cd invariati come id (JS non toccato); il
+click "modifica intestazione" ora anche sul sottotitolo.
+
+Verifica: screenshot 390px (nome su una riga, "CASTELLO BENELLI · 17 LUG 2027"
+intero); altezza header 75px a 360/390/430; stress con nomi/location lunghi ->
+ellipsis pulita, nessun overflow di pagina (docSW 391 vs 390 = 1px sub-pixel,
+lo scroll orizzontale residuo è la striscia tab, preesistente e voluta). Suite
+completa verde (22 suite); E2E Budget senza errori JS. sw.js v69->v70;
+APP_BUILD 2026-07-10.29.
