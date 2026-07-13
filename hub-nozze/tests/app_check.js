@@ -3,7 +3,7 @@
 (function(){
 // Versione visibile della build (ingranaggio -> prima riga). Serve a capire al
 // volo quale versione sta girando su un dispositivo (cache vs deploy).
-const APP_BUILD="2026-07-10.31";
+const APP_BUILD="2026-07-10.32";
 
 /* ============ DIAGNOSTICA / ERROR TRACKING (P0) ============ */
 // Senza backend gli errori di produzione sarebbero invisibili. Diag li cattura in
@@ -4173,7 +4173,7 @@ function openGear(){
      {label:"Diagnostica",cls:"ghost",fn:()=>{openDiag();},close:false},
      {label:"Privacy e dati",cls:"ghost",fn:()=>{openPrivacy();},close:false},
      {label:"Abbonamento",cls:"ghost",fn:()=>{openBilling();},close:false},
-     {label:"Lingua (IT/EN)",cls:"ghost",fn:()=>{toggleLang();}},
+     {label:"Lingua · 🇮🇹"+(appLang()==="it"?" ✓":"")+" / 🇬🇧"+(appLang()==="it"?"":" ✓"),cls:"ghost",close:false,fn:()=>{toggleLang(); openGear();}},
      {label:"Reset al seed",cls:"danger",fn:()=>{resetEvent();},close:false}]);
 }
 
