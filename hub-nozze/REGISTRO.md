@@ -2494,3 +2494,21 @@ crea nuovo evento -> vecchio archiviato -> parte l'editor nomi+data -> pannello
 "inizia da qui" col passo header fatto -> "I miei eventi" mostra 2 eventi (nuovo
 attivo) -> switch torna a Righi × Biondi senza pannello; zero errori JS.
 sw.js v71->v72; APP_BUILD 2026-07-10.31.
+
+## Giro 95 (Claude Code) — Backup/Importa consolidati in "I miei eventi"
+
+Domanda utente: con l'export per-evento nuovo, "Esporta backup (tutti)" nel menu
+ingranaggio serve ancora? Analisi: sì (è il backup COMPLETO di tutti gli eventi
++ impostazioni globali, unica rete di sicurezza col cloud dormiente), ma il posto
+e il nome confondevano (due "esporta" sparsi). Scelta utente: consolidare.
+
+Tolte "Esporta backup (tutti)" e "Importa" dal menu ingranaggio; spostate nel
+modale "I miei eventi" come "Backup completo (tutti)" ed "Importa evento o
+backup", con nota che chiarisce i tre livelli (Esporta singolo per riga / Backup
+completo / Importa che unisce). importEvent ora riapre la lista aggiornata dopo
+l'import. Un solo hub per creazione, apertura, export e backup. evBackupAll in
+READONLY_ACTS.
+
+Verifica: suite completa verde (24 suite). E2E 390px esteso: backup+importa
+presenti dentro "I miei eventi" e ASSENTI dal menu ingranaggio; flusso completo
+multi-evento invariato; zero errori JS. sw.js v72->v73; APP_BUILD 2026-07-10.32.
