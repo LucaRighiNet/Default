@@ -249,7 +249,7 @@ input[type=checkbox]{accent-color:var(--sea); width:18px; height:18px}
 (function(){
 // Versione visibile della build (ingranaggio -> prima riga). Serve a capire al
 // volo quale versione sta girando su un dispositivo (cache vs deploy).
-const APP_BUILD="2026-07-10.31";
+const APP_BUILD="2026-07-10.32";
 
 /* ============ DIAGNOSTICA / ERROR TRACKING (P0) ============ */
 // Senza backend gli errori di produzione sarebbero invisibili. Diag li cattura in
@@ -4259,6 +4259,7 @@ function importEvent(){
         let n=0; Object.keys(s.events).forEach(k=>{ STATE.events[k]=s.events[k]; n++; });
         if(s.activeEventId&&STATE.events[s.activeEventId]) STATE.activeEventId=s.activeEventId;
         commit(n>1?(n+" eventi importati"):"Evento importato");
+        try{ openEvents(); }catch(e){} // torna alla lista aggiornata
       } else toast("File non valido"); }catch(e){ toast("File non valido"); } };
     r.readAsText(f); };
   inp.click();
@@ -4379,8 +4380,12 @@ function openEvents(){
       </div></div>`;
   }).join("");
   modal("I miei eventi",
-    rows+`<div style="text-align:center;margin-top:4px"><button class="btn" data-act="evNew">+ Nuovo evento</button></div>
-    <p class="muted" style="font-size:11px;margin-top:8px">Ogni evento è indipendente e resta archiviato qui. "Esporta" salva un file del singolo evento (ricaricabile con Importa).</p>`,
+    rows+`<div style="text-align:center;margin:6px 0"><button class="btn" data-act="evNew">+ Nuovo evento</button></div>
+    <div style="border-top:1px solid var(--line);margin-top:10px;padding-top:10px;display:flex;gap:6px;justify-content:center;flex-wrap:wrap">
+      <button class="btn sm ghost" data-act="evBackupAll">Backup completo (tutti)</button>
+      <button class="btn sm ghost" data-act="evImport">Importa evento o backup</button>
+    </div>
+    <p class="muted" style="font-size:11px;margin-top:8px">Ogni evento è indipendente e resta archiviato qui. <b>Esporta</b> (su una riga) salva il singolo evento; <b>Backup completo</b> salva tutti gli eventi e le impostazioni in un file; <b>Importa</b> ricarica un evento o un backup unendolo a quelli presenti. I dati stanno solo su questo dispositivo: un backup periodico è la tua rete di sicurezza.</p>`,
     [{label:"Chiudi"}]);
 }
 // Pannello "inizia da qui": compare solo sugli eventi nuovi finché non sono avviati.
@@ -4409,8 +4414,6 @@ function openGear(){
     [{label:"I miei eventi",cls:"ghost",fn:()=>{openEvents();},close:false},
      {label:"Nuovo evento",cls:"ghost",fn:()=>{newEvent();},close:false},
      {label:"Intestazione e data",cls:"ghost",fn:()=>{editEventHeader();},close:false},
-     {label:"Esporta backup (tutti)",cls:"ghost",fn:()=>exportEvent(),close:false},
-     {label:"Importa",cls:"ghost",fn:()=>{importEvent();},},
      {label:"Guida",cls:"ghost",fn:()=>{openGuide(0);},close:false},
      {label:"Account e sync",cls:"ghost",fn:()=>{openAccount();},close:false},
      {label:"Diagnostica",cls:"ghost",fn:()=>{openDiag();},close:false},
@@ -4549,7 +4552,7 @@ const Session=(function(){ let role="owner"; return {
   canEdit(){ return role==="owner"||role==="editor"; }
 }; })();
 // Azioni non-mutanti sempre permesse (navigazione/aiuto/account/diagnostica).
-const READONLY_ACTS={ openGuide:1, openAccount:1, openDiag:1, hideTip:1, exportGuestsCsv:1, printTables:1, seatZoomIn:1, seatZoomOut:1, seatZoomReset:1, openAlerts:1, goAlert:1, togglePrivacy:1, goTab:1, cycleCateringScope:1, cycleStatsScope:1, toggleGuestList:1, toggleBudgetList:1, toggleStatsGroups:1, statDrill:1, toggleHiddenDecisions:1, evActivate:1, evExport:1, setupGo:1, shareScaletta:1, printScaletta:1 };
+const READONLY_ACTS={ openGuide:1, openAccount:1, openDiag:1, hideTip:1, exportGuestsCsv:1, printTables:1, seatZoomIn:1, seatZoomOut:1, seatZoomReset:1, openAlerts:1, goAlert:1, togglePrivacy:1, goTab:1, cycleCateringScope:1, cycleStatsScope:1, toggleGuestList:1, toggleBudgetList:1, toggleStatsGroups:1, statDrill:1, toggleHiddenDecisions:1, evActivate:1, evExport:1, evBackupAll:1, setupGo:1, shareScaletta:1, printScaletta:1 };
 function actIsMutating(act){ return !READONLY_ACTS[act]; }
 function permBlocks(act){ return !Session.canEdit() && actIsMutating(act); }
 /* ==== fine blocco permessi ==== */
@@ -4752,6 +4755,8 @@ document.addEventListener("click",e=>{ try{
   else if(act==="evExport"){ exportOneEvent(id); }
   else if(act==="evDelete"){ confirmDeleteEvent(id); }
   else if(act==="evNew"){ try{ $("#modalRoot").innerHTML=""; }catch(e){} newEvent(); }
+  else if(act==="evBackupAll"){ exportEvent(); }
+  else if(act==="evImport"){ importEvent(); }
   else if(act==="setupGo"){ setupGo(a.getAttribute("data-step")); }
   else if(act==="setupHide"){ setupHide(); }
   else if(act==="cycleRsvp"){ const e=ev(), g=e.guests.find(x=>x.id===id); if(g){ const seq=["conf","attesa","no"]; g.rsvp=seq[(seq.indexOf(g.rsvp)+1)%seq.length]; if(g.rsvp==="no"){ e.seating=e.seating||{rules:[]}; e.seating.rules=seatPurgeGuest(e.tables, e.seating.rules||[], g.id); } commit("RSVP: "+(RSVP[g.rsvp]?RSVP[g.rsvp][1]:g.rsvp)); } }
