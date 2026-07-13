@@ -2524,3 +2524,24 @@ Verifica: suite completa verde (24 suite). E2E 390px: entrambe le bandierine
 presenti, spunta su Italiano di default, dopo il tocco spunta su English e tab
 in inglese, menu resta aperto; zero errori JS. sw.js v73->v74; APP_BUILD
 2026-07-10.33.
+
+## Giro 97 (Claude Code) — Rimosso il selettore lingua (app solo IT)
+
+Segnalazione utente: in inglese "non tutte le parole sono tradotte". Verifica
+sul codice: l'i18n era una DEMO — solo le 8 etichette dei tab passavano da
+t(); il ~99% dell'app è italiano hardcoded (0 chiamate t() con chiavi oltre i
+tab). Layout verificato a 390px in EN: nessun overflow di pagina, nessun
+troncamento (l'inglese è comunque più corto). Scelta utente tra 4 opzioni:
+"togli il selettore" (l'app è per un matrimonio italiano; gli stranieri vedono
+solo RSVP/scaletta pubbliche, non l'app).
+
+Rimossa la voce lingua dal menu Gestione evento. La fondazione i18n
+(appLang/t/I18N, testata da i18n_test) resta dormiente per un eventuale i18n
+completo futuro, ma senza toggle utente non promette un bilinguismo assente.
+Aggiunta migrateLangReset(): riporta STATE.lang a "it" (boot + pull cloud), così
+chi aveva già switchato su "en" non resta bloccato coi tab in inglese.
+
+Verifica: suite completa verde (24 suite; i18n_test 5/5 invariato). E2E 390px:
+il menu non ha più il selettore; forzando lang=en nello stato e ricaricando, i
+tab tornano italiani senza residui inglesi; zero errori JS. sw.js v74->v75;
+APP_BUILD 2026-07-10.34.
