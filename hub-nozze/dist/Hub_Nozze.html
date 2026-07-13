@@ -249,7 +249,7 @@ input[type=checkbox]{accent-color:var(--sea); width:18px; height:18px}
 (function(){
 // Versione visibile della build (ingranaggio -> prima riga). Serve a capire al
 // volo quale versione sta girando su un dispositivo (cache vs deploy).
-const APP_BUILD="2026-07-10.35";
+const APP_BUILD="2026-07-10.36";
 
 /* ============ DIAGNOSTICA / ERROR TRACKING (P0) ============ */
 // Senza backend gli errori di produzione sarebbero invisibili. Diag li cattura in
@@ -1104,6 +1104,12 @@ function budgetClassify(b, vendorsById){
   const hit=BUDGET_BENCH.find(x=>x.kw.test(b.item||""));
   return hit?hit.id:null;
 }
+// Nome della macro-voce dell'Analisi intelligente in cui ricade una voce di
+// spesa (vuoto se non classificata: resta fuori dai benchmark).
+function budgetMacroName(b, vendorsById){
+  const id=budgetClassify(b, vendorsById); if(!id) return "";
+  const hit=BUDGET_BENCH.find(x=>x.id===id); return hit?hit.name:"";
+}
 // Analisi budget vs benchmark. Denominatore: budget massimo (ceiling) se noto,
 // altrimenti l'impegnato. Ritorna righe + non classificate + proiezione finale.
 function budgetAdvisor(){
@@ -1896,14 +1902,16 @@ let BUDGETLIST_OPEN=(function(){ try{ return localStorage.getItem("hub_budgetlis
 function toggleBudgetList(){ BUDGETLIST_OPEN=!BUDGETLIST_OPEN; try{ localStorage.setItem("hub_budgetlist", BUDGETLIST_OPEN?"1":"0"); }catch(e){} render(); }
 function viewBudget(){
   const e=ev(), m=meta(), d=DERIVED;
+  const vb={}; (e.vendors||[]).forEach(v=>vb[v.id]=v);
   let rows="";
   for(let t=1;t<=5;t++){
     const items=e.budget.filter(b=>b.tier===t);
     if(!items.length) continue;
     rows+=`<tr class="row-group"><td colspan="4">${TIER[t]}</td></tr>`;
     items.forEach(b=>{
+      const macro=budgetMacroName(b, vb);
       rows+=`<tr data-brow="${b.id}">
-        <td>${esc(b.item)}${b.paid?' <span class="pill ok">pagata</span>':''}</td>
+        <td>${esc(b.item)}${b.paid?' <span class="pill ok">pagata</span>':''}<div class="muted" style="font-size:11px;margin-top:2px">${macro?"↳ "+esc(macro):"<span style=\"opacity:.7\">fuori analisi</span>"}</div></td>
         <td class="num">${b.quote?money(b.quote):'<span class="muted">—</span>'}</td>
         <td class="num">${b.actual?money(b.actual):'<span class="muted">—</span>'}</td>
         <td class="num"><button class="btn sm ghost" data-act="editBudget" data-id="${b.id}" aria-label="Modifica ${esc(b.item)}" title="Modifica">&#9998;</button><button class="btn sm danger swdel" data-act="delBudget" data-id="${b.id}" aria-label="Elimina ${esc(b.item)}" title="Elimina">&times;</button></td>
