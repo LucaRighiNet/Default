@@ -3,7 +3,7 @@
 (function(){
 // Versione visibile della build (ingranaggio -> prima riga). Serve a capire al
 // volo quale versione sta girando su un dispositivo (cache vs deploy).
-const APP_BUILD="2026-07-10.28";
+const APP_BUILD="2026-07-10.30";
 
 /* ============ DIAGNOSTICA / ERROR TRACKING (P0) ============ */
 // Senza backend gli errori di produzione sarebbero invisibili. Diag li cattura in
@@ -729,7 +729,7 @@ function alertsCompute(){
   }
   // Fornitori: scadenzario decisioni (I3) — deadline per categoria dal lead time
   vendorDeadlines().forEach(dl=>{
-    if(dl.status==="confermato"||!dl.key) return;
+    if(dl.off||dl.status==="confermato"||!dl.key) return;
     if(dl.daysLeft<0) add("v_key_"+dl.cat,"alta","Fornitori","\""+dl.cat+"\" non confermato: la data consigliata per decidere ("+fdate(dl.deadline)+") è passata.","vendors");
     else if(dl.daysLeft<=60) add("v_key_"+dl.cat,"media","Fornitori","\""+dl.cat+"\" da confermare entro il "+fdate(dl.deadline)+" ("+dl.daysLeft+" giorni).","vendors");
   });
@@ -781,7 +781,12 @@ function alertsCompute(){
 function alertsMutedCount(){ return (alertsPrefs().muted||[]).length; }
 /* ---- Intelligenze locali (I2/I3) e meteo (I4): funzioni pure ---- */
 // Lead time consigliato (mesi prima delle nozze) per confermare la categoria.
-// key: le categorie che generano avvisi; le altre appaiono solo nello scadenzario.
+/* ============ SCADENZARIO DECISIONI (I3: entro quando confermare) ============ */
+// Modello: VENDOR_LEAD sono solo i DEFAULT (mesi di anticipo consigliati dalla
+// prassi + categorie "chiave" che generano avvisi). La personalizzazione vive in
+// e.decisions[cat] = {months?, key?, date?, off?} ed è per-evento (sincronizzata
+// e migrata con lo stato). Le funzioni qui sotto fondono default + override e sono
+// l'unica fonte di verità per la tabella E per gli avvisi.
 const VENDOR_LEAD=[
   {cat:"Location",           months:12, key:true},
   {cat:"Catering",           months:9,  key:true},
@@ -794,16 +799,46 @@ const VENDOR_LEAD=[
   {cat:"Trasporti/Navetta",  months:3,  key:false},
   {cat:"Beauty",             months:3,  key:false}
 ];
+const DEC_FALLBACK={months:3, key:false}; // categorie fornitori senza default storico
+function decisionDefault(cat){ const L=VENDOR_LEAD.find(x=>x.cat===cat); return L?{months:L.months,key:!!L.key}:{months:DEC_FALLBACK.months,key:DEC_FALLBACK.key}; }
+// Categorie dello scadenzario = categorie fornitori canoniche (VCATS) escluso il
+// bucket generico "Altro", più eventuali categorie personalizzate in e.decisions.
+function decisionCats(){
+  const base=(typeof VCATS!=="undefined"?VCATS:VENDOR_LEAD.map(x=>x.cat)).filter(c=>c!=="Altro");
+  const extra=Object.keys((ev().decisions)||{}).filter(c=>base.indexOf(c)<0);
+  return base.concat(extra);
+}
+// Config effettiva di una categoria: override utente sopra il default.
+function decisionCfg(cat){
+  const d=decisionDefault(cat), o=((ev().decisions)||{})[cat]||{};
+  return { months:(o.months!=null?+o.months:d.months), key:(o.key!=null?!!o.key:d.key), date:(o.date||null), off:!!o.off };
+}
+function decisionIsCustom(cat){ const d=decisionDefault(cat), c=decisionCfg(cat); return c.months!==d.months || c.key!==d.key || !!c.date || c.off; }
+// Salva solo lo scostamento dal default (o cancella la voce se torna al default).
+function decisionSet(cat, patch){
+  const e=ev(); e.decisions=e.decisions||{};
+  const d=decisionDefault(cat);
+  const cur=Object.assign({months:d.months,key:d.key,date:null,off:false}, e.decisions[cat]||{}, patch);
+  const diff={};
+  if(+cur.months!==d.months) diff.months=+cur.months;
+  if(!!cur.key!==d.key) diff.key=!!cur.key;
+  if(cur.date) diff.date=cur.date;
+  if(cur.off) diff.off=true;
+  if(Object.keys(diff).length) e.decisions[cat]=diff; else delete e.decisions[cat];
+}
 function vendorDeadlines(){
   const e=ev(), m=meta(); if(!m||!m.date) return [];
-  return VENDOR_LEAD.map(L=>{
-    const d=new Date(m.date+"T12:00:00"); d.setMonth(d.getMonth()-L.months);
-    const deadline=d.toISOString().slice(0,10);
-    const vs=(e.vendors||[]).filter(v=>v.category===L.cat);
+  return decisionCats().map(cat=>{
+    const c=decisionCfg(cat);
+    let deadline=c.date;
+    if(!deadline){ const d=new Date(m.date+"T12:00:00"); d.setMonth(d.getMonth()-c.months); deadline=d.toISOString().slice(0,10); }
+    const vs=(e.vendors||[]).filter(v=>v.category===cat);
     const status=vs.some(v=>v.status==="confermato")?"confermato":(vs.length?"in corsa":"scoperto");
-    return {cat:L.cat, months:L.months, key:L.key, deadline:deadline, daysLeft:daysTo(deadline), status:status, n:vs.length};
+    return {cat:cat, months:c.months, key:c.key, off:c.off, manual:!!c.date, custom:decisionIsCustom(cat),
+      deadline:deadline, daysLeft:daysTo(deadline), status:status, n:vs.length};
   });
 }
+/* ============ fine scadenzario decisioni ============ */
 // Benchmark indicativi (matrimoni Italia): quota % del budget per macro-voce.
 const BUDGET_BENCH=[
   {id:"locat",  name:"Location + Catering", lo:45, hi:60, kw:/location|castello|villa|borgo|sala|catering|banchett|banqueting|men[uù]|ricevim|aperitiv|buffet/i, cats:["Location","Catering"]},
@@ -2895,19 +2930,54 @@ function vendorCard(v){
   </div>`;
 }
 // Scadenzario decisioni (I3): per categoria, entro quando conviene confermare.
+// Ogni riga è personalizzabile (tocca per aprire l'editor). Le voci nascoste
+// restano fuori dalla tabella ma richiamabili da "Mostra nascoste".
+let DEC_SHOWHIDDEN=false;
 function vendorDeadlinesCard(){
   const dls=vendorDeadlines(); if(!dls.length) return "";
-  const rows=dls.map(dl=>{
+  const shown=dls.filter(dl=>!dl.off||DEC_SHOWHIDDEN), hidden=dls.filter(dl=>dl.off);
+  const anyCustom=dls.some(dl=>dl.custom);
+  const rows=shown.map(dl=>{
     let pill;
-    if(dl.status==="confermato") pill='<span class="pill ok">confermato</span>';
+    if(dl.off) pill='<span class="pill">nascosta</span>';
+    else if(dl.status==="confermato") pill='<span class="pill ok">confermato</span>';
     else if(dl.daysLeft<0) pill='<span class="pill no">in ritardo</span>';
     else if(dl.daysLeft<=60) pill='<span class="pill warn">decidere ora</span>';
     else pill='<span class="pill todo">'+(dl.status==="in corsa"?"in corsa":"da cercare")+'</span>';
-    return `<tr><td>${esc(dl.cat)}</td><td>${fdate(dl.deadline)} <span class="muted">(${dl.months} mesi prima)</span></td><td class="num">${dl.n||"—"}</td><td>${pill}</td></tr>`;
+    const when=dl.manual?`${fdate(dl.deadline)} <span class="muted">(manuale)</span>`:`${fdate(dl.deadline)} <span class="muted">(${dl.months} mesi prima)</span>`;
+    const marks=dl.custom?' <span class="muted" title="Personalizzata">•</span>':'';
+    return `<tr data-act="editDecision" data-cat="${esc(dl.cat)}" style="cursor:pointer" title="Tocca per personalizzare">
+      <td>${esc(dl.cat)}${marks} <span class="muted" aria-hidden="true" style="font-size:13px">✎</span></td>
+      <td>${when}</td><td class="num">${dl.n||"—"}</td><td>${pill}</td></tr>`;
   }).join("");
-  return `<div class="sec-title"><h2>Scadenzario decisioni</h2><span class="pill">quando confermare</span></div>
+  return `<div class="sec-title"><h2>Scadenzario decisioni</h2><span>${anyCustom?'<button class="btn sm ghost" data-act="resetDecisions" title="Riporta tutte le voci ai tempi consigliati">Ripristina</button> ':''}<span class="pill">quando confermare</span></span></div>
   <div class="card"><div class="scroll-x"><table class="tbl"><thead><tr><th>Categoria</th><th>Confermare entro</th><th class="num">In lista</th><th>Stato</th></tr></thead><tbody>${rows}</tbody></table></div>
-  <div class="muted" style="font-size:11px;margin-top:4px">Tempi consigliati dalla prassi: adattali pure — gli avvisi partono solo per le categorie chiave (location, catering, foto/video, musica).</div></div>`;
+  <div class="muted" style="font-size:11px;margin-top:4px">Tocca una riga per personalizzare i mesi di anticipo, forzare una data limite o spegnere gli avvisi. Gli avvisi partono solo per le categorie con la campana attiva.${hidden.length?` · <span data-act="toggleHiddenDecisions" role="button" tabindex="0" style="color:var(--sea);cursor:pointer;text-decoration:underline">${DEC_SHOWHIDDEN?"Nascondi le voci spente":hidden.length+" voci nascoste"}</span>`:""}</div></div>`;
+}
+// Editor per-categoria: mesi di anticipo O data manuale, avvisi on/off, nascondi.
+function editDecision(cat){
+  if(!cat) return;
+  const c=decisionCfg(cat), d=decisionDefault(cat);
+  modal("Decisione: "+cat,
+    `<div class="field"><label>Mesi di anticipo sul matrimonio <span class="muted" style="font-size:11px">(consigliato: ${d.months})</span></label>
+       <input class="inp" type="number" id="dec_m" min="0" max="36" value="${esc(c.months)}" inputmode="numeric"></div>
+     <div class="field"><label>Oppure data limite manuale <span class="muted" style="font-size:11px">(se impostata, ha la priorità sui mesi)</span></label>
+       <input class="inp" type="date" id="dec_d" value="${esc(c.date||"")}"></div>
+     <label style="display:flex;align-items:center;gap:9px;margin:10px 0;cursor:pointer"><input type="checkbox" id="dec_k" ${c.key?"checked":""} style="width:20px;height:20px">Genera avvisi quando la scadenza si avvicina</label>
+     <label style="display:flex;align-items:center;gap:9px;margin:6px 0;cursor:pointer"><input type="checkbox" id="dec_o" ${c.off?"checked":""} style="width:20px;height:20px">Nascondi dallo scadenzario (nessun avviso)</label>`,
+    [{label:"Ripristina",cls:"ghost",fn:()=>{ const e=ev(); if(e.decisions) delete e.decisions[cat]; commit("Ripristinata: "+cat); }},
+     {label:"Annulla"},
+     {label:"Salva",cls:"",fn:()=>{
+       const months=Math.max(0, Math.min(36, +$("#dec_m").value||0));
+       const date=($("#dec_d").value||"").trim();
+       decisionSet(cat, {months:months, date:date||null, key:$("#dec_k").checked, off:$("#dec_o").checked});
+       commit("Scadenza aggiornata: "+cat);
+     }}]);
+}
+function resetDecisions(){
+  const e=ev(); if(!e.decisions||!Object.keys(e.decisions).length){ toast("Già ai valori consigliati"); return; }
+  modal("Ripristinare lo scadenzario?",`<p>Riporto tutte le categorie ai tempi consigliati dalla prassi, annullando le tue personalizzazioni.</p>`,
+    [{label:"Annulla"},{label:"Ripristina",cls:"danger",fn:()=>{ ev().decisions={}; commit("Scadenzario ripristinato"); }}]);
 }
 function viewVendors(){
   const e=ev();
@@ -4110,7 +4180,7 @@ const Session=(function(){ let role="owner"; return {
   canEdit(){ return role==="owner"||role==="editor"; }
 }; })();
 // Azioni non-mutanti sempre permesse (navigazione/aiuto/account/diagnostica).
-const READONLY_ACTS={ openGuide:1, openAccount:1, openDiag:1, hideTip:1, exportGuestsCsv:1, printTables:1, seatZoomIn:1, seatZoomOut:1, seatZoomReset:1, openAlerts:1, goAlert:1, togglePrivacy:1, goTab:1, cycleCateringScope:1, cycleStatsScope:1, toggleGuestList:1, toggleBudgetList:1, toggleStatsGroups:1, statDrill:1, shareScaletta:1, printScaletta:1 };
+const READONLY_ACTS={ openGuide:1, openAccount:1, openDiag:1, hideTip:1, exportGuestsCsv:1, printTables:1, seatZoomIn:1, seatZoomOut:1, seatZoomReset:1, openAlerts:1, goAlert:1, togglePrivacy:1, goTab:1, cycleCateringScope:1, cycleStatsScope:1, toggleGuestList:1, toggleBudgetList:1, toggleStatsGroups:1, statDrill:1, toggleHiddenDecisions:1, shareScaletta:1, printScaletta:1 };
 function actIsMutating(act){ return !READONLY_ACTS[act]; }
 function permBlocks(act){ return !Session.canEdit() && actIsMutating(act); }
 /* ==== fine blocco permessi ==== */
@@ -4304,6 +4374,9 @@ document.addEventListener("click",e=>{ try{
   else if(act==="guestsBy") setGuestBy(a.getAttribute("data-by"));
   else if(act==="toggleGuestList") toggleGuestList();
   else if(act==="toggleBudgetList") toggleBudgetList();
+  else if(act==="editDecision") editDecision(a.getAttribute("data-cat"));
+  else if(act==="resetDecisions") resetDecisions();
+  else if(act==="toggleHiddenDecisions"){ DEC_SHOWHIDDEN=!DEC_SHOWHIDDEN; render(); }
   else if(act==="cycleRsvp"){ const e=ev(), g=e.guests.find(x=>x.id===id); if(g){ const seq=["conf","attesa","no"]; g.rsvp=seq[(seq.indexOf(g.rsvp)+1)%seq.length]; if(g.rsvp==="no"){ e.seating=e.seating||{rules:[]}; e.seating.rules=seatPurgeGuest(e.tables, e.seating.rules||[], g.id); } commit("RSVP: "+(RSVP[g.rsvp]?RSVP[g.rsvp][1]:g.rsvp)); } }
   else if(act==="delGuest") delGuest(id);
   else if(act==="addVendor") editVendor(null);

@@ -2425,3 +2425,39 @@ ellipsis pulita, nessun overflow di pagina (docSW 391 vs 390 = 1px sub-pixel,
 lo scroll orizzontale residuo è la striscia tab, preesistente e voluta). Suite
 completa verde (22 suite); E2E Budget senza errori JS. sw.js v69->v70;
 APP_BUILD 2026-07-10.29.
+
+## Giro 93 (Claude Code) — Scadenzario decisioni personalizzabile (ripensato)
+
+Richiesta utente: poter modificare lo scadenzario decisioni, versione completa,
+pensata in modo olistico (non una patch). Prima: VENDOR_LEAD hardcoded, tabella
+sola-lettura, e una nota "adattali pure" senza alcun controllo (promessa non
+mantenuta). Ripensata l'intera parte.
+
+Modello dati: VENDOR_LEAD resta solo come DEFAULT. La personalizzazione vive in
+e.decisions[cat] = {months?, key?, date?, off?}, per-evento (sincronizzata e
+salvata con lo stato; nessuna migrazione necessaria: assenza = default). Nuove
+funzioni pure, unica fonte di verità per tabella E avvisi:
+- decisionDefault(cat): mesi/chiave di prassi, fallback 3/no-avvisi per le
+  categorie senza storico;
+- decisionCats(): categorie = VCATS escluso "Altro" + eventuali custom;
+- decisionCfg(cat): fonde default + override;
+- decisionSet(cat, patch): salva SOLO lo scostamento (torna al default -> voce
+  rimossa), tiene lo stato pulito;
+- vendorDeadlines(): deadline = data manuale se presente, altrimenti data nozze
+  − mesi; espone off/manual/custom oltre a deadline/status.
+
+UI: ogni riga dello scadenzario è cliccabile -> editor per-categoria
+(editDecision): mesi di anticipo, data limite manuale (priorità sui mesi),
+avvisi on/off, nascondi; più "Ripristina" (per voce) e "Ripristina" globale in
+testa quando ci sono personalizzazioni; "N voci nascoste" per mostrarle.
+Indicatore "•" sulle voci personalizzate. Gli avvisi (motore centrale) ora
+rispettano off + i mesi/chiave personalizzati.
+
+Verifica: nuova suite decisions_test 11/11 (default/fallback, cats esclude
+Altro + custom, cfg merge, deadline da mesi, override mesi, data manuale con
+priorità, off, key override, stato da fornitori, decisionSet salva-solo-diff,
+niente data nozze -> vuoto). Suite completa verde (23 suite). E2E 390px scheda
+Fornitori: 11 categorie, "Altro" escluso, editor 4 campi, edit mesi cambia la
+deadline (17 ott -> 17 lug, "12 mesi"), persistenza al reload, data manuale
+"(manuale)" su Fiori, nascondi Beauty + link "voci nascoste", pulsante
+Ripristina; zero errori JS. sw.js v70->v71; APP_BUILD 2026-07-10.30.
