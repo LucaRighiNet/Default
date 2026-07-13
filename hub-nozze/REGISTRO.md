@@ -2571,3 +2571,22 @@ mappature verificate (Ristorante/catering -> Location + Catering, Fotografo ->
 Foto e video, Fiori -> Fiori e allestimenti, Musica -> Musica e intrattenimento,
 Torta -> Torta) e almeno una "fuori analisi"; zero errori JS. sw.js v76->v77;
 APP_BUILD 2026-07-10.36.
+
+## Giro 100 (Claude Code) — Macro-voce col pallino colorato + override manuale
+
+Richiesta utente: (1) stessa grafica dei gruppi in Ospiti; (2) macro-voce
+automatica ma modificabile. Aggiunto col a ogni BUDGET_BENCH (palette distinta).
+La label sotto la voce ora usa il pallino .gdot (identico ai gruppi ospiti) +
+nome; "fuori analisi" grigio come "nessun gruppo".
+
+Override: nuovo campo b.macro sulla voce. budgetClassify ora rispetta l'override
+(""=auto, id benchmark=forzato, "__none"=fuori analisi), così LABEL e ANALISI
+restano coerenti (l'advisor usa lo stesso classify). budgetAutoClassify separa
+la logica automatica. Nel modale Modifica voce: select "Macro-voce" con
+"Automatica · <auto>", tutte le macro-voci e "Fuori analisi"; si salva solo
+l'override reale (auto = campo rimosso).
+
+Verifica: suite completa verde (24 suite). E2E 390px: default Torta->Torta con
+pallino colorato; override a "Foto e video" (label+colore cambiano) e persiste
+al reload; "fuori analisi"; ritorno ad Automatica; zero errori JS. sw.js
+v77->v78; APP_BUILD 2026-07-10.37.
