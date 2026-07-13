@@ -2360,3 +2360,31 @@ suite completa verde (22 suite). E2E 390px scheda Budget: comprimi/espandi
 voci + persistenza al reload; colonna €/invitato, 4 scenari, KPI marginale e
 medio presenti, costo a invitato mostrato anche con 0 confermati (€127);
 zero errori JS. sw.js v66->v67; APP_BUILD 2026-07-10.26.
+
+## Giro 90 (Claude Code) — Label proiezione budget auto-esplicative
+
+Richiesta utente (dopo la domanda "come hai stimato 100€ a coperto?"):
+rendere le etichette della card "Proiezione & scenari" comprensibili da sole.
+Solo testi/label, nessuna logica cambiata.
+
+- Verdetto semaforo: "In linea col budget" -> "Rientri nel budget"; "Vicino
+  al tetto" -> "Vicino al budget massimo"; "Rischio sforamento" -> "Rischi di
+  sforare il budget". "tetto" -> "budget massimo" ovunque.
+- Intestazione: "Proiezione peggiore (N coperti): €X" -> "Nello scenario più
+  caro (N coperti) spendi €X".
+- KPI con spiegazione inline: "Quanto costa un invitato in più (solo voci a
+  coperto)", "Costo medio a testa, tutto incluso (scenario: …)", e soprattutto
+  "Prezzo del catering a coperto (preventivo ÷ ospiti previsti)" — che risponde
+  direttamente al dubbio sul 100€.
+- Nomi scenari discorsivi: "Se metà degli in attesa conferma", "Se confermano
+  tutti gli invitati", "Solo chi ha già confermato", "Ospiti previsti".
+- Tabella: colonna "Se alla fine vengono…", "Spesa totale stimata", "A testa".
+- Minimo garantito: aggiunto "(li paghi anche se confermi meno persone)" e
+  linguaggio più umano ("pasti pagati a vuoto").
+- Nota finale riscritta come mini-guida di lettura.
+
+Verifica: budget_forecast_test 10/10 (i test usano le chiavi scenario, non le
+label -> invariati); suite completa verde (22 suite). E2E 390px scheda Budget
+aggiornato alle nuove label: comprimi/espandi, colonna "a testa", 4 scenari,
+KPI presenti, costo a testa con 0 confermati (€127); zero errori JS.
+sw.js v67->v68; APP_BUILD 2026-07-10.27.
