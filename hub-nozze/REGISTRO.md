@@ -2461,3 +2461,36 @@ Fornitori: 11 categorie, "Altro" escluso, editor 4 campi, edit mesi cambia la
 deadline (17 ott -> 17 lug, "12 mesi"), persistenza al reload, data manuale
 "(manuale)" su Fiori, nascondi Beauty + link "voci nascoste", pulsante
 Ripristina; zero errori JS. sw.js v70->v71; APP_BUILD 2026-07-10.30.
+
+## Giro 94 (Claude Code) — Multi-evento vero + nuovo evento guidato
+
+Domanda utente: creare un nuovo evento a matrimonio finito dev'essere organico,
+facile e guidato. Verifica sul codice: NON lo era. Il vecchio newEvent() faceva
+STATE=seedState() -> SOVRASCRIVEVA l'evento corrente (perdita dati salvo backup
+JSON manuale); nessun elenco eventi né switch; nessuna guida dopo la creazione.
+Scelta utente: "multi-evento completo". Ripensata la parte.
+
+Nuovo modulo multi-evento (funzioni pure testabili + mutazioni su STATE.events):
+- evBlank(id): evento vuoto pulito con flag fresh; evNewId() id univoci;
+- eventSummary/eventIsFresh; setupSteps/setupAllDone (passi: nomi+data,
+  invitati, budget, con "done" dai dati reali);
+- switchEvent/duplicateEvent (deep-clone indipendente)/deleteEventById (ripunta
+  l'attivo, protegge l'ultimo)/newEventBlank (ADDITIVO: aggiunge, non sostituisce;
+  attiva il nuovo e apre subito l'editor intestazione = primo passo guidato).
+UI: "I miei eventi" (⚙) elenca tutti gli eventi (attivo evidenziato) con
+Apri/Rinomina/Duplica/Esporta(singolo)/Elimina + "+ Nuovo evento". Pannello
+"Inizia da qui" sulla Dashboard, solo per eventi fresh, con i 3 passi e
+scorciatoie (Imposta/Vai) + Nascondi. importEvent ora MERGE additivo (non
+sostituisce più tutto lo stato). Il matrimonio attuale (rb27) non è fresh:
+nessun pannello, nessun impatto.
+
+Bug trovato e corretto in corsa: la conferma "Crea e inizia" aveva close di
+default e cancellava il modale intestazione aperto da newEventBlank -> close:false.
+
+Verifica: nuova suite event_test 10/10 (evBlank svuota+fresh, summary, fresh,
+setupSteps/allDone, switch, newEventBlank additivo+guida, duplicate deep-clone,
+delete ripunta+protegge ultimo). Suite completa verde (24 suite). E2E 390px:
+crea nuovo evento -> vecchio archiviato -> parte l'editor nomi+data -> pannello
+"inizia da qui" col passo header fatto -> "I miei eventi" mostra 2 eventi (nuovo
+attivo) -> switch torna a Righi × Biondi senza pannello; zero errori JS.
+sw.js v71->v72; APP_BUILD 2026-07-10.31.
