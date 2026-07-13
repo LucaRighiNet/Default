@@ -2388,3 +2388,17 @@ label -> invariati); suite completa verde (22 suite). E2E 390px scheda Budget
 aggiornato alle nuove label: comprimi/espandi, colonna "a testa", 4 scenari,
 KPI presenti, costo a testa con 0 confermati (€127); zero errori JS.
 sw.js v67->v68; APP_BUILD 2026-07-10.27.
+
+## Giro 91 (Claude Code) — Sottotitolo header non più tagliato
+
+Bug segnalato dall'utente: nel banner in alto (intestazione app) il testo
+veniva tagliato. Causa: .brand .sub (venue · data) aveva white-space:nowrap
++ overflow:hidden + text-overflow:ellipsis, quindi su iPhone (390px) diventava
+"CASTELLO BENELLI · 1…". Fix CSS: rimosso nowrap/ellipsis, il sottotitolo ora
+va a capo con clamp a 2 righe (-webkit-line-clamp:2) e letter-spacing ridotto
+.16em->.14em; così un nome location lungo non gonfia l'header all'infinito.
+Solo CSS, nessuna logica.
+
+Verifica: screenshot Playwright 390px prima/dopo (prima "CASTELLO BENELLI · 1…",
+dopo "CASTELLO BENELLI · 17 LUG 2027" su due righe, intero). Suite completa
+verde (22 suite). sw.js v68->v69; APP_BUILD 2026-07-10.28.

@@ -56,7 +56,7 @@ header.top{
 .brandrow{display:flex; align-items:center; gap:7px}
 .editpen{opacity:.7; font-size:16px; color:var(--ivory); flex:0 0 auto}
 .brand h1{font-size:clamp(24px,6vw,34px); letter-spacing:.01em; color:var(--ivory); font-weight:600}
-.brand .sub{font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:rgba(247,243,233,.74); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:3px}
+.brand .sub{font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:rgba(247,243,233,.74); margin-top:3px; line-height:1.35; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden}
 .count{text-align:center; padding:6px 12px; border:1px solid var(--line-sea); border-radius:12px; background:rgba(247,243,233,.06); white-space:nowrap; flex:0 0 auto}
 .count b{font-family:'Cormorant Garamond',serif; font-size:24px; color:var(--ivory); display:block; line-height:1; font-weight:600}
 .count span{color:rgba(247,243,233,.72); margin-top:2px; display:block}
@@ -246,7 +246,7 @@ input[type=checkbox]{accent-color:var(--sea); width:18px; height:18px}
 (function(){
 // Versione visibile della build (ingranaggio -> prima riga). Serve a capire al
 // volo quale versione sta girando su un dispositivo (cache vs deploy).
-const APP_BUILD="2026-07-10.27";
+const APP_BUILD="2026-07-10.28";
 
 /* ============ DIAGNOSTICA / ERROR TRACKING (P0) ============ */
 // Senza backend gli errori di produzione sarebbero invisibili. Diag li cattura in
