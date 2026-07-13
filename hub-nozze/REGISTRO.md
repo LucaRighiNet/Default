@@ -2512,3 +2512,15 @@ READONLY_ACTS.
 Verifica: suite completa verde (24 suite). E2E 390px esteso: backup+importa
 presenti dentro "I miei eventi" e ASSENTI dal menu ingranaggio; flusso completo
 multi-evento invariato; zero errori JS. sw.js v72->v73; APP_BUILD 2026-07-10.32.
+
+## Giro 96 (Claude Code) — Bandierine lingua in Gestione evento
+
+Richiesta utente: nel menu Gestione evento, mostrare le bandierine per indicare
+la lingua in uso. La voce "Lingua (IT/EN)" ora è "Lingua · 🇮🇹 ✓ / 🇬🇧"
+(spunta sulla lingua attiva); toccandola cambia lingua e, con close:false +
+openGear(), il menu resta aperto con la spunta spostata (feedback immediato).
+
+Verifica: suite completa verde (24 suite). E2E 390px: entrambe le bandierine
+presenti, spunta su Italiano di default, dopo il tocco spunta su English e tab
+in inglese, menu resta aperto; zero errori JS. sw.js v73->v74; APP_BUILD
+2026-07-10.33.
