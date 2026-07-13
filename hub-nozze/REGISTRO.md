@@ -2557,3 +2557,17 @@ alto), con pareggio alfabetico sulla categoria. Solo il layer di rendering
 Verifica: suite completa verde (24 suite; decisions_test cerca per categoria,
 indifferente all'ordine). E2E 390px: le 11 date risultano crescenti (17 lug
 2026 -> 17 apr 2027); zero errori JS. sw.js v75->v76; APP_BUILD 2026-07-10.35.
+
+## Giro 99 (Claude Code) — Macro-voce sotto ogni voce di spesa
+
+Richiesta utente: sotto la label di ogni voce di spesa, indicare in quale
+macro-voce dell'Analisi intelligente rientra. Nuovo helper budgetMacroName(b,vb)
+(da budgetClassify -> nome BUDGET_BENCH). In viewBudget, sotto il nome voce, una
+riga muted "↳ <macro-voce>" (o "fuori analisi" se non classificata). Così è
+chiaro come ogni spesa alimenta i benchmark. Nessuna logica di analisi toccata.
+
+Verifica: suite completa verde (24 suite). E2E 390px: 50 voci con macro-voce;
+mappature verificate (Ristorante/catering -> Location + Catering, Fotografo ->
+Foto e video, Fiori -> Fiori e allestimenti, Musica -> Musica e intrattenimento,
+Torta -> Torta) e almeno una "fuori analisi"; zero errori JS. sw.js v76->v77;
+APP_BUILD 2026-07-10.36.
