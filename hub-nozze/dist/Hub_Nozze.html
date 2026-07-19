@@ -58,9 +58,9 @@ header.top{
 .editpen{opacity:.7; font-size:15px; color:var(--ivory); flex:0 0 auto}
 .brand h1{font-size:clamp(19px,5.2vw,27px); letter-spacing:.01em; color:var(--ivory); font-weight:600; line-height:1.1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0}
 .top .sub{font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:rgba(247,243,233,.74); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.3}
-.count{text-align:center; padding:4px 10px; border:1px solid var(--line-sea); border-radius:11px; background:rgba(247,243,233,.06); white-space:nowrap; flex:0 0 auto; line-height:1}
-.count b{font-family:'Cormorant Garamond',serif; font-size:20px; color:var(--ivory); display:block; line-height:1; font-weight:600}
-.count span{font-size:10px; color:rgba(247,243,233,.72); margin-top:1px; display:block}
+.count{display:flex; flex-direction:column; align-items:center; justify-content:center; height:42px; padding:0 9px; border:1px solid var(--line-sea); border-radius:11px; background:rgba(247,243,233,.06); white-space:nowrap; flex:0 0 auto}
+.count b{font-family:'Cormorant Garamond',serif; font-size:18px; color:var(--ivory); line-height:1; font-weight:600}
+.count span{font-size:8px; letter-spacing:.03em; line-height:1.2; color:rgba(247,243,233,.72); text-align:center; margin-top:1px}
 .gear{border:1px solid var(--line-sea); background:rgba(247,243,233,.06); color:var(--ivory); border-radius:11px; width:42px; height:42px; font-size:18px; flex:0 0 auto}
 
 .tabswrap{position:sticky; top:0; z-index:20; position:relative}
@@ -221,7 +221,7 @@ input[type=checkbox]{accent-color:var(--sea); width:18px; height:18px}
       <div class="brand" data-act="editHeader" title="Tocca per modificare nomi, location e data" style="cursor:pointer">
         <div class="brandrow"><h1 id="evTitle">—</h1><span id="editPencil" class="editpen" aria-hidden="true">✎</span></div>
       </div>
-      <div class="count"><b id="cd">—</b><span>giorni</span></div>
+      <div class="count"><b id="cd">—</b><span id="cdSub">giorni</span></div>
       <button id="syncChip" data-act="openAccount" aria-label="Stato sincronizzazione" style="display:none;align-self:center;font-size:11px;padding:4px 9px;border-radius:11px;border:1px solid rgba(255,255,255,0.35);background:transparent;color:#fff;cursor:pointer"></button>
       <button class="gear" id="alertBell" data-act="openAlerts" aria-label="Avvisi" style="position:relative">&#128276;<span id="alertBadge" style="display:none;position:absolute;top:1px;right:1px;background:var(--no);color:#fff;border-radius:9px;font-size:10px;line-height:1;padding:3px 5px"></span></button>
       <button class="gear" id="gearBtn" aria-label="Gestione evento">&#9881;&#xFE0F;</button>
@@ -249,7 +249,7 @@ input[type=checkbox]{accent-color:var(--sea); width:18px; height:18px}
 (function(){
 // Versione visibile della build (ingranaggio -> prima riga). Serve a capire al
 // volo quale versione sta girando su un dispositivo (cache vs deploy).
-const APP_BUILD="2026-07-10.38";
+const APP_BUILD="2026-07-10.39";
 
 /* ============ DIAGNOSTICA / ERROR TRACKING (P0) ============ */
 // Senza backend gli errori di produzione sarebbero invisibili. Diag li cattura in
@@ -1462,7 +1462,14 @@ function render(){
   const m=meta(), d=DERIVED;
   $("#evTitle").textContent=m.coupleA+" × "+m.coupleB;
   $("#evSub").textContent=(m.venue? m.venue+" · " : "")+fdate(m.date);
-  const dd=daysTo(m.date); $("#cd").textContent=dd>=0?dnum(dd):"—";
+  const dd=daysTo(m.date);
+  $("#cd").textContent=dd>=0?dnum(dd):"—";
+  // Sotto ai giorni, su una seconda micro-riga, il countdown in settimane
+  // (arrotondato) — box stretto per non comprimere il titolo. Il giorno -> "oggi".
+  const cs=$("#cdSub"); if(cs){
+    if(dd>0) cs.innerHTML='giorni<br>≈ '+dnum(Math.round(dd/7))+' sett';
+    else cs.textContent = (dd===0 ? "è oggi!" : "giorni");
+  }
   renderTabs();
   const v=$("#view");
   if(active==="dash") v.innerHTML=viewDash();

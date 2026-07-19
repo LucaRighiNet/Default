@@ -3,7 +3,7 @@
 (function(){
 // Versione visibile della build (ingranaggio -> prima riga). Serve a capire al
 // volo quale versione sta girando su un dispositivo (cache vs deploy).
-const APP_BUILD="2026-07-10.37";
+const APP_BUILD="2026-07-10.38";
 
 /* ============ DIAGNOSTICA / ERROR TRACKING (P0) ============ */
 // Senza backend gli errori di produzione sarebbero invisibili. Diag li cattura in
@@ -1216,7 +1216,14 @@ function render(){
   const m=meta(), d=DERIVED;
   $("#evTitle").textContent=m.coupleA+" × "+m.coupleB;
   $("#evSub").textContent=(m.venue? m.venue+" · " : "")+fdate(m.date);
-  const dd=daysTo(m.date); $("#cd").textContent=dd>=0?dnum(dd):"—";
+  const dd=daysTo(m.date);
+  $("#cd").textContent=dd>=0?dnum(dd):"—";
+  // Sotto ai giorni, su una seconda micro-riga, il countdown in settimane
+  // (arrotondato) — box stretto per non comprimere il titolo. Il giorno -> "oggi".
+  const cs=$("#cdSub"); if(cs){
+    if(dd>0) cs.innerHTML='giorni<br>≈ '+dnum(Math.round(dd/7))+' sett';
+    else cs.textContent = (dd===0 ? "è oggi!" : "giorni");
+  }
   renderTabs();
   const v=$("#view");
   if(active==="dash") v.innerHTML=viewDash();

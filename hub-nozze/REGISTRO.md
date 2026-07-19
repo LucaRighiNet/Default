@@ -2616,3 +2616,18 @@ Verifica: nuova suite bench_test 6/6; suite completa verde (25 suite). E2E 390px
 Foto e video 8-12% -> 10-18% con pill "personalizzati" e Ripristina; prezzo
 catering a coperto 100->130 € modificando la voce, persistente; zero errori JS.
 sw.js v78->v79; APP_BUILD 2026-07-10.38.
+
+## Giro 102 (Claude Code) — Countdown anche in settimane (header invariato)
+
+Richiesta utente: oltre ai giorni, il countdown in settimane; e la barra in alto
+sembra compressa (senza però crescere in altezza, come concordato). Il box
+countdown ora mostra 3 micro-righe: giorni (grande) / "GIORNI" / "≈ N SETT".
+Reso il box a altezza fissa 42px (come campanella/ingranaggio) con flex-column
+centrato e font ridotti (b 18px, span 8px): così le settimane entrano SENZA
+allargare il box (niente compressione del titolo, che a 360px non si taglia
+più) e SENZA crescere in altezza (header resta 75px). Il giorno stesso mostra
+"è oggi!".
+
+Verifica: suite completa verde (25 suite). Screenshot 360/390/430px: header 75px,
+titolo non tagliato, nessun overflow di pagina; box "363 / GIORNI / ≈ 52 SETT".
+sw.js v79->v80; APP_BUILD 2026-07-10.39.
