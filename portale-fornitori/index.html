@@ -4,18 +4,18 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0C5A63">
-<meta name="description" content="Portale Fornitori Righi — pubblicazione, assegnazione e gestione dei lavori di subappalto (cablaggio e costruzione quadri elettrici).">
-<title>Portale Fornitori · Righi</title>
+<meta name="description" content="Portale Fornitori Righi Solutions — pubblicazione, assegnazione e gestione dei lavori di subappalto (cablaggio e costruzione quadri elettrici).">
+<title>Portale Fornitori · Righi Solutions</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="logo.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="logo.svg">
 <style>
 /* ===================================================================
-   Portale Fornitori Righi — Design system (industriale petrol/grafite)
-   Nessun font/asset esterno: offline-first, CSP-friendly.
+   Portale Fornitori Righi Solutions — design system industriale.
+   Nessun font/asset esterno, nessuna emoji: icone SVG inline.
    =================================================================== */
 :root{
-  --bg:#EDF1F3; --surface:#FFFFFF; --surface-2:#F5F7F9; --surface-3:#EAEFF1;
+  --bg:#EDF1F3; --surface:#FFFFFF; --surface-2:#F5F7F9; --surface-3:#E9EEF1;
   --ink:#15242B; --ink-soft:#54646E; --muted:#7C8A93;
   --brand:#0C5A63; --brand-deep:#083D44; --brand-tint:#E1EDED; --brand-line:#BFDBDB;
   --accent:#E07B27; --accent-deep:#C4661A; --accent-tint:#FCEBDB;
@@ -24,6 +24,7 @@
   --warn:#B4791A; --warn-tint:#F7EEDA;
   --danger:#C0392B; --danger-tint:#F7E4E1;
   --info:#2A6BB0; --info-tint:#E4EEF8;
+  --auto:#0C5A63; --dist:#2A6BB0; --pot:#C4661A;
   --shadow:0 1px 2px rgba(16,40,48,.06), 0 6px 20px rgba(16,40,48,.06);
   --shadow-lg:0 12px 40px rgba(8,40,44,.22);
   --r:12px; --r-sm:9px;
@@ -47,6 +48,9 @@ input,select,textarea{font-family:inherit;font-size:16px;color:var(--ink)}
 .soft{color:var(--ink-soft)}
 .center{text-align:center}
 .hide{display:none !important}
+.svg-ic{width:18px;height:18px;flex:0 0 auto;vertical-align:-3px}
+.svg-ic.sm{width:15px;height:15px;vertical-align:-2px}
+.svg-ic.lg{width:22px;height:22px}
 
 /* ---- Layout ---- */
 #app{min-height:100dvh}
@@ -56,16 +60,16 @@ input,select,textarea{font-family:inherit;font-size:16px;color:var(--ink)}
   padding:calc(var(--sat) + 10px) calc(var(--sar) + 14px) 10px calc(var(--sal) + 14px);
   display:flex;align-items:center;gap:10px;box-shadow:0 1px 0 rgba(0,0,0,.12);
 }
-.brand{display:flex;align-items:center;gap:9px;min-width:0}
-.brand img{width:30px;height:30px;flex:0 0 auto}
+.brand{display:flex;align-items:center;gap:10px;min-width:0}
+.logomark{width:32px;height:32px;flex:0 0 auto;border-radius:8px}
 .brand .bt{min-width:0}
-.brand .bt b{display:block;font-size:15px;font-weight:650;line-height:1.1;white-space:nowrap}
-.brand .bt span{display:block;font-size:11px;opacity:.75;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brand .bt b{display:block;font-size:14px;font-weight:700;line-height:1.1;letter-spacing:.06em;white-space:nowrap}
+.brand .bt span{display:block;font-size:11px;opacity:.72;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.01em}
 .tb-spacer{flex:1}
 .tb-btn{border:1px solid rgba(234,246,246,.28);background:rgba(234,246,246,.08);color:#EAF6F6;border-radius:10px;min-height:40px;min-width:40px;padding:0 12px;display:inline-flex;align-items:center;justify-content:center;gap:7px;font-size:13px;position:relative}
 .tb-btn:hover{background:rgba(234,246,246,.16)}
-.tb-btn .badge{position:absolute;top:-5px;right:-5px;background:var(--accent);color:#fff;font-size:10px;font-weight:700;min-width:17px;height:17px;border-radius:9px;display:flex;align-items:center;justify-content:center;padding:0 4px;border:2px solid var(--brand-deep)}
-.role-chip{font-size:11px;padding:3px 9px;border-radius:999px;font-weight:600;letter-spacing:.02em;text-transform:uppercase;white-space:nowrap}
+.tb-btn .badge{position:absolute;top:-6px;right:-6px;background:var(--accent);color:#fff;font-size:10px;font-weight:700;min-width:17px;height:17px;border-radius:9px;display:flex;align-items:center;justify-content:center;padding:0 4px;border:2px solid var(--brand-deep)}
+.role-chip{font-size:10.5px;padding:3px 9px;border-radius:999px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap}
 .role-chip.righi{background:var(--accent-tint);color:var(--accent-deep)}
 .role-chip.fornitore{background:var(--brand-tint);color:var(--brand-deep)}
 
@@ -81,7 +85,7 @@ nav.tabs button .cnt{background:var(--surface-3);color:var(--ink-soft);border-ra
 nav.tabs button[aria-selected="true"] .cnt{background:#fff;color:var(--brand)}
 nav.tabs button .cnt.hot{background:var(--accent);color:#fff}
 
-main{max-width:1060px;margin:0 auto;padding:16px calc(var(--sar) + 14px) calc(var(--sab) + 40px) calc(var(--sal) + 14px)}
+main{max-width:1180px;margin:0 auto;padding:16px calc(var(--sar) + 14px) calc(var(--sab) + 44px) calc(var(--sal) + 14px)}
 .view-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin:2px 0 14px}
 .view-head h2{font-size:21px}
 .view-head p{margin:2px 0 0;font-size:13px;color:var(--muted)}
@@ -91,9 +95,8 @@ main{max-width:1060px;margin:0 auto;padding:16px calc(var(--sar) + 14px) calc(va
 .grid.k2{grid-template-columns:1fr 1fr}
 .grid.k3{grid-template-columns:repeat(3,1fr)}
 .grid.k4{grid-template-columns:repeat(4,1fr)}
-.grid.auto{grid-template-columns:repeat(auto-fill,minmax(280px,1fr))}
+.grid.auto{grid-template-columns:repeat(auto-fill,minmax(290px,1fr))}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:15px;box-shadow:var(--shadow)}
-.card.pad0{padding:0;overflow:hidden}
 .kpi{display:flex;flex-direction:column;gap:3px}
 .kpi .v{font-size:30px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
 .kpi .l{font-size:12.5px;color:var(--muted)}
@@ -101,10 +104,13 @@ main{max-width:1060px;margin:0 auto;padding:16px calc(var(--sar) + 14px) calc(va
 .kpi.danger .v{color:var(--danger)}
 .kpi.ok .v{color:var(--ok)}
 .kpi .foot{font-size:11.5px;color:var(--muted);margin-top:2px}
+.kpi.click{cursor:pointer;transition:box-shadow .15s}
+.kpi.click:hover{box-shadow:0 4px 16px rgba(16,40,48,.12)}
 
 /* ---- Pills / badges ---- */
 .pill{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;padding:3px 9px;border-radius:999px;border:1px solid var(--line);background:var(--surface-2);color:var(--ink-soft);white-space:nowrap;font-weight:500}
 .pill .dot{width:7px;height:7px;border-radius:50%;background:currentColor}
+.dot.auto{background:var(--auto)}.dot.dist{background:var(--dist)}.dot.pot{background:var(--pot)}
 .pill.ok{background:var(--ok-tint);color:#256844;border-color:#bfe0cd}
 .pill.warn{background:var(--warn-tint);color:#7a5410;border-color:#e6d3a6}
 .pill.danger{background:var(--danger-tint);color:#932a20;border-color:#eec4bd}
@@ -138,18 +144,72 @@ main{max-width:1060px;margin:0 auto;padding:16px calc(var(--sar) + 14px) calc(va
 .inp:focus,select.inp:focus,textarea.inp:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-tint)}
 textarea.inp{min-height:80px;resize:vertical;line-height:1.45}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-/* chip-select: input rapido senza digitare */
 .chips{display:flex;flex-wrap:wrap;gap:7px}
 .chip{border:1px solid var(--line);background:var(--surface);color:var(--ink-soft);border-radius:999px;padding:8px 13px;font-size:13px;min-height:40px;display:inline-flex;align-items:center;gap:7px;transition:all .12s;font-weight:500}
-.chip .ci{font-size:15px;line-height:1}
 .chip:hover{border-color:var(--brand-line)}
 .chip.on{background:var(--brand);border-color:var(--brand);color:#fff}
+.chip.on .dot{background:#fff}
 .chip.on.accent{background:var(--accent);border-color:var(--accent)}
 .chip.multi.on{background:var(--brand-tint);border-color:var(--brand-line);color:var(--brand-deep)}
+.chip.sm{min-height:34px;padding:6px 11px;font-size:12.5px}
 .seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface)}
-.seg button{border:none;background:transparent;padding:8px 14px;font-size:13px;color:var(--ink-soft);min-height:40px;border-right:1px solid var(--line)}
+.seg button{border:none;background:transparent;padding:8px 13px;font-size:13px;color:var(--ink-soft);min-height:40px;border-right:1px solid var(--line);display:inline-flex;align-items:center;gap:6px}
 .seg button:last-child{border-right:none}
 .seg button.on{background:var(--brand);color:#fff;font-weight:600}
+.switch{width:40px;height:23px;border-radius:12px;background:var(--line);border:none;position:relative;cursor:pointer;flex:0 0 auto;padding:0;transition:background .15s}
+.switch::after{content:"";position:absolute;top:2px;left:2px;width:19px;height:19px;border-radius:50%;background:#fff;transition:left .15s;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+.switch.on{background:var(--brand)}
+.switch.on::after{left:19px}
+.toggle-row{display:flex;align-items:center;gap:10px;padding:10px 0}
+.toggle-row .gr{flex:1}
+.toggle-row .gr b{font-size:13.5px}
+.toggle-row .gr span{display:block;font-size:12px;color:var(--muted)}
+
+/* ---- Filter bar ---- */
+.filters{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:11px;margin-bottom:12px;box-shadow:var(--shadow)}
+.searchbox{position:relative;flex:1;min-width:180px}
+.searchbox .svg-ic{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--muted)}
+.searchbox input{width:100%;padding:9px 12px 9px 36px;border:1px solid var(--line);border-radius:9px;min-height:40px;background:#fff}
+.searchbox input:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-tint)}
+.filt-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.filt-adv{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.filt-adv select{padding:7px 10px;border:1px solid var(--line);border-radius:9px;min-height:38px;background:#fff;font-size:13px;color:var(--ink)}
+.filt-active{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}
+.fchip{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:4px 8px;border-radius:8px;background:var(--brand-tint);color:var(--brand-deep);border:1px solid var(--brand-line)}
+.fchip button{border:none;background:none;color:inherit;padding:0;display:flex;cursor:pointer}
+.result-line{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:2px 2px 10px;font-size:13px;color:var(--muted);flex-wrap:wrap}
+
+/* ---- Table (vista massiva) ---- */
+.scroll-x{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:var(--r);background:var(--surface);box-shadow:var(--shadow)}
+table.tbl{width:100%;border-collapse:collapse;font-size:13.5px;min-width:820px}
+table.tbl th{position:sticky;top:105px;background:var(--surface-2);text-align:left;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft);font-weight:700;padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap;z-index:1}
+table.tbl th.sortable{cursor:pointer;user-select:none}
+table.tbl th.sortable:hover{color:var(--brand)}
+table.tbl th .svg-ic{width:13px;height:13px;opacity:.5;vertical-align:-1px}
+table.tbl td{padding:10px 12px;border-bottom:1px solid var(--line-soft);vertical-align:middle}
+table.tbl tbody tr{cursor:pointer;transition:background .1s}
+table.tbl tbody tr:hover{background:var(--brand-tint)}
+table.tbl tbody tr:last-child td{border-bottom:none}
+table.tbl .t-title{font-weight:600;color:var(--ink)}
+table.tbl .t-sub{font-size:11.5px;color:var(--muted);margin-top:1px}
+table.tbl .code{font-family:var(--mono);font-size:11.5px;color:var(--muted);white-space:nowrap}
+table.tbl .num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+table.tbl tr.late td{background:linear-gradient(90deg,var(--danger-tint),transparent 30%)}
+.morebtn{display:flex;justify-content:center;padding:14px}
+
+/* Board */
+.board{display:grid;grid-template-columns:repeat(5,minmax(220px,1fr));gap:12px;overflow-x:auto;padding-bottom:8px}
+.col{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r);padding:10px;display:flex;flex-direction:column;gap:9px;min-width:220px}
+.col > .h{display:flex;align-items:center;justify-content:space-between;font-size:12px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.04em;padding:2px 2px 0}
+.col > .h .n{background:#fff;border:1px solid var(--line);border-radius:999px;font-size:11px;padding:1px 8px}
+.mini{background:#fff;border:1px solid var(--line);border-left:3px solid var(--brand);border-radius:10px;padding:10px;cursor:pointer;box-shadow:var(--shadow);transition:box-shadow .15s}
+.mini:hover{box-shadow:0 4px 14px rgba(16,40,48,.12)}
+.mini.late{border-left-color:var(--danger)}
+.mini .t{font-weight:600;font-size:13px;margin:2px 0 6px;line-height:1.3}
+.mini .code{font-family:var(--mono);font-size:10.5px;color:var(--muted)}
+.mini .r{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:6px;font-size:11.5px;color:var(--ink-soft)}
+.col-more{text-align:center;font-size:12.5px;color:var(--brand);font-weight:600;padding:6px;cursor:pointer;border-radius:8px}
+.col-more:hover{background:var(--brand-tint)}
 
 /* ---- Job cards ---- */
 .job{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column}
@@ -158,8 +218,9 @@ textarea.inp{min-height:80px;resize:vertical;line-height:1.45}
 .job .code{font-family:var(--mono);font-size:11.5px;color:var(--muted);letter-spacing:.02em}
 .job h3{font-size:16px;margin-top:2px}
 .job .meta{display:flex;flex-wrap:wrap;gap:5px}
-.job .info{display:flex;flex-wrap:wrap;gap:12px;font-size:12.5px;color:var(--ink-soft)}
+.job .info{display:flex;flex-wrap:wrap;gap:14px;font-size:12.5px;color:var(--ink-soft)}
 .job .info b{color:var(--ink);font-weight:600}
+.job .info .svg-ic{color:var(--muted)}
 .job .foot{border-top:1px solid var(--line-soft);padding:10px 14px;display:flex;align-items:center;gap:8px;background:var(--surface-2);flex-wrap:wrap}
 .job .foot .btn-row{margin-left:auto}
 .leftbar{border-left:4px solid var(--brand)}
@@ -169,52 +230,42 @@ textarea.inp{min-height:80px;resize:vertical;line-height:1.45}
 .leftbar.draft{border-left-color:var(--muted)}
 .leftbar.done{border-left-color:var(--brand)}
 
-/* Kanban board */
-.board{display:grid;grid-template-columns:repeat(5,minmax(230px,1fr));gap:12px;overflow-x:auto;padding-bottom:8px}
-.col{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r);padding:10px;display:flex;flex-direction:column;gap:10px;min-width:230px}
-.col > .h{display:flex;align-items:center;justify-content:space-between;font-size:12.5px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.04em;padding:2px 2px 0}
-.col > .h .n{background:#fff;border:1px solid var(--line);border-radius:999px;font-size:11px;padding:1px 8px}
-.mini{background:#fff;border:1px solid var(--line);border-left:4px solid var(--brand);border-radius:10px;padding:10px;cursor:pointer;box-shadow:var(--shadow);transition:transform .06s,box-shadow .15s}
-.mini:hover{box-shadow:0 4px 14px rgba(16,40,48,.12)}
-.mini.late{border-left-color:var(--danger)}
-.mini .t{font-weight:600;font-size:13.5px;margin:2px 0 6px}
-.mini .code{font-family:var(--mono);font-size:10.5px;color:var(--muted)}
-.mini .r{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:6px;font-size:11.5px;color:var(--ink-soft)}
-
 /* list rows */
 .rowlist{display:flex;flex-direction:column}
-.lrow{display:flex;align-items:center;gap:11px;padding:12px 4px;border-bottom:1px solid var(--line-soft)}
+.lrow{display:flex;align-items:center;gap:11px;padding:11px 4px;border-bottom:1px solid var(--line-soft);text-align:left}
 .lrow:last-child{border-bottom:none}
-.lrow .ic{width:38px;height:38px;border-radius:10px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:17px;background:var(--brand-tint)}
-.lrow .ic.accent{background:var(--accent-tint)}
-.lrow .ic.danger{background:var(--danger-tint)}
-.lrow .ic.ok{background:var(--ok-tint)}
+.lrow .ic{width:36px;height:36px;border-radius:9px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;background:var(--brand-tint);color:var(--brand-deep)}
+.lrow .ic.accent{background:var(--accent-tint);color:var(--accent-deep)}
+.lrow .ic.danger{background:var(--danger-tint);color:var(--danger)}
+.lrow .ic.ok{background:var(--ok-tint);color:var(--ok)}
+.lrow .ic.info{background:var(--info-tint);color:var(--info)}
 .lrow .gr{flex:1;min-width:0}
 .lrow .gr b{font-weight:600;font-size:14px}
 .lrow .gr .s{font-size:12.5px;color:var(--muted);display:block;margin-top:1px}
-.lrow.unread{background:linear-gradient(90deg,var(--accent-tint),transparent 40%)}
+.lrow.unread{background:linear-gradient(90deg,var(--accent-tint),transparent 45%)}
+.lrow .arw{color:var(--muted);display:flex}
 
 .avatar{width:34px;height:34px;border-radius:50%;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:#fff;background:var(--brand)}
 .avatar.sm{width:26px;height:26px;font-size:11px}
 
 /* ---- Empty state ---- */
-.empty{text-align:center;padding:38px 16px;color:var(--muted)}
-.empty .em{font-size:34px;opacity:.5}
+.empty{text-align:center;padding:36px 16px;color:var(--muted)}
+.empty .svg-ic{width:34px;height:34px;opacity:.4}
 .empty p{margin:8px 0 0}
 
 /* ---- Modal ---- */
 .modal-bg{position:fixed;inset:0;background:rgba(8,32,36,.5);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);display:flex;align-items:flex-end;justify-content:center;z-index:60;padding:0}
 @media(min-width:641px){.modal-bg{align-items:center;padding:20px}}
-.modal{background:var(--surface);width:100%;max-width:560px;border-radius:18px 18px 0 0;max-height:92dvh;overflow:auto;box-shadow:var(--shadow-lg);padding:18px calc(var(--sar) + 18px) calc(var(--sab) + 20px) calc(var(--sal) + 18px)}
+.modal{background:var(--surface);width:100%;max-width:580px;border-radius:18px 18px 0 0;max-height:92dvh;overflow:auto;box-shadow:var(--shadow-lg);padding:18px calc(var(--sar) + 18px) calc(var(--sab) + 20px) calc(var(--sal) + 18px)}
 @media(min-width:641px){.modal{border-radius:16px;max-height:88dvh}}
 .modal-h{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:14px}
 .modal-h h3{font-size:19px}
-.modal-h .x{border:none;background:var(--surface-2);width:34px;height:34px;border-radius:9px;font-size:18px;color:var(--ink-soft);flex:0 0 auto}
+.modal-h .x{border:none;background:var(--surface-2);width:34px;height:34px;border-radius:9px;color:var(--ink-soft);flex:0 0 auto;display:flex;align-items:center;justify-content:center}
 .dl{display:flex;flex-direction:column;gap:2px;margin:0 0 12px}
 .dl .k{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}
 .dl .v{font-size:14.5px;font-weight:500}
 .divide{height:1px;background:var(--line-soft);margin:14px 0}
-.sect-t{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:0 0 8px}
+.sect-t{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:0 0 8px;display:flex;align-items:center;gap:6px}
 
 /* thread */
 .thread{display:flex;flex-direction:column;gap:9px;margin:6px 0}
@@ -223,17 +274,16 @@ textarea.inp{min-height:80px;resize:vertical;line-height:1.45}
 .msg .t{font-size:10.5px;opacity:.55;margin-top:3px;text-align:right}
 .msg.them{align-self:flex-start;background:var(--surface-2);border:1px solid var(--line)}
 .msg.us{align-self:flex-end;background:var(--brand-tint);border:1px solid var(--brand-line)}
-.msg.sys{align-self:center;background:transparent;color:var(--muted);font-size:12px;text-align:center;max-width:100%}
 
 /* toast */
-.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--sab) + 20px);background:var(--ink);color:#fff;padding:11px 18px;border-radius:999px;font-size:13.5px;z-index:80;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;max-width:92vw;text-align:center;box-shadow:var(--shadow-lg)}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--sab) + 20px);background:var(--ink);color:#fff;padding:11px 18px;border-radius:999px;font-size:13.5px;z-index:80;opacity:0;transition:opacity .2s;pointer-events:none;max-width:92vw;text-align:center;box-shadow:var(--shadow-lg)}
 .toast.show{opacity:1}
 .toast.ok{background:var(--ok)}
 .toast.warn{background:var(--accent-deep)}
 
 /* attach */
 .attach{display:flex;align-items:center;gap:9px;padding:9px 11px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2);font-size:13px}
-.attach .fi{width:30px;height:30px;border-radius:7px;background:var(--brand-tint);display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+.attach .fi{width:30px;height:30px;border-radius:7px;background:var(--brand-tint);color:var(--brand-deep);display:flex;align-items:center;justify-content:center;flex:0 0 auto}
 .attach .gr{flex:1;min-width:0}
 .attach .gr b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .attach .gr span{font-size:11px;color:var(--muted)}
@@ -242,30 +292,28 @@ textarea.inp{min-height:80px;resize:vertical;line-height:1.45}
 
 /* ---- Login ---- */
 .login{min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;background:radial-gradient(1100px 620px at 50% -8%,#0e6a74 0,var(--brand-deep) 46%,#062f35 100%);color:#EAF6F6}
-.login .box{width:100%;max-width:440px}
-.login .logo{display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;margin-bottom:22px}
-.login .logo img{width:64px;height:64px}
-.login h1{font-size:25px}
-.login .logo p{margin:4px 0 0;opacity:.8;font-size:13.5px;max-width:340px}
+.login .box{width:100%;max-width:452px}
+.login .logo{display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;margin-bottom:20px}
+.login .logo .logomark{width:60px;height:60px;border-radius:14px}
+.login h1{font-size:22px;letter-spacing:.08em;font-weight:700}
+.login .logo .sub{opacity:.85;font-size:14px;letter-spacing:.02em;margin-top:-4px}
+.login .logo p{margin:6px 0 0;opacity:.75;font-size:13px;max-width:360px;line-height:1.5}
 .login .panel{background:rgba(255,255,255,.06);border:1px solid rgba(234,246,246,.18);border-radius:16px;padding:16px;backdrop-filter:blur(6px)}
-.login .lbl{font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;opacity:.7;margin:4px 4px 8px}
+.login .lbl{font-size:11px;text-transform:uppercase;letter-spacing:.06em;opacity:.7;margin:4px 4px 8px;display:flex;align-items:center;gap:6px}
 .urow{display:flex;align-items:center;gap:11px;width:100%;text-align:left;padding:12px;border-radius:12px;border:1px solid rgba(234,246,246,.18);background:rgba(255,255,255,.04);color:#EAF6F6;margin-bottom:8px;transition:background .12s,border-color .12s}
 .urow:hover{background:rgba(255,255,255,.11);border-color:rgba(234,246,246,.4)}
 .urow .gr{flex:1;min-width:0}
 .urow .gr b{display:block;font-size:14.5px}
 .urow .gr span{font-size:12px;opacity:.7}
-.urow .arw{opacity:.5;font-size:18px}
+.urow .arw{opacity:.5;display:flex}
 .login .foot{text-align:center;font-size:12px;opacity:.6;margin-top:16px}
 
-@media(max-width:720px){
-  .grid.k4{grid-template-columns:1fr 1fr}
-  .grid.k3{grid-template-columns:1fr 1fr}
-  .brand .bt span{display:none}
-}
-@media(max-width:520px){
+@media(max-width:820px){ .grid.k4{grid-template-columns:1fr 1fr} .grid.k3{grid-template-columns:1fr 1fr} .brand .bt span{display:none} }
+@media(max-width:560px){
   .grid.k2,.grid.k3,.grid.k4{grid-template-columns:1fr}
   .row2{grid-template-columns:1fr}
   .tb-btn span.lbl{display:none}
+  table.tbl th{top:56px}
 }
 </style>
 </head>
@@ -290,11 +338,47 @@ function fmtMoney(n){ return (n==null||n==="")?"—":eur.format(Number(n)); }
 function daysTo(iso){ if(!iso) return null; const a=new Date(iso+"T12:00:00"), b=new Date(todayISO()+"T12:00:00"); return Math.round((a-b)/86400000); }
 function relDays(iso){ const n=daysTo(iso); if(n==null) return ""; if(n===0) return "oggi"; if(n===1) return "domani"; if(n===-1) return "ieri"; return n>0?("tra "+n+" gg"):(Math.abs(n)+" gg fa"); }
 function initials(name){ return String(name||"?").split(/\s+/).slice(0,2).map(w=>w[0]||"").join("").toUpperCase(); }
-function colorFor(id){ const c=["#0C5A63","#2A6BB0","#8A5A2B","#5E8C5A","#7A5AA8","#C0392B","#127C71"]; let h=0; for(const ch of String(id)) h=(h*31+ch.charCodeAt(0))>>>0; return c[h%c.length]; }
+function colorFor(id){ const c=["#0C5A63","#2A6BB0","#8A5A2B","#5E8C5A","#7A5AA8","#C0392B","#127C71","#3B6EA5"]; let h=0; for(const ch of String(id)) h=(h*31+ch.charCodeAt(0))>>>0; return c[h%c.length]; }
+function slug(s){ return String(s).toLowerCase().normalize('NFD').replace(/[^\w]+/g,''); }
+
+/* Icone SVG inline (nessuna emoji) */
+const IC = {
+  bell:'<path d="M6 8a6 6 0 0 1 12 0c0 6 2 7 2.5 8h-17C4 15 6 14 6 8Z"/><path d="M10 21a2 2 0 0 0 4 0"/>',
+  user:'<circle cx="12" cy="8" r="4"/><path d="M4.5 20.5c1-3.5 4-5 7.5-5s6.5 1.5 7.5 5"/>',
+  search:'<circle cx="11" cy="11" r="7"/><path d="M20.5 20.5 16.5 16.5"/>',
+  filter:'<path d="M3 5h18M6 12h12M10 19h4"/>',
+  doc:'<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5"/>',
+  layout:'<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>',
+  mail:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',
+  phone:'<path d="M5 4h3.5l1.5 4.5-2 1.4a11 11 0 0 0 5.1 5.1l1.4-2 4.5 1.5V20a1.5 1.5 0 0 1-1.6 1.5A16.5 16.5 0 0 1 3.5 6.6 1.5 1.5 0 0 1 5 4Z"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>',
+  chev:'<path d="m9 6 6 6-6 6"/>',
+  clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/>',
+  check:'<path d="m5 12 4.5 4.5L19 7"/>',
+  x:'<path d="M6 6 18 18M18 6 6 18"/>',
+  sort:'<path d="M8 9l4-4 4 4M8 15l4 4 4-4"/>',
+  board:'<rect x="3" y="3" width="7" height="18" rx="1.2"/><rect x="14" y="3" width="7" height="11" rx="1.2"/>',
+  list:'<path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>',
+  send:'<path d="M22 3 11 14M22 3l-7 19-4-8-8-4Z"/>',
+  bolt:'<path d="M13 3 4 14h7l-1 7 9-11h-7l1-7Z"/>',
+  inbox:'<path d="M3 12h5l2 3h4l2-3h5"/><path d="M5 5h14l2 7v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5Z"/>',
+  building:'<path d="M4 21V4l8-1v18M12 21V8l6 1.5V21M3 21h18M7 7h1M7 11h1M7 15h1"/>',
+  calendar:'<rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M3 9h18M8 2.5v4M16 2.5v4"/>',
+  star:'<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9Z"/>',
+  logout:'<path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 12H3m0 0 3.5-3.5M3 12l3.5 3.5"/>',
+};
+function icon(n,cls){ return '<svg class="svg-ic '+(cls||'')+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(IC[n]||'')+'</svg>'; }
+const LOGO = '<svg class="logomark" viewBox="0 0 48 48" fill="none" aria-hidden="true"><rect x="1" y="1" width="46" height="46" rx="10" fill="#0B4F58"/><path d="M14 12h12a8 8 0 0 1 2 15.7L34 36h-7l-5.5-7.5H19V36h-5V12Zm5 5.2v6.3h9.5a3.2 3.2 0 0 0 0-6.3H19Z" fill="#F4F8F8"/><circle cx="34" cy="14.5" r="2.1" fill="#F4F8F8" fill-opacity="0.55"/><circle cx="34" cy="34" r="2.1" fill="#F4F8F8" fill-opacity="0.55"/></svg>';
+
+/* email compose (mailto) */
+function mailto(to, subject, body, cc){
+  const q=[]; if(subject) q.push("subject="+encodeURIComponent(subject)); if(body) q.push("body="+encodeURIComponent(body)); if(cc) q.push("cc="+encodeURIComponent(cc));
+  return "mailto:"+encodeURIComponent(Array.isArray(to)?to.join(","):to).replace(/%2C/g,",")+(q.length?"?"+q.join("&"):"");
+}
+function openMail(to,subject,body,cc){ const a=document.createElement("a"); a.href=mailto(to,subject,body,cc); a.style.display="none"; document.body.appendChild(a); a.click(); setTimeout(()=>a.remove(),0); }
 
 /* ============================ Storage ============================ */
-// Feature detection (non user-agent): window.storage (Claude.ai) → localStorage → RAM.
-const KEY="righi_portale_v1", SESSKEY="righi_portale_sess_v1";
+const KEY="righi_portale_v2", SESSKEY="righi_portale_sess_v2";
 function makeLocalAdapter(){ return {
   get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } },
   set(k,v){ try{ localStorage.setItem(k,v); }catch(e){} },
@@ -324,7 +408,6 @@ const Sync=(function(){
     async push(){ if(!remote) return; const res=await remote.push(base, JSON.stringify(STATE)); if(res&&res.ok) base=res.version; return res; },
   };
 })();
-// Reference in-memory remote (contratto per i test / futuro Supabase)
 function makeMemoryRemote(){ let version=0, data=null; return {
   async pull(){ return data==null?null:{version,data}; },
   async push(baseV,payload){ if(baseV!==version) return {conflict:true,version,data}; version++; data=payload; return {ok:true,version}; },
@@ -332,111 +415,117 @@ function makeMemoryRemote(){ let version=0, data=null; return {
 
 /* ============================ Dominio ============================ */
 const TIPOLOGIE = {
-  automazione:  {label:"Quadro di automazione", icon:"⚙️", short:"Automazione"},
-  distribuzione:{label:"Quadro di distribuzione", icon:"🔌", short:"Distribuzione"},
-  potenza:      {label:"Quadro di potenza", icon:"⚡", short:"Potenza"},
+  automazione:  {label:"Quadro di automazione", short:"Automazione", dot:"auto"},
+  distribuzione:{label:"Quadro di distribuzione", short:"Distribuzione", dot:"dist"},
+  potenza:      {label:"Quadro di potenza", short:"Potenza", dot:"pot"},
 };
-const SETTORI = ["Packaging","Legno","Vetro","Food & Beverage","Ceramica","Logistica","Automotive","Altro"];
+const SETTORI = ["Packaging","Legno","Vetro","Food & Beverage","Ceramica","Logistica","Automotive","Farmaceutico"];
 const CARPENTERIA = {
-  inclusa:{label:"Inclusa nel lavoro", icon:"🧰", pill:"Carpenteria inclusa"},
-  righi:  {label:"Eseguita da Righi", icon:"🏭", pill:"Carpenteria: Righi"},
-  no:     {label:"Non prevista", icon:"—", pill:"Senza carpenteria"},
+  inclusa:{label:"Inclusa nel lavoro", pill:"Carpenteria inclusa"},
+  righi:  {label:"Eseguita da Righi", pill:"Carpenteria: Righi"},
+  no:     {label:"Non prevista", pill:"Senza carpenteria"},
 };
 const STATI = {
-  bozza:     {label:"Bozza", pill:"", cls:"draft", col:0},
-  pubblicato:{label:"Pubblicato", pill:"info", cls:"pub", col:1},
-  assegnato: {label:"Assegnato", pill:"ok", cls:"ass", col:2},
-  in_corso:  {label:"In corso", pill:"brand", cls:"ass", col:3},
-  consegnato:{label:"Consegnato", pill:"brand", cls:"done", col:4},
-  chiuso:    {label:"Chiuso", pill:"plain", cls:"done", col:4},
+  bozza:     {label:"Bozza", pill:"", cls:"draft"},
+  pubblicato:{label:"Da assegnare", pill:"info", cls:"pub"},
+  assegnato: {label:"Assegnato", pill:"ok", cls:"ass"},
+  in_corso:  {label:"In corso", pill:"brand", cls:"ass"},
+  consegnato:{label:"Consegnato", pill:"brand", cls:"done"},
+  chiuso:    {label:"Chiuso", pill:"plain", cls:"done"},
 };
-const BOARD_COLS=[["bozza","Bozze"],["pubblicato","Pubblicati"],["assegnato","Assegnati"],["in_corso","In corso"],["consegnato","Consegnati"]];
+const BOARD_COLS=[["bozza","Bozze"],["pubblicato","Da assegnare"],["assegnato","Assegnati"],["in_corso","In corso"],["consegnato","Consegnati"]];
 const REQ_TYPES = {
-  dubbio:   {label:"Dubbio tecnico", icon:"❓", pill:"info"},
-  materiale:{label:"Mancanza materiale", icon:"📦", pill:"warn"},
-  ritardo:  {label:"Segnalazione ritardo", icon:"⏰", pill:"danger"},
-  sopralluogo:{label:"Chiarimento layout / sopralluogo", icon:"📐", pill:"brand"},
-  collaudo: {label:"Pronto per collaudo / ritiro", icon:"✅", pill:"ok"},
-  altro:    {label:"Altro", icon:"💬", pill:""},
+  dubbio:   {label:"Dubbio tecnico", pill:"info"},
+  materiale:{label:"Mancanza materiale", pill:"warn"},
+  ritardo:  {label:"Segnalazione ritardo", pill:"danger"},
+  sopralluogo:{label:"Chiarimento layout / sopralluogo", pill:"brand"},
+  collaudo: {label:"Pronto per collaudo / ritiro", pill:"ok"},
+  altro:    {label:"Altro", pill:""},
 };
 
 /* ============================ Seed ============================ */
+function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
 function seed(){
+  const rng=mulberry32(20260721);
+  const pick=arr=>arr[Math.floor(rng()*arr.length)];
   const capi=[
-    {id:"cs1", name:"Andrea Bianchi", tel:"+39 340 111 2233", email:"a.bianchi@righinet.com"},
-    {id:"cs2", name:"Sara Conti",     tel:"+39 340 222 3344", email:"s.conti@righinet.com"},
-    {id:"cs3", name:"Luca Ferri",     tel:"+39 340 333 4455", email:"l.ferri@righinet.com"},
+    {id:"cs1", name:"Andrea Bianchi", tel:"+39 340 111 2233"},
+    {id:"cs2", name:"Sara Conti",     tel:"+39 340 222 3344"},
+    {id:"cs3", name:"Luca Ferri",     tel:"+39 340 333 4455"},
+    {id:"cs4", name:"Marta Gori",     tel:"+39 340 444 5566"},
+    {id:"cs5", name:"Davide Neri",    tel:"+39 340 555 6677"},
   ];
-  const suppliers=[
-    {id:"f1", name:"Elettro Cablaggi Snc", citta:"Cesena", accredited:true, specialties:["automazione","distribuzione"], settori:["Packaging","Legno"], rating:4.6, referente:"Giuseppe Marani"},
-    {id:"f2", name:"QuadriPro Srl",        citta:"Bologna", accredited:true, specialties:["potenza","distribuzione"], settori:["Food & Beverage","Vetro"], rating:4.4, referente:"Paolo Testi"},
-    {id:"f3", name:"Cablaggi Rapidi",      citta:"Forlì",   accredited:true, specialties:["automazione"], settori:["Packaging","Logistica"], rating:4.1, referente:"Anna Riva"},
-    {id:"f4", name:"TecnoQuadri",          citta:"Parma",   accredited:true, specialties:["automazione","potenza"], settori:["Ceramica","Automotive"], rating:4.7, referente:"Marco Delli"},
+  capi.forEach(c=> c.email=slug(c.name.split(" ")[0])[0]+"."+slug(c.name.split(" ")[1])+"@righinet.com");
+  const supDefs=[
+    ["Elettro Cablaggi Snc","Cesena",["automazione","distribuzione"],["Packaging","Legno"],4.6,"Giuseppe Marani"],
+    ["QuadriPro Srl","Bologna",["potenza","distribuzione"],["Food & Beverage","Vetro"],4.4,"Paolo Testi"],
+    ["Cablaggi Rapidi","Forlì",["automazione"],["Packaging","Logistica"],4.1,"Anna Riva"],
+    ["TecnoQuadri","Parma",["automazione","potenza"],["Ceramica","Automotive"],4.7,"Marco Delli"],
+    ["Impianti Adriatica","Rimini",["distribuzione","potenza"],["Logistica","Food & Beverage"],4.2,"Elena Fabbri"],
+    ["EMC Wiring","Modena",["automazione","distribuzione"],["Automotive","Farmaceutico"],4.5,"Roberto Sala"],
+    ["Quadristica 2000","Ravenna",["potenza"],["Vetro","Ceramica"],3.9,"Chiara Monti"],
+    ["Nuova Elettromeccanica","Imola",["automazione","potenza","distribuzione"],["Packaging","Farmaceutico"],4.3,"Franco Belli"],
   ];
+  const suppliers=supDefs.map((d,i)=>({id:"f"+(i+1),name:d[0],citta:d[1],accredited:true,specialties:d[2],settori:d[3],rating:d[4],referente:d[5],email:"preventivi@"+slug(d[0])+".it"}));
   const users=[
-    {id:"u_righi", name:"Marco Neri", role:"righi", ruolo:"Ufficio Subappalti"},
-    {id:"u_f1", name:"Giuseppe Marani", role:"fornitore", supplierId:"f1"},
-    {id:"u_f2", name:"Paolo Testi",     role:"fornitore", supplierId:"f2"},
-    {id:"u_f3", name:"Anna Riva",       role:"fornitore", supplierId:"f3"},
+    {id:"u_righi", name:"Marco Neri", role:"righi", ruolo:"Ufficio Subappalti", email:"subappalti@righinet.com"},
+    {id:"u_f1", name:"Giuseppe Marani", role:"fornitore", supplierId:"f1", email:suppliers[0].email},
+    {id:"u_f2", name:"Paolo Testi",     role:"fornitore", supplierId:"f2", email:suppliers[1].email},
+    {id:"u_f4", name:"Marco Delli",     role:"fornitore", supplierId:"f4", email:suppliers[3].email},
   ];
-  const jobs=[
-    { id:"j1", code:"RGH-2601", title:"Quadro automazione linea imballaggio",
-      tipologia:"automazione", settore:"Packaging", carpenteria:"inclusa",
-      budget:8500, dataRichiesta:dISO(-2), dataConsegna:dISO(19), capoId:"cs1",
-      descrizione:"Cablaggio e cablatura quadro bordo macchina per linea di imballaggio secondario. Schema e distinta forniti. Collaudo funzionale in sede Righi.",
-      allegati:[{id:"a1",name:"Layout_quadro_imballaggio.pdf",type:"application/pdf",layout:true,size:"420 KB"},{id:"a2",name:"Distinta_materiali.xlsx",type:"xlsx",size:"38 KB"}],
-      visibility:"tutti", invitati:[], stato:"pubblicato", assegnatoA:null, publishedAt:dISO(-2), createdAt:dISO(-3) },
-    { id:"j2", code:"RGH-2598", title:"Quadri distribuzione stabilimento vetro",
-      tipologia:"distribuzione", settore:"Vetro", carpenteria:"righi",
-      budget:12000, dataRichiesta:dISO(-14), dataConsegna:dISO(-2), capoId:"cs2",
-      descrizione:"Tre quadri di distribuzione per reparto tempera. Carpenteria fornita da Righi. Cablaggio secondo schemi allegati.",
-      allegati:[{id:"a3",name:"Layout_distribuzione_vetro.pdf",type:"application/pdf",layout:true,size:"512 KB"}],
-      visibility:"selezionati", invitati:["f2","f4"], stato:"in_corso", assegnatoA:"f2", publishedAt:dISO(-13), createdAt:dISO(-14) },
-    { id:"j3", code:"RGH-2603", title:"Quadro di potenza forno ceramica",
-      tipologia:"potenza", settore:"Ceramica", carpenteria:"righi",
-      budget:15000, dataRichiesta:dISO(-1), dataConsegna:dISO(26), capoId:"cs3",
-      descrizione:"Quadro di potenza per forno a rulli. Sbarratura e cablaggio potenza. Richiesta esperienza su quadri >250A.",
-      allegati:[{id:"a4",name:"Layout_potenza_forno.pdf",type:"application/pdf",layout:true,size:"680 KB"}],
-      visibility:"selezionati", invitati:["f2","f4"], stato:"pubblicato", assegnatoA:null, publishedAt:dISO(-1), createdAt:dISO(-1) },
-    { id:"j4", code:"RGH-2585", title:"Cablaggio bordo macchina reparto legno",
-      tipologia:"automazione", settore:"Legno", carpenteria:"no",
-      budget:5000, dataRichiesta:dISO(-30), dataConsegna:dISO(-6), capoId:"cs1",
-      descrizione:"Cablaggio bordo macchina centro di lavoro legno. Materiale a carico Righi.",
-      allegati:[{id:"a5",name:"Layout_bordo_macchina.pdf",type:"application/pdf",layout:true,size:"300 KB"}],
-      visibility:"tutti", invitati:[], stato:"consegnato", assegnatoA:"f1", publishedAt:dISO(-28), createdAt:dISO(-30) },
-    { id:"j5", code:"RGH-2605", title:"Quadro distribuzione magazzino logistica",
-      tipologia:"distribuzione", settore:"Logistica", carpenteria:"inclusa",
-      budget:6000, dataRichiesta:dISO(0), dataConsegna:dISO(30), capoId:"cs2",
-      descrizione:"Quadro di distribuzione per magazzino automatico. Bozza in preparazione.",
-      allegati:[], visibility:"tutti", invitati:[], stato:"bozza", assegnatoA:null, publishedAt:null, createdAt:dISO(0) },
-    { id:"j6", code:"RGH-2592", title:"Quadro automazione linea food",
-      tipologia:"automazione", settore:"Food & Beverage", carpenteria:"inclusa",
-      budget:9000, dataRichiesta:dISO(-9), dataConsegna:dISO(12), capoId:"cs3",
-      descrizione:"Quadro automazione linea riempimento. Cablaggio + prova I/O. Rispetto norme igieniche di settore.",
-      allegati:[{id:"a6",name:"Layout_linea_food.pdf",type:"application/pdf",layout:true,size:"455 KB"}],
-      visibility:"tutti", invitati:["f1"], stato:"in_corso", assegnatoA:"f1", publishedAt:dISO(-8), createdAt:dISO(-9) },
-  ];
-  const responses=[
-    {id:uid("r"), jobId:"j1", supplierId:"f3", tipo:"domanda", testo:"La distinta materiali è completa o dobbiamo integrare i finecorsa?", at:dISO(-1)+"T09:12", from:"fornitore", read:false},
-    {id:uid("r"), jobId:"j1", supplierId:"f3", tipo:"accettazione", testo:"Confermiamo disponibilità, possiamo consegnare in 15 giorni.", importo:8200, at:dISO(-1)+"T09:20", from:"fornitore", read:false},
-    {id:uid("r"), jobId:"j2", supplierId:"f2", tipo:"accettazione", testo:"Accettata.", importo:11800, at:dISO(-12)+"T14:00", from:"fornitore", read:true},
-    {id:uid("r"), jobId:"j6", supplierId:"f1", tipo:"accettazione", testo:"Ok per noi.", importo:9000, at:dISO(-7)+"T10:00", from:"fornitore", read:true},
-  ];
-  const requests=[
-    {id:uid("q"), jobId:"j2", supplierId:"f2", tipo:"materiale", testo:"Mancano 12 morsetti sezionabili da 35mm². Possiamo procurarli noi?", at:dISO(-1)+"T11:30", stato:"aperta", capoId:"cs2", from:"fornitore", read:false},
-    {id:uid("q"), jobId:"j6", supplierId:"f1", tipo:"dubbio", testo:"Sul foglio 4 il siglatura morsetti X2 non è chiara.", at:dISO(-3)+"T08:45", stato:"presa", capoId:"cs3", from:"fornitore", read:true},
-  ];
-  return {v:1, capi, suppliers, users, jobs, responses, requests, notifications:[]};
+  const lineTokens=["linea 1","linea 2","linea 3","reparto A","reparto B","impianto Nord","impianto Sud","cella 4","macchina 12","forno 2","banco prova","stazione 7","area confezionamento","gruppo pompe","nastro 5"];
+  let codeN=2400; const jobs=[];
+  function mk(stato,opts){
+    const tip=pick(Object.keys(TIPOLOGIE)); const set=pick(SETTORI); const carp=pick(["inclusa","inclusa","righi","no"]);
+    const budget=Math.round((3000+rng()*17000)/500)*500;
+    const capoId=pick(capi).id;
+    const j={ id:"j"+(codeN), code:"RGH-"+(codeN), title:TIPOLOGIE[tip].short+" "+set+" — "+pick(lineTokens),
+      tipologia:tip, settore:set, carpenteria:carp, budget, capoId,
+      descrizione:"Cablaggio e cablatura secondo schemi e distinta forniti. Collaudo funzionale prima della consegna.",
+      allegati:[{id:uid("a"),name:"Layout_"+slug(set)+"_"+codeN+".pdf",type:"application/pdf",layout:true,size:(300+Math.floor(rng()*500))+" KB"}],
+      visibility:"tutti", invitati:[], stato, assegnatoA:null, publishedAt:null, createdAt:dISO(-Math.floor(rng()*60)) };
+    codeN++; Object.assign(j,opts||{}); return j;
+  }
+  // 40 da assegnare (pubblicati)
+  for(let i=0;i<40;i++){ const sel=rng()<0.35; const inv=sel?suppliers.filter(()=>rng()<0.4).map(s=>s.id).slice(0,3):[];
+    jobs.push(mk("pubblicato",{ visibility:sel&&inv.length?"selezionati":"tutti", invitati:inv,
+      dataRichiesta:dISO(-Math.floor(rng()*8)), dataConsegna:dISO(8+Math.floor(rng()*34)), publishedAt:dISO(-Math.floor(rng()*8)) })); }
+  // 150 assegnati / in corso
+  for(let i=0;i<150;i++){ const sup=pick(suppliers); const st=rng()<0.5?"assegnato":"in_corso"; const cons=Math.floor(-8+rng()*36);
+    jobs.push(mk(st,{ assegnatoA:sup.id, visibility:rng()<0.5?"selezionati":"tutti", invitati:[sup.id],
+      dataRichiesta:dISO(-(14+Math.floor(rng()*45))), dataConsegna:dISO(cons), publishedAt:dISO(-(12+Math.floor(rng()*40))) })); }
+  // 22 consegnati
+  for(let i=0;i<22;i++){ const sup=pick(suppliers);
+    jobs.push(mk("consegnato",{ assegnatoA:sup.id, invitati:[sup.id],
+      dataRichiesta:dISO(-(40+Math.floor(rng()*30))), dataConsegna:dISO(-(3+Math.floor(rng()*35))), publishedAt:dISO(-(38+Math.floor(rng()*28))) })); }
+  // 6 bozze
+  for(let i=0;i<6;i++){ jobs.push(mk("bozza",{ allegati:[], dataRichiesta:dISO(0), dataConsegna:dISO(20+Math.floor(rng()*20)) })); }
+
+  // Interazioni: accettazioni sui pubblicati + domande + richieste
+  const responses=[], requests=[], notifications=[];
+  const pubs=jobs.filter(j=>j.stato==="pubblicato");
+  pubs.forEach(j=>{ const nAcc=Math.floor(rng()*3); const pool=suppliers.filter(s=> j.visibility==="tutti"||j.invitati.includes(s.id));
+    for(let k=0;k<nAcc && k<pool.length;k++){ const s=pool[Math.floor(rng()*pool.length)];
+      if(responses.some(r=>r.jobId===j.id&&r.supplierId===s.id)) continue;
+      responses.push({id:uid("r"),jobId:j.id,supplierId:s.id,tipo:"accettazione",testo:"Confermiamo disponibilità.",importo:Math.round(j.budget*(0.92+rng()*0.12)/100)*100,at:dISO(-Math.floor(rng()*4))+"T09:"+(10+k)+"0",from:"fornitore",read:false}); }
+    if(rng()<0.25){ const s=pool[Math.floor(rng()*pool.length)]; if(s) responses.push({id:uid("r"),jobId:j.id,supplierId:s.id,tipo:"domanda",testo:"La distinta materiali è completa?",at:dISO(-1)+"T11:20",from:"fornitore",read:false}); }
+  });
+  // richieste guidate su alcune commesse attive
+  const active=jobs.filter(j=>j.assegnatoA&&(j.stato==="assegnato"||j.stato==="in_corso"));
+  for(let i=0;i<10;i++){ const j=active[Math.floor(rng()*active.length)]; const tp=pick(Object.keys(REQ_TYPES));
+    requests.push({id:uid("q"),jobId:j.id,supplierId:j.assegnatoA,tipo:tp,testo:tp==="materiale"?"Mancano alcuni morsetti sezionabili.":tp==="dubbio"?"Siglatura morsetti non chiara sul foglio 4.":"",at:dISO(-Math.floor(rng()*3))+"T"+(8+i)+":30",stato:i<6?"aperta":"presa",capoId:j.capoId,from:"fornitore",read:i>=6}); }
+
+  return {v:2, capi, suppliers, users, jobs, responses, requests, notifications};
 }
 
 /* ============================ Stato ============================ */
 let STATE = Store.load() || seed();
 let Session = (function(){ try{ const r=Storage.get(SESSKEY); return r?JSON.parse(r):null; }catch(e){ return null; } })();
-let App = { tab:null };
+let App = { tab:null, lavoriMode:"table", page:1, filters:{q:"",stato:"",tipologia:"",settore:"",capo:"",fornitore:"",late:false}, sort:{key:"consegna",dir:1}, fFilters:{q:"",stato:""} };
+const PAGE=40;
 function persist(){ Store.save(STATE); }
 function setSession(userId){ Session = userId?{userId}:null; try{ Storage.set(SESSKEY, JSON.stringify(Session)); }catch(e){} }
 
-/* helpers dominio */
 const byId = (arr,id)=> arr.find(x=>x.id===id);
 const supplier = id => byId(STATE.suppliers,id);
 const capo = id => byId(STATE.capi,id);
@@ -446,33 +535,53 @@ function isLate(j){ const n=daysTo(j.dataConsegna); return n!=null && n<0 && !["
 function jobResponses(jid){ return STATE.responses.filter(r=>r.jobId===jid); }
 function jobRequests(jid){ return STATE.requests.filter(r=>r.jobId===jid); }
 
+/* filtro/ordinamento per la vista massiva */
+function filteredJobs(){
+  const f=App.filters; let a=STATE.jobs.slice();
+  if(f.stato==="da_assegnare") a=a.filter(j=>j.stato==="pubblicato");
+  else if(f.stato==="attivi") a=a.filter(j=>["assegnato","in_corso"].includes(j.stato));
+  else if(f.stato) a=a.filter(j=>j.stato===f.stato);
+  if(f.late) a=a.filter(isLate);
+  if(f.tipologia) a=a.filter(j=>j.tipologia===f.tipologia);
+  if(f.settore) a=a.filter(j=>j.settore===f.settore);
+  if(f.capo) a=a.filter(j=>j.capoId===f.capo);
+  if(f.fornitore) a=a.filter(j=>j.assegnatoA===f.fornitore);
+  if(f.q){ const q=f.q.toLowerCase(); a=a.filter(j=>{ const s=supplier(j.assegnatoA); const c=capo(j.capoId);
+    return (j.title+" "+j.code+" "+j.settore+" "+TIPOLOGIE[j.tipologia].short+" "+(s?s.name:"")+" "+(c?c.name:"")).toLowerCase().includes(q); }); }
+  const k=App.sort.key, dir=App.sort.dir;
+  a.sort((x,y)=>{ let vx,vy;
+    if(k==="consegna"){vx=x.dataConsegna;vy=y.dataConsegna;}
+    else if(k==="budget"){vx=x.budget||0;vy=y.budget||0;}
+    else if(k==="code"){vx=x.code;vy=y.code;}
+    else if(k==="stato"){vx=x.stato;vy=y.stato;}
+    else {vx=x.title;vy=y.title;}
+    return vx<vy?-dir:vx>vy?dir:0; });
+  return a;
+}
+
 /* ============================ Render ============================ */
 function render(){
   const app=$("#app");
   if(!currentUser()){ app.innerHTML=viewLogin(); return; }
   const u=currentUser();
   const tabs = u.role==="righi"
-    ? [["dashboard","Dashboard",""],["lavori","Lavori",countRighiLavori()],["nuovo","Nuovo lavoro",""],["richieste","Richieste",countOpenReq()],["fornitori","Fornitori",""]]
+    ? [["dashboard","Dashboard",""],["lavori","Lavori",STATE.jobs.filter(j=>j.stato!=="chiuso").length],["nuovo","Nuovo lavoro",""],["richieste","Richieste",countOpenReq()],["fornitori","Fornitori",""]]
     : [["bacheca","Bacheca",countBacheca()],["miei","I miei lavori",countMiei()],["richieste","Richieste guidate",""],["profilo","Profilo",""]];
   if(!App.tab || !tabs.some(t=>t[0]===App.tab)) App.tab = tabs[0][0];
   const notif = unreadFor(u);
   app.innerHTML = `
   <header class="topbar">
-    <div class="brand">
-      <img src="logo.svg" alt="Righi">
-      <div class="bt"><b>Portale Fornitori</b><span>Righi Solutions · subappalti</span></div>
-    </div>
+    <div class="brand">${LOGO}<div class="bt"><b>RIGHI SOLUTIONS</b><span>Portale Fornitori · Subappalti</span></div></div>
     <div class="tb-spacer"></div>
     <span class="role-chip ${u.role}">${u.role==="righi"?"Righi":"Fornitore"}</span>
-    <button class="tb-btn" data-act="notif" aria-label="Notifiche">🔔${notif?`<span class="badge">${notif}</span>`:""}</button>
+    <button class="tb-btn" data-act="notif" aria-label="Notifiche">${icon("bell")}${notif?`<span class="badge">${notif}</span>`:""}</button>
     <button class="tb-btn" data-act="switch" aria-label="Cambia utente"><span class="avatar sm" style="background:${u.role==='righi'?'var(--accent)':colorFor(u.id)}">${initials(u.name)}</span><span class="lbl">${esc(u.name.split(" ")[0])}</span></button>
   </header>
   <nav class="tabs" role="tablist">
-    ${tabs.map(t=>`<button role="tab" aria-selected="${App.tab===t[0]}" data-tab="${t[0]}">${esc(t[1])}${t[2]?`<span class="cnt ${hotTab(t[0])?'hot':''}">${t[2]}</span>`:""}</button>`).join("")}
+    ${tabs.map(t=>`<button role="tab" aria-selected="${App.tab===t[0]}" data-tab="${t[0]}">${esc(t[1])}${t[2]?`<span class="cnt ${(t[0]==='richieste'&&countOpenReq()>0)?'hot':''}">${t[2]}</span>`:""}</button>`).join("")}
   </nav>
   <main>${viewFor(u)}</main>`;
 }
-function hotTab(tab){ return (tab==="richieste"&&countOpenReq()>0); }
 function viewFor(u){
   const t=App.tab;
   if(u.role==="righi"){
@@ -489,16 +598,14 @@ function viewFor(u){
   }
   return "";
 }
-
-/* counts */
-function countRighiLavori(){ return STATE.jobs.filter(j=>j.stato!=="chiuso").length; }
 function countOpenReq(){ return STATE.requests.filter(r=>r.stato==="aperta").length; }
-function countBacheca(){ const u=currentUser(); if(!u.supplierId) return ""; return jobsForSupplier(u.supplierId).filter(j=>["pubblicato"].includes(j.stato) && j.assegnatoA!==u.supplierId).length; }
+function countBacheca(){ const u=currentUser(); if(!u.supplierId) return ""; return jobsForSupplier(u.supplierId).filter(j=>j.stato==="pubblicato" && j.assegnatoA!==u.supplierId && !jobResponses(j.id).some(r=>r.supplierId===u.supplierId&&r.tipo==="accettazione")).length; }
 function countMiei(){ const u=currentUser(); if(!u.supplierId) return ""; return STATE.jobs.filter(j=>j.assegnatoA===u.supplierId).length; }
 function unreadFor(u){
   if(u.role==="righi") return STATE.responses.filter(r=>r.from==="fornitore"&&!r.read).length + STATE.requests.filter(r=>r.from==="fornitore"&&!r.read).length;
   return STATE.notifications.filter(n=>n.toUser===u.id&&!n.read).length;
 }
+function tipPill(tip){ const t=TIPOLOGIE[tip]; return `<span class="pill"><span class="dot ${t.dot}"></span>${t.short}</span>`; }
 
 /* ==================== VIEW: Login ==================== */
 function viewLogin(){
@@ -508,13 +615,14 @@ function viewLogin(){
     return `<button class="urow" data-login="${u.id}">
       <span class="avatar" style="background:${u.role==='righi'?'var(--accent)':colorFor(u.id)}">${initials(u.name)}</span>
       <span class="gr"><b>${esc(u.name)}</b><span>${u.role==='righi'?esc(u.ruolo||'Righi'):esc((s?s.name:'')+' · '+(s?s.citta:''))}</span></span>
-      <span class="arw">›</span></button>`; };
+      <span class="arw">${icon("chev")}</span></button>`; };
   return `<div class="login"><div class="box">
-    <div class="logo"><img src="logo.svg" alt="Righi"><div><h1>Portale Fornitori</h1><p>Righi Solutions — assegnazione e gestione dei lavori di subappalto: cablaggio e costruzione quadri elettrici.</p></div></div>
+    <div class="logo">${LOGO}<div><h1>RIGHI SOLUTIONS</h1><div class="sub">Portale Fornitori</div></div>
+      <p>Assegnazione e gestione dei lavori di subappalto: cablaggio e costruzione di quadri elettrici.</p></div>
     <div class="panel">
-      <div class="lbl">Accedi come — Righi</div>
+      <div class="lbl">${icon("building","sm")} Accedi come — Righi</div>
       ${righi.map(urow).join("")}
-      <div class="lbl" style="margin-top:14px">Accedi come — Fornitore accreditato</div>
+      <div class="lbl" style="margin-top:14px">${icon("user","sm")} Accedi come — Fornitore accreditato</div>
       ${forn.map(urow).join("")}
     </div>
     <div class="foot">Prototipo dimostrativo · accessi predisposti · i dati restano sul dispositivo</div>
@@ -530,113 +638,136 @@ function viewRighiDashboard(){
   const candid=STATE.responses.filter(r=>r.tipo==="accettazione"&&!r.read&&STATE.jobs.some(j=>j.id===r.jobId&&j.stato==="pubblicato"));
   return `
   <div class="view-head"><div><h2>Ciao, ${esc(currentUser().name.split(" ")[0])}</h2><p>Situazione subappalti al ${fmtDate(todayISO())}</p></div>
-    <button class="btn accent" data-act="goNuovo">＋ Nuovo lavoro</button></div>
+    <button class="btn accent" data-act="goNuovo">${icon("plus")} Nuovo lavoro</button></div>
   <div class="grid k4" style="margin-bottom:14px">
-    <div class="card kpi"><span class="v">${pub}</span><span class="l">Lavori pubblicati</span><span class="foot">visibili ai fornitori</span></div>
-    <div class="card kpi ok"><span class="v">${ass}</span><span class="l">Assegnati / in corso</span></div>
-    <div class="card kpi danger"><span class="v">${late.length}</span><span class="l">In ritardo</span><span class="foot">consegna superata</span></div>
-    <div class="card kpi accent"><span class="v">${openReq.length}</span><span class="l">Richieste aperte</span><span class="foot">dai fornitori</span></div>
+    <div class="card kpi click" data-act="goFilter" data-stato="da_assegnare"><span class="v">${pub}</span><span class="l">Da assegnare</span><span class="foot">pubblicati ai fornitori</span></div>
+    <div class="card kpi ok click" data-act="goFilter" data-stato="attivi"><span class="v">${ass}</span><span class="l">Assegnati / in corso</span></div>
+    <div class="card kpi danger click" data-act="goFilter" data-stato="late"><span class="v">${late.length}</span><span class="l">In ritardo</span><span class="foot">consegna superata</span></div>
+    <div class="card kpi accent click" data-act="goTab" data-tab="richieste"><span class="v">${openReq.length}</span><span class="l">Richieste aperte</span><span class="foot">dai fornitori</span></div>
   </div>
-  ${late.length?`<div class="card leftbar late" style="margin-bottom:14px">
-    <div class="sect-t" style="color:var(--danger)">⏰ Consegne in ritardo</div>
-    <div class="rowlist">${late.map(j=>{const s=supplier(j.assegnatoA);return `
-      <div class="lrow" data-job="${j.id}" style="cursor:pointer">
-        <span class="ic danger">⏰</span>
-        <span class="gr"><b>${esc(j.title)}</b><span class="s">${s?esc(s.name):'—'} · consegna ${fmtDate(j.dataConsegna)} (${relDays(j.dataConsegna)})</span></span>
-        <span class="pill danger">${Math.abs(daysTo(j.dataConsegna))} gg</span></div>`;}).join("")}</div></div>`:""}
   <div class="grid k2">
     <div class="card">
-      <div class="sect-t">🆕 Da valutare — hanno accettato</div>
-      ${candid.length?`<div class="rowlist">${candid.map(r=>{const j=byId(STATE.jobs,r.jobId),s=supplier(r.supplierId);return `
-        <div class="lrow unread" data-job="${j.id}" style="cursor:pointer">
+      <div class="sect-t">Da valutare — hanno accettato</div>
+      ${candid.length?`<div class="rowlist">${candid.slice(0,6).map(r=>{const j=byId(STATE.jobs,r.jobId),s=supplier(r.supplierId);return `
+        <div class="lrow unread" data-job="${j.id}">
           <span class="avatar sm" style="background:${colorFor(s.id)}">${initials(s.name)}</span>
           <span class="gr"><b>${esc(s.name)}</b><span class="s">${esc(j.title)} · offerta ${fmtMoney(r.importo)}</span></span>
-          <span class="btn sm accent" data-act="assign" data-job="${j.id}" data-sup="${s.id}">Assegna</span></div>`;}).join("")}</div>`
-        :`<div class="empty"><div class="em">📭</div><p>Nessuna nuova accettazione</p></div>`}
+          <button class="btn sm accent" data-act="assign" data-job="${j.id}" data-sup="${s.id}">Assegna</button></div>`;}).join("")}
+          ${candid.length>6?`<div class="col-more" data-act="goFilter" data-stato="da_assegnare">Vedi tutti i ${candid.length} ${icon("chev","sm")}</div>`:""}</div>`
+        :`<div class="empty">${icon("inbox")}<p>Nessuna nuova accettazione</p></div>`}
     </div>
     <div class="card">
-      <div class="sect-t">📨 Ultime richieste dei fornitori</div>
-      ${openReq.length?`<div class="rowlist">${openReq.slice(0,5).map(r=>reqRow(r)).join("")}</div>`
-        :`<div class="empty"><div class="em">✅</div><p>Nessuna richiesta aperta</p></div>`}
+      <div class="sect-t">Ultime richieste dei fornitori</div>
+      ${openReq.length?`<div class="rowlist">${openReq.slice(0,6).map(r=>reqRow(r)).join("")}
+        ${openReq.length>6?`<div class="col-more" data-act="goTab" data-tab="richieste">Vedi tutte le ${openReq.length} ${icon("chev","sm")}</div>`:""}</div>`
+        :`<div class="empty">${icon("check")}<p>Nessuna richiesta aperta</p></div>`}
     </div>
-  </div>`;
+  </div>
+  ${late.length?`<div class="card leftbar late" style="margin-top:14px">
+    <div class="sect-t" style="color:var(--danger)">${icon("clock","sm")} Consegne in ritardo (${late.length})</div>
+    <div class="rowlist">${late.slice(0,5).map(j=>{const s=supplier(j.assegnatoA);return `
+      <div class="lrow" data-job="${j.id}">
+        <span class="ic danger">${icon("clock")}</span>
+        <span class="gr"><b>${esc(j.title)}</b><span class="s">${s?esc(s.name):'—'} · consegna ${fmtDate(j.dataConsegna)} (${relDays(j.dataConsegna)})</span></span>
+        <span class="pill danger">${Math.abs(daysTo(j.dataConsegna))} gg</span></div>`;}).join("")}
+      ${late.length>5?`<div class="col-more" data-act="goFilter" data-stato="late">Vedi tutti i ${late.length} ritardi ${icon("chev","sm")}</div>`:""}</div></div>`:""}`;
 }
 function reqRow(r){ const j=byId(STATE.jobs,r.jobId),s=supplier(r.supplierId),t=REQ_TYPES[r.tipo],c=capo(r.capoId);
-  return `<div class="lrow ${!r.read?'unread':''}" data-req="${r.id}" style="cursor:pointer">
-    <span class="ic ${t.pill==='danger'?'danger':t.pill==='warn'?'accent':''}">${t.icon}</span>
+  return `<button class="lrow ${!r.read?'unread':''}" data-req="${r.id}" style="width:100%">
+    <span class="ic ${t.pill==='danger'?'danger':t.pill==='warn'?'accent':'info'}">${icon(r.tipo==='materiale'?'inbox':r.tipo==='ritardo'?'clock':'mail')}</span>
     <span class="gr"><b>${t.label} — ${esc(s?s.name:'')}</b><span class="s">${esc(j?j.title:'')} · caposquadra ${esc(c?c.name:'—')} · ${fmtDate((r.at||'').slice(0,10))}</span></span>
-    <span class="pill ${r.stato==='aperta'?'warn':r.stato==='presa'?'info':'ok'}">${r.stato==='aperta'?'Aperta':r.stato==='presa'?'In carico':'Chiusa'}</span></div>`; }
+    <span class="pill ${r.stato==='aperta'?'warn':r.stato==='presa'?'info':'ok'}">${r.stato==='aperta'?'Aperta':r.stato==='presa'?'In carico':'Chiusa'}</span></button>`; }
 
-/* ==================== VIEW: Righi — Lavori (board) ==================== */
+/* ==================== VIEW: Righi — Lavori (vista massiva) ==================== */
 function viewRighiLavori(){
-  const mode = App.lavoriMode||"board";
+  const mode=App.lavoriMode||"table";
   return `
-  <div class="view-head"><div><h2>Lavori</h2><p>Pipeline dei subappalti — trascina lo sguardo dalla bozza alla consegna</p></div>
-    <div class="seg"><button class="${mode==='board'?'on':''}" data-act="lavoriMode" data-m="board">▦ Bacheca</button><button class="${mode==='list'?'on':''}" data-act="lavoriMode" data-m="list">☰ Elenco</button></div></div>
-  ${mode==="board"?boardHtml():listHtml(STATE.jobs)}`;
+  <div class="view-head"><div><h2>Lavori</h2><p>${STATE.jobs.length} commesse in portafoglio — cerca, filtra e assegna</p></div>
+    <div class="seg"><button class="${mode==='table'?'on':''}" data-act="lavoriMode" data-m="table">${icon("list","sm")} Elenco</button><button class="${mode==='board'?'on':''}" data-act="lavoriMode" data-m="board">${icon("board","sm")} Bacheca</button></div></div>
+  ${filterBar()}
+  <div id="lav-results">${mode==="board"?boardHtml():tableHtml()}</div>`;
+}
+function filterBar(){
+  const f=App.filters;
+  const statoChips=[["","Tutti"],["da_assegnare","Da assegnare"],["attivi","Assegnati/In corso"],["consegnato","Consegnati"],["bozza","Bozze"]];
+  const active=[];
+  if(f.tipologia) active.push(["tipologia",TIPOLOGIE[f.tipologia].short]);
+  if(f.settore) active.push(["settore",f.settore]);
+  if(f.capo) active.push(["capo",(capo(f.capo)||{}).name]);
+  if(f.fornitore) active.push(["fornitore",(supplier(f.fornitore)||{}).name]);
+  if(f.late) active.push(["late","Solo ritardi"]);
+  return `<div class="filters">
+    <div class="filt-row">
+      <div class="searchbox">${icon("search")}<input id="lav-search" placeholder="Cerca per titolo, codice, fornitore, settore…" value="${esc(f.q)}"></div>
+      <button class="chip sm ${f.late?'on accent':''}" data-act="toggleLate">${icon("clock","sm")} Ritardi</button>
+    </div>
+    <div class="filt-row" style="margin-top:9px">${statoChips.map(([v,l])=>`<button class="chip sm ${f.stato===v?'on':''}" data-act="setStatoFilter" data-v="${v}">${l}</button>`).join("")}</div>
+    <div class="filt-adv">
+      <select class="sel" data-adv="tipologia"><option value="">Tipologia (tutte)</option>${Object.entries(TIPOLOGIE).map(([k,v])=>`<option value="${k}" ${f.tipologia===k?'selected':''}>${v.short}</option>`).join("")}</select>
+      <select class="sel" data-adv="settore"><option value="">Settore (tutti)</option>${SETTORI.map(s=>`<option value="${esc(s)}" ${f.settore===s?'selected':''}>${esc(s)}</option>`).join("")}</select>
+      <select class="sel" data-adv="capo"><option value="">Caposquadra (tutti)</option>${STATE.capi.map(c=>`<option value="${c.id}" ${f.capo===c.id?'selected':''}>${esc(c.name)}</option>`).join("")}</select>
+      <select class="sel" data-adv="fornitore"><option value="">Fornitore (tutti)</option>${STATE.suppliers.map(s=>`<option value="${s.id}" ${f.fornitore===s.id?'selected':''}>${esc(s.name)}</option>`).join("")}</select>
+    </div>
+    ${active.length?`<div class="filt-active">${active.map(([k,l])=>`<span class="fchip">${esc(l)}<button data-act="clearFilter" data-k="${k}">${icon("x","sm")}</button></span>`).join("")}<button class="fchip" data-act="clearAll" style="background:var(--surface-2);color:var(--ink-soft);border-color:var(--line)">Azzera tutto</button></div>`:""}
+  </div>`;
+}
+function tableHtml(){
+  const all=filteredJobs(); const shown=all.slice(0,App.page*PAGE);
+  const th=(k,l,extra)=>`<th class="sortable ${extra||''}" data-act="sortBy" data-k="${k}">${l} ${App.sort.key===k?icon("sort","sm"):""}</th>`;
+  return `<div class="result-line"><span><b style="color:var(--ink)">${all.length}</b> lavori${all.length?` · mostrati ${shown.length}`:""}</span>
+    <span>${all.filter(isLate).length} in ritardo</span></div>
+  ${all.length?`<div class="scroll-x"><table class="tbl"><thead><tr>
+    ${th("code","Codice")}${th("title","Lavoro")}<th>Tipologia</th><th>Settore</th>${th("consegna","Consegna")}${th("budget","Budget","num")}<th>Caposquadra</th>${th("stato","Stato / Fornitore")}
+  </tr></thead><tbody>
+    ${shown.map(rowHtml).join("")}
+  </tbody></table></div>
+  ${all.length>shown.length?`<div class="morebtn"><button class="btn ghost" data-act="more">Mostra altri ${Math.min(PAGE,all.length-shown.length)} (${all.length-shown.length} rimanenti)</button></div>`:""}`
+  :`<div class="empty">${icon("search")}<p>Nessun lavoro con questi filtri</p><button class="btn ghost sm" data-act="clearAll" style="margin-top:10px">Azzera filtri</button></div>`}`;
+}
+function rowHtml(j){ const t=TIPOLOGIE[j.tipologia], st=STATI[j.stato], late=isLate(j), s=supplier(j.assegnatoA), c=capo(j.capoId);
+  return `<tr class="${late?'late':''}" data-job="${j.id}">
+    <td class="code">${esc(j.code)}</td>
+    <td><div class="t-title">${esc(j.title)}</div></td>
+    <td><span class="pill plain"><span class="dot ${t.dot}"></span>${t.short}</span></td>
+    <td>${esc(j.settore)}</td>
+    <td>${fmtDate(j.dataConsegna)} ${late?`<span class="pill danger" style="margin-left:2px">${Math.abs(daysTo(j.dataConsegna))}gg</span>`:`<span class="muted" style="font-size:11.5px">${relDays(j.dataConsegna)}</span>`}</td>
+    <td class="num">${fmtMoney(j.budget)}</td>
+    <td>${c?esc(c.name):'—'}</td>
+    <td>${s?`<span class="pill ${late?'danger':st.pill}">${esc(s.name)}</span>`:`<span class="pill ${st.pill}">${st.label}</span>`}</td>
+  </tr>`;
 }
 function boardHtml(){
+  const base=filteredJobs();
   return `<div class="board">${BOARD_COLS.map(([st,label])=>{
-    const items=STATE.jobs.filter(j=> st==="assegnato" ? j.stato==="assegnato" : j.stato===st);
+    const items=base.filter(j=> st==="assegnato" ? j.stato==="assegnato" : j.stato===st);
+    const show=items.slice(0,7);
     return `<div class="col"><div class="h"><span>${label}</span><span class="n">${items.length}</span></div>
-      ${items.map(miniCard).join("") || `<div class="muted" style="font-size:12px;padding:8px;text-align:center">—</div>`}</div>`;
+      ${show.map(miniCard).join("") || `<div class="muted" style="font-size:12px;padding:8px;text-align:center">—</div>`}
+      ${items.length>show.length?`<div class="col-more" data-act="colMore" data-st="${st}">+ ${items.length-show.length} altri ${icon("chev","sm")}</div>`:""}</div>`;
   }).join("")}</div>
-  <p class="muted" style="font-size:12px;margin-top:10px">Tocca una scheda per aprire il dettaglio, pubblicare, notificare o assegnare.</p>`;
+  <p class="muted" style="font-size:12px;margin-top:10px">Con volumi elevati usa l'Elenco: cerca e filtra per assegnare in pochi secondi.</p>`;
 }
 function miniCard(j){ const t=TIPOLOGIE[j.tipologia],late=isLate(j),s=supplier(j.assegnatoA);
   return `<div class="mini ${late?'late':''}" data-job="${j.id}">
     <div class="code">${esc(j.code)}</div>
     <div class="t">${esc(j.title)}</div>
-    <div class="tags"><span class="pill">${t.icon} ${t.short}</span>${late?`<span class="pill danger">ritardo</span>`:""}</div>
-    <div class="r"><span>${fmtMoney(j.budget)}</span><span>${s?initials(s.name):"📅 "+fmtDateShort(j.dataConsegna)}</span></div></div>`; }
-function listHtml(jobs){
-  if(!jobs.length) return `<div class="empty"><div class="em">📋</div><p>Nessun lavoro</p></div>`;
-  return `<div class="grid auto">${jobs.map(jobCard).join("")}</div>`;
-}
-function jobCard(j){
-  const t=TIPOLOGIE[j.tipologia], st=STATI[j.stato], late=isLate(j), s=supplier(j.assegnatoA), c=capo(j.capoId);
-  const layout=(j.allegati||[]).find(a=>a.layout);
-  const nq=jobRequests(j.id).filter(r=>r.stato==="aperta").length;
-  const nd=jobResponses(j.id).filter(r=>r.tipo==="domanda"&&!r.read).length;
-  return `<div class="job leftbar ${late?'late':st.cls}" data-job="${j.id}">
-    <div class="body">
-      <div class="top"><div><div class="code">${esc(j.code)}</div><h3>${esc(j.title)}</h3></div>
-        <span class="pill ${late?'danger':st.pill}">${late?'In ritardo':st.label}</span></div>
-      <div class="meta"><span class="pill brand">${t.icon} ${t.short}</span><span class="pill plain">${esc(j.settore)}</span>${j.carpenteria!=='no'?`<span class="pill">${CARPENTERIA[j.carpenteria].icon} ${CARPENTERIA[j.carpenteria].pill}</span>`:""}</div>
-      <div class="info">
-        <span>💶 <b>${fmtMoney(j.budget)}</b></span>
-        <span>📅 <b>${fmtDate(j.dataConsegna)}</b> ${late?`<span class="soft">(${relDays(j.dataConsegna)})</span>`:""}</span>
-        <span>👷 ${c?esc(c.name):'—'}</span>
-      </div>
-      ${layout?`<div class="attach layout"><span class="fi">📐</span><span class="gr"><b>${esc(layout.name)}</b><span>Layout per quotazione · ${esc(layout.size||'')}</span></span></div>`:""}
-      ${s?`<div class="info"><span>✅ Assegnato a <b>${esc(s.name)}</b></span></div>`:""}
-    </div>
-    <div class="foot">
-      <span class="pill plain">${j.visibility==="tutti"?"👁 Tutti i fornitori":"🎯 "+(j.invitati||[]).length+" selezionati"}</span>
-      ${nd?`<span class="pill info">${nd} domande</span>`:""}${nq?`<span class="pill warn">${nq} richieste</span>`:""}
-      <div class="btn-row">${j.stato==="bozza"?`<button class="btn sm accent" data-act="publish" data-job="${j.id}">Pubblica</button>`:""}
-        <button class="btn sm ghost" data-job="${j.id}">Apri</button></div>
-    </div></div>`;
-}
+    <div class="tags"><span class="pill plain"><span class="dot ${t.dot}"></span>${t.short}</span>${late?`<span class="pill danger">ritardo</span>`:""}</div>
+    <div class="r"><span>${fmtMoney(j.budget)}</span><span>${s?initials(s.name):fmtDateShort(j.dataConsegna)}</span></div></div>`; }
 
 /* ==================== VIEW: Righi — Nuovo lavoro ==================== */
 function viewNuovoLavoro(){
-  const d = App.draft || (App.draft={ tipologia:"automazione", settore:"Packaging", carpenteria:"inclusa", visibility:"tutti", invitati:[], capoId:STATE.capi[0].id, dataRichiesta:todayISO(), dataConsegna:dISO(21), allegati:[] });
+  const d = App.draft || (App.draft={ tipologia:"automazione", settore:"Packaging", carpenteria:"inclusa", visibility:"tutti", invitati:[], capoId:STATE.capi[0].id, dataRichiesta:todayISO(), dataConsegna:dISO(21), allegati:[], emailNotify:true });
   return `
-  <div class="view-head"><div><h2>Nuovo lavoro</h2><p>Componi la proposta con pochi tocchi — i campi guidati riducono la digitazione</p></div></div>
+  <div class="view-head"><div><h2>Nuovo lavoro</h2><p>Componi la proposta con pochi tocchi — input guidati, meno testo</p></div></div>
   <div class="card" style="max-width:720px">
     <div class="field"><label>Titolo del lavoro</label>
       <input class="inp" id="nl-title" placeholder="es. Quadro automazione linea 3" value="${esc(d.title||'')}"></div>
-
     <div class="field"><label>Tipologia di lavorazione</label>
-      <div class="chips" data-group="tipologia">${Object.entries(TIPOLOGIE).map(([k,v])=>`<button class="chip ${d.tipologia===k?'on':''}" data-set="tipologia" data-v="${k}"><span class="ci">${v.icon}</span>${v.short}</button>`).join("")}</div></div>
-
+      <div class="chips">${Object.entries(TIPOLOGIE).map(([k,v])=>`<button class="chip ${d.tipologia===k?'on':''}" data-set="tipologia" data-v="${k}"><span class="dot ${v.dot}"></span>${v.short}</button>`).join("")}</div></div>
     <div class="field"><label>Settore</label>
-      <div class="chips" data-group="settore">${SETTORI.map(s=>`<button class="chip ${d.settore===s?'on':''}" data-set="settore" data-v="${esc(s)}">${esc(s)}</button>`).join("")}</div></div>
-
+      <div class="chips">${SETTORI.map(s=>`<button class="chip sm ${d.settore===s?'on':''}" data-set="settore" data-v="${esc(s)}">${esc(s)}</button>`).join("")}</div></div>
     <div class="field"><label>Carpenteria</label>
-      <div class="chips">${Object.entries(CARPENTERIA).map(([k,v])=>`<button class="chip ${d.carpenteria===k?'on':''}" data-set="carpenteria" data-v="${k}"><span class="ci">${v.icon}</span>${v.label}</button>`).join("")}</div></div>
-
+      <div class="chips">${Object.entries(CARPENTERIA).map(([k,v])=>`<button class="chip ${d.carpenteria===k?'on':''}" data-set="carpenteria" data-v="${k}">${v.label}</button>`).join("")}</div></div>
     <div class="row2">
       <div class="field"><label>Budget indicativo (€)</label><input class="inp" id="nl-budget" type="number" inputmode="numeric" placeholder="es. 8000" value="${d.budget||''}"></div>
       <div class="field"><label>Caposquadra di riferimento</label>
@@ -646,36 +777,32 @@ function viewNuovoLavoro(){
       <div class="field"><label>Data richiesta</label><input class="inp" id="nl-req" type="date" value="${d.dataRichiesta}"></div>
       <div class="field"><label>Consegna desiderata</label><input class="inp" id="nl-cons" type="date" value="${d.dataConsegna}"></div>
     </div>
-
     <div class="field"><label>Note tecniche (facoltative)</label>
       <textarea class="inp" id="nl-desc" placeholder="Dettagli utili alla quotazione…">${esc(d.descrizione||'')}</textarea></div>
-
     <div class="field"><label>Allegati — layout per quotazione</label>
       <div id="nl-attlist" class="grid" style="gap:7px;margin-bottom:8px">${(d.allegati||[]).map(a=>attRow(a,true)).join("")}</div>
-      <label class="btn ghost sm" style="cursor:pointer">📎 Allega file<input type="file" id="nl-file" class="hide" multiple></label>
+      <label class="btn ghost sm" style="cursor:pointer">${icon("doc","sm")} Allega file<input type="file" id="nl-file" class="hide" multiple></label>
       <span class="hint">Il layout è il documento più importante per far quotare il fornitore.</span></div>
-
     <div class="divide"></div>
     <div class="field"><label>Visibilità</label>
-      <div class="seg" style="margin-bottom:10px"><button class="${d.visibility==='tutti'?'on':''}" data-set="visibility" data-v="tutti">👁 Tutti i fornitori</button><button class="${d.visibility==='selezionati'?'on':''}" data-set="visibility" data-v="selezionati">🎯 Solo selezionati</button></div>
-      <div class="chips ${d.visibility==='selezionati'?'':'hide'}" id="nl-sel">${STATE.suppliers.map(s=>`<button class="chip multi ${(d.invitati||[]).includes(s.id)?'on':''}" data-toggle="inv" data-v="${s.id}">${esc(s.name)}</button>`).join("")}</div>
+      <div class="seg" style="margin-bottom:10px"><button class="${d.visibility==='tutti'?'on':''}" data-set="visibility" data-v="tutti">Tutti i fornitori</button><button class="${d.visibility==='selezionati'?'on':''}" data-set="visibility" data-v="selezionati">Solo selezionati</button></div>
+      <div class="chips ${d.visibility==='selezionati'?'':'hide'}" id="nl-sel">${STATE.suppliers.map(s=>`<button class="chip multi sm ${(d.invitati||[]).includes(s.id)?'on':''}" data-toggle="inv" data-v="${s.id}">${esc(s.name)}</button>`).join("")}</div>
     </div>
-
+    <div class="toggle-row"><button class="switch ${d.emailNotify?'on':''}" data-act="toggleDraftEmail" aria-label="Notifica via email"></button><div class="gr"><b>Notifica anche via email</b><span>Prepara l'email ai fornitori destinatari alla pubblicazione</span></div></div>
     <div class="btn-row" style="margin-top:8px">
-      <button class="btn accent" data-act="createJob" data-mode="publish">🚀 Pubblica lavoro</button>
+      <button class="btn accent" data-act="createJob" data-mode="publish">${icon("send")} Pubblica lavoro</button>
       <button class="btn ghost" data-act="createJob" data-mode="bozza">Salva in bozza</button>
     </div>
   </div>`;
 }
-function attRow(a,removable){ return `<div class="attach ${a.layout?'layout':''}"><span class="fi">${a.layout?'📐':fileIcon(a)}</span><span class="gr"><b>${esc(a.name)}</b><span>${a.layout?'Layout':(a.size||a.type||'file')}</span></span>${removable?`<button class="btn sm danger" data-act="rmAtt" data-id="${a.id}">×</button>`:""}</div>`; }
-function fileIcon(a){ const t=(a.type||a.name||"").toLowerCase(); if(t.includes("pdf"))return "📄"; if(t.includes("xls")||t.includes("sheet"))return "📊"; if(t.includes("image")||/\.(png|jpg|jpeg)/.test(t))return "🖼"; if(t.includes("dwg")||t.includes("dxf"))return "📐"; return "📎"; }
+function attRow(a,removable){ return `<div class="attach ${a.layout?'layout':''}"><span class="fi">${icon(a.layout?'layout':'doc')}</span><span class="gr"><b>${esc(a.name)}</b><span>${a.layout?'Layout':(a.size||a.type||'file')}</span></span>${removable?`<button class="btn sm danger" data-act="rmAtt" data-id="${a.id}">${icon("x","sm")}</button>`:""}</div>`; }
 
 /* ==================== VIEW: Righi — Richieste ==================== */
 function viewRighiRichieste(){
   const open=STATE.requests.filter(r=>r.stato!=="chiusa");
   const closed=STATE.requests.filter(r=>r.stato==="chiusa");
   return `<div class="view-head"><div><h2>Richieste dei fornitori</h2><p>Segnalazioni guidate instradate al caposquadra di commessa</p></div></div>
-  ${open.length?`<div class="card"><div class="rowlist">${open.map(reqRow).join("")}</div></div>`:`<div class="empty"><div class="em">✅</div><p>Nessuna richiesta in sospeso</p></div>`}
+  ${open.length?`<div class="card"><div class="rowlist">${open.map(reqRow).join("")}</div></div>`:`<div class="empty">${icon("check")}<p>Nessuna richiesta in sospeso</p></div>`}
   ${closed.length?`<div class="sect-t" style="margin:18px 0 6px">Chiuse</div><div class="card"><div class="rowlist">${closed.map(reqRow).join("")}</div></div>`:""}`;
 }
 
@@ -686,49 +813,62 @@ function viewFornitori(){
     const active=STATE.jobs.filter(j=>j.assegnatoA===s.id&&!["consegnato","chiuso"].includes(j.stato)).length;
     return `<div class="card"><div style="display:flex;gap:11px;align-items:center;margin-bottom:10px">
       <span class="avatar" style="background:${colorFor(s.id)}">${initials(s.name)}</span>
-      <div style="flex:1;min-width:0"><b style="font-size:15px">${esc(s.name)}</b><div class="muted" style="font-size:12.5px">${esc(s.citta)} · ⭐ ${s.rating}</div></div>
+      <div style="flex:1;min-width:0"><b style="font-size:15px">${esc(s.name)}</b><div class="muted" style="font-size:12.5px">${esc(s.citta)} · ${icon("star","sm")} ${s.rating}</div></div>
       ${active?`<span class="pill ok">${active} attivi</span>`:`<span class="pill plain">libero</span>`}</div>
-      <div class="tags" style="margin-bottom:8px">${s.specialties.map(sp=>`<span class="pill brand">${TIPOLOGIE[sp].short}</span>`).join("")}</div>
+      <div class="tags" style="margin-bottom:8px">${s.specialties.map(sp=>`<span class="pill brand"><span class="dot ${TIPOLOGIE[sp].dot}"></span>${TIPOLOGIE[sp].short}</span>`).join("")}</div>
       <div class="tags">${s.settori.map(se=>`<span class="pill plain">${esc(se)}</span>`).join("")}</div>
-      <div class="muted" style="font-size:12px;margin-top:9px">Referente: ${esc(s.referente)}</div></div>`;
+      <div class="btn-row" style="margin-top:11px"><a class="btn ghost sm" href="${mailto(s.email,'Righi Solutions — Portale Fornitori','Buongiorno '+s.referente+',\\n\\n')}">${icon("mail","sm")} Email</a>
+        <button class="btn ghost sm" data-act="supJobs" data-sup="${s.id}">${active} commesse</button></div>
+      <div class="muted" style="font-size:12px;margin-top:9px">Referente: ${esc(s.referente)} · ${esc(s.email)}</div></div>`;
   }).join("")}</div>`;
 }
 
 /* ==================== VIEW: Fornitore — Bacheca ==================== */
+function fornFilterBar(placeholder){ const f=App.fFilters;
+  return `<div class="filters"><div class="filt-row"><div class="searchbox">${icon("search")}<input id="forn-search" placeholder="${placeholder}" value="${esc(f.q)}"></div></div></div>`; }
 function viewBacheca(u){
-  const jobs=jobsForSupplier(u.supplierId).filter(j=>["pubblicato"].includes(j.stato)&&j.assegnatoA!==u.supplierId);
+  let jobs=jobsForSupplier(u.supplierId).filter(j=>j.stato==="pubblicato"&&j.assegnatoA!==u.supplierId&&!jobResponses(j.id).some(r=>r.supplierId===u.supplierId&&r.tipo==="accettazione"));
+  const q=(App.fFilters.q||"").toLowerCase(); if(q) jobs=jobs.filter(j=>(j.title+" "+j.code+" "+j.settore).toLowerCase().includes(q));
   return `<div class="view-head"><div><h2>Bacheca lavori</h2><p>Proposte di Righi disponibili per ${esc(supplier(u.supplierId).name)}</p></div></div>
-  ${jobs.length?`<div class="grid auto">${jobs.map(j=>supplierJobCard(j,u)).join("")}</div>`
-    :`<div class="empty"><div class="em">📭</div><p>Nessuna proposta al momento</p><p class="muted" style="font-size:13px">Le nuove proposte compaiono qui e via notifica.</p></div>`}`;
+  ${fornFilterBar("Cerca tra le proposte…")}
+  <div id="lav-results">${jobs.length?`<div class="grid auto">${jobs.map(j=>supplierJobCard(j,u)).join("")}</div>`
+    :`<div class="empty">${icon("inbox")}<p>Nessuna proposta disponibile</p><p class="muted" style="font-size:13px">Le nuove proposte compaiono qui e via notifica.</p></div>`}</div>`;
 }
 function supplierJobCard(j,u){
   const t=TIPOLOGIE[j.tipologia], c=capo(j.capoId), layout=(j.allegati||[]).find(a=>a.layout);
-  const mine=jobResponses(j.id).filter(r=>r.supplierId===u.supplierId);
-  const accepted=mine.some(r=>r.tipo==="accettazione");
   const targeted=(j.invitati||[]).includes(u.supplierId);
   return `<div class="job leftbar pub" data-job="${j.id}">
     <div class="body">
       <div class="top"><div><div class="code">${esc(j.code)}</div><h3>${esc(j.title)}</h3></div>
-        ${targeted?`<span class="pill accent">🎯 Invitato</span>`:`<span class="pill info">Aperto</span>`}</div>
-      <div class="meta"><span class="pill brand">${t.icon} ${t.short}</span><span class="pill plain">${esc(j.settore)}</span>${j.carpenteria!=='no'?`<span class="pill">${CARPENTERIA[j.carpenteria].icon} ${CARPENTERIA[j.carpenteria].pill}</span>`:""}</div>
-      <div class="info"><span>💶 <b>${fmtMoney(j.budget)}</b></span><span>📅 consegna <b>${fmtDate(j.dataConsegna)}</b> <span class="soft">(${relDays(j.dataConsegna)})</span></span></div>
-      ${layout?`<div class="attach layout"><span class="fi">📐</span><span class="gr"><b>${esc(layout.name)}</b><span>Layout per quotazione</span></span></div>`:""}
+        ${targeted?`<span class="pill accent">Invitato</span>`:`<span class="pill info">Aperto</span>`}</div>
+      <div class="meta">${tipPill(j.tipologia)}<span class="pill plain">${esc(j.settore)}</span>${j.carpenteria!=='no'?`<span class="pill">${CARPENTERIA[j.carpenteria].pill}</span>`:""}</div>
+      <div class="info"><span>${icon("calendar","sm")} consegna <b>${fmtDate(j.dataConsegna)}</b> <span class="soft">(${relDays(j.dataConsegna)})</span></span><span>Budget <b>${fmtMoney(j.budget)}</b></span></div>
+      ${layout?`<div class="attach layout"><span class="fi">${icon("layout")}</span><span class="gr"><b>${esc(layout.name)}</b><span>Layout per quotazione</span></span></div>`:""}
     </div>
     <div class="foot">
-      <span class="pill plain">👷 ${c?esc(c.name):'—'}</span>
-      <div class="btn-row">${accepted?`<span class="pill ok">✅ Proposta inviata</span>`
-        :`<button class="btn sm ghost" data-act="ask" data-job="${j.id}">Domanda</button><button class="btn sm accent" data-act="accept" data-job="${j.id}">Accetta</button>`}</div>
+      <span class="pill plain">${icon("user","sm")} ${c?esc(c.name):'—'}</span>
+      <div class="btn-row"><button class="btn sm ghost" data-act="ask" data-job="${j.id}">Domanda</button><button class="btn sm accent" data-act="accept" data-job="${j.id}">Accetta</button></div>
     </div></div>`;
 }
 
 /* ==================== VIEW: Fornitore — I miei lavori ==================== */
 function viewMiei(u){
-  const jobs=STATE.jobs.filter(j=>j.assegnatoA===u.supplierId);
+  let jobs=STATE.jobs.filter(j=>j.assegnatoA===u.supplierId);
   const attesa=jobsForSupplier(u.supplierId).filter(j=>j.stato==="pubblicato"&&jobResponses(j.id).some(r=>r.supplierId===u.supplierId&&r.tipo==="accettazione"));
-  return `<div class="view-head"><div><h2>I miei lavori</h2><p>Commesse acquisite e consegne</p></div></div>
-  ${attesa.length?`<div class="sect-t">In attesa di conferma da Righi</div><div class="grid auto" style="margin-bottom:16px">${attesa.map(j=>supplierMineCard(j,u,true)).join("")}</div>`:""}
-  ${jobs.length?`<div class="grid auto">${jobs.map(j=>supplierMineCard(j,u,false)).join("")}</div>`
-    :(!attesa.length?`<div class="empty"><div class="em">🧰</div><p>Nessuna commessa assegnata</p></div>`:"")}`;
+  const f=App.fFilters; const q=(f.q||"").toLowerCase();
+  if(f.stato==="attivi") jobs=jobs.filter(j=>["assegnato","in_corso"].includes(j.stato));
+  else if(f.stato==="consegnato") jobs=jobs.filter(j=>["consegnato","chiuso"].includes(j.stato));
+  else if(f.stato==="late") jobs=jobs.filter(isLate);
+  if(q) jobs=jobs.filter(j=>(j.title+" "+j.code+" "+j.settore).toLowerCase().includes(q));
+  const all=STATE.jobs.filter(j=>j.assegnatoA===u.supplierId);
+  const nLate=all.filter(isLate).length;
+  const chips=[["","Tutte"],["attivi","Attive"],["consegnato","Consegnate"],["late","In ritardo"]];
+  return `<div class="view-head"><div><h2>I miei lavori</h2><p>${all.length} commesse acquisite${nLate?` · ${nLate} in ritardo`:""}</p></div></div>
+  ${attesa.length?`<div class="sect-t">In attesa di conferma da Righi (${attesa.length})</div><div class="grid auto" style="margin-bottom:16px">${attesa.slice(0,6).map(j=>supplierMineCard(j,u,true)).join("")}</div>`:""}
+  <div class="filters"><div class="filt-row"><div class="searchbox">${icon("search")}<input id="forn-search" placeholder="Cerca tra le mie commesse…" value="${esc(f.q)}"></div></div>
+    <div class="filt-row" style="margin-top:9px">${chips.map(([v,l])=>`<button class="chip sm ${f.stato===v?'on':''}" data-act="fStato" data-v="${v}">${l}</button>`).join("")}</div></div>
+  <div id="lav-results">${jobs.length?`<div class="grid auto">${jobs.map(j=>supplierMineCard(j,u,false)).join("")}</div>`
+    :`<div class="empty">${icon("search")}<p>Nessuna commessa con questi filtri</p></div>`}</div>`;
 }
 function supplierMineCard(j,u,pending){
   const t=TIPOLOGIE[j.tipologia], c=capo(j.capoId), st=STATI[j.stato], late=isLate(j);
@@ -736,11 +876,11 @@ function supplierMineCard(j,u,pending){
     <div class="body">
       <div class="top"><div><div class="code">${esc(j.code)}</div><h3>${esc(j.title)}</h3></div>
         <span class="pill ${pending?'info':late?'danger':st.pill}">${pending?'In attesa':late?'In ritardo':st.label}</span></div>
-      <div class="meta"><span class="pill brand">${t.icon} ${t.short}</span><span class="pill plain">${esc(j.settore)}</span></div>
-      <div class="info"><span>💶 <b>${fmtMoney(j.budget)}</b></span><span>📅 <b>${fmtDate(j.dataConsegna)}</b> <span class="soft">(${relDays(j.dataConsegna)})</span></span></div>
+      <div class="meta">${tipPill(j.tipologia)}<span class="pill plain">${esc(j.settore)}</span></div>
+      <div class="info"><span>${icon("calendar","sm")} <b>${fmtDate(j.dataConsegna)}</b> <span class="soft">(${relDays(j.dataConsegna)})</span></span><span>Budget <b>${fmtMoney(j.budget)}</b></span></div>
     </div>
-    <div class="foot"><span class="pill plain">👷 ${c?esc(c.name):'—'}</span>
-      <div class="btn-row">${pending?"":`<button class="btn sm accent" data-act="quickReq" data-job="${j.id}">📨 Contatta caposquadra</button>`}</div></div></div>`;
+    <div class="foot"><span class="pill plain">${icon("user","sm")} ${c?esc(c.name):'—'}</span>
+      <div class="btn-row">${pending?"":`<button class="btn sm accent" data-act="quickReq" data-job="${j.id}">${icon("send","sm")} Contatta caposquadra</button>`}</div></div></div>`;
 }
 
 /* ==================== VIEW: Fornitore — Richieste guidate ==================== */
@@ -750,13 +890,13 @@ function viewRichiesteGuidate(u){
   return `<div class="view-head"><div><h2>Richieste guidate</h2><p>Contatta il caposquadra seguendo la prassi Righi — in pochi tocchi</p></div></div>
   <div class="card" style="margin-bottom:14px">
     <div class="sect-t">Nuova richiesta</div>
-    ${active.length? `<p class="muted" style="font-size:13px;margin:0 0 10px">Scegli la commessa, poi il tipo di richiesta. La notifica arriva al caposquadra di riferimento.</p>
-      <div class="grid" style="gap:8px">${active.map(j=>{const c=capo(j.capoId);return `<button class="lrow" style="width:100%;text-align:left;background:var(--surface-2);border:1px solid var(--line);border-radius:10px" data-act="quickReq" data-job="${j.id}">
-        <span class="ic">🧰</span><span class="gr"><b>${esc(j.title)}</b><span class="s">${esc(j.code)} · caposquadra ${esc(c?c.name:'—')}</span></span><span class="arw" style="opacity:.4">›</span></button>`;}).join("")}</div>`
-    : `<div class="empty"><div class="em">🧰</div><p>Nessuna commessa attiva</p><p class="muted" style="font-size:13px">Le richieste guidate si attivano sulle commesse assegnate.</p></div>`}
+    ${active.length? `<p class="muted" style="font-size:13px;margin:0 0 10px">Scegli la commessa, poi il tipo di richiesta. Notifica in app + email al caposquadra di riferimento.</p>
+      <div class="grid" style="gap:8px">${active.slice(0,12).map(j=>{const c=capo(j.capoId);return `<button class="lrow" style="width:100%;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:11px" data-act="quickReq" data-job="${j.id}">
+        <span class="ic">${icon("bolt")}</span><span class="gr"><b>${esc(j.title)}</b><span class="s">${esc(j.code)} · caposquadra ${esc(c?c.name:'—')}</span></span><span class="arw">${icon("chev")}</span></button>`;}).join("")}</div>`
+    : `<div class="empty">${icon("bolt")}<p>Nessuna commessa attiva</p><p class="muted" style="font-size:13px">Le richieste guidate si attivano sulle commesse assegnate.</p></div>`}
   </div>
   ${mine.length?`<div class="sect-t">Le mie richieste</div><div class="card"><div class="rowlist">${mine.map(r=>{const j=byId(STATE.jobs,r.jobId),tp=REQ_TYPES[r.tipo],c=capo(r.capoId);return `
-    <div class="lrow"><span class="ic ${tp.pill==='danger'?'danger':tp.pill==='warn'?'accent':''}">${tp.icon}</span>
+    <div class="lrow"><span class="ic ${tp.pill==='danger'?'danger':tp.pill==='warn'?'accent':'info'}">${icon(r.tipo==='materiale'?'inbox':r.tipo==='ritardo'?'clock':'mail')}</span>
     <span class="gr"><b>${tp.label}</b><span class="s">${esc(j?j.title:'')} · a ${esc(c?c.name:'—')} · ${fmtDate((r.at||'').slice(0,10))}</span></span>
     <span class="pill ${r.stato==='aperta'?'warn':r.stato==='presa'?'info':'ok'}">${r.stato==='aperta'?'Inviata':r.stato==='presa'?'In carico':'Chiusa'}</span></div>`;}).join("")}</div></div>`:""}`;
 }
@@ -770,21 +910,21 @@ function viewProfilo(u){
   <div class="card">
     <div style="display:flex;gap:14px;align-items:center;margin-bottom:14px">
       <span class="avatar" style="width:52px;height:52px;font-size:18px;background:${colorFor(s.id)}">${initials(s.name)}</span>
-      <div><h3 style="font-size:19px">${esc(s.name)}</h3><div class="muted">${esc(s.citta)} · accreditato ✅ · ⭐ ${s.rating}</div></div></div>
+      <div><h3 style="font-size:19px">${esc(s.name)}</h3><div class="muted">${esc(s.citta)} · accreditato · ${icon("star","sm")} ${s.rating}</div></div></div>
     <div class="grid k3" style="margin-bottom:14px">
       <div class="card kpi"><span class="v">${active}</span><span class="l">Commesse attive</span></div>
       <div class="card kpi ok"><span class="v">${done}</span><span class="l">Consegnate</span></div>
       <div class="card kpi"><span class="v">${s.rating}</span><span class="l">Valutazione</span></div></div>
-    <div class="field"><label>Specializzazioni</label><div class="tags">${s.specialties.map(sp=>`<span class="pill brand">${TIPOLOGIE[sp].icon} ${TIPOLOGIE[sp].short}</span>`).join("")}</div></div>
+    <div class="field"><label>Specializzazioni</label><div class="tags">${s.specialties.map(sp=>`<span class="pill brand"><span class="dot ${TIPOLOGIE[sp].dot}"></span>${TIPOLOGIE[sp].short}</span>`).join("")}</div></div>
     <div class="field"><label>Settori</label><div class="tags">${s.settori.map(se=>`<span class="pill plain">${esc(se)}</span>`).join("")}</div></div>
-    <div class="field"><label>Referente</label><div class="soft">${esc(s.referente)}</div></div>
+    <div class="field"><label>Contatti</label><div class="soft">${esc(s.referente)} · ${esc(s.email)}</div></div>
   </div>`;
 }
 
 /* ============================ MODALS ============================ */
 function openModal(html){ $("#modal-host").innerHTML=`<div class="modal-bg" data-close-bg><div class="modal" role="dialog" aria-modal="true">${html}</div></div>`; }
 function closeModal(){ $("#modal-host").innerHTML=""; }
-function modalHead(title){ return `<div class="modal-h"><h3>${title}</h3><button class="x" data-act="closeModal" aria-label="Chiudi">×</button></div>`; }
+function modalHead(title){ return `<div class="modal-h"><h3>${title}</h3><button class="x" data-act="closeModal" aria-label="Chiudi">${icon("x")}</button></div>`; }
 
 function openJobModal(jid){
   const u=currentUser(); const j=byId(STATE.jobs,jid); if(!j) return;
@@ -794,28 +934,27 @@ function openJobModal(jid){
   const others=(j.allegati||[]).filter(a=>!a.layout);
   const resp=jobResponses(j.id);
   const reqs=jobRequests(j.id);
-  // mark responses read for Righi
   if(isRighi){ resp.forEach(r=>{ if(r.from==="fornitore") r.read=true; }); }
   let footer="";
   if(isRighi){
-    if(j.stato==="bozza") footer=`<button class="btn accent block" data-act="publish" data-job="${j.id}">🚀 Pubblica lavoro</button>`;
+    if(j.stato==="bozza") footer=`<button class="btn accent block" data-act="publish" data-job="${j.id}">${icon("send")} Pubblica lavoro</button>`;
     else if(j.stato==="pubblicato"){
       const cand=resp.filter(r=>r.tipo==="accettazione");
-      footer=`<div class="btn-row"><button class="btn ghost" data-act="notifyPick" data-job="${j.id}">🔔 Notifica fornitori</button>
-        ${cand.length?`<button class="btn accent" data-act="assignPick" data-job="${j.id}">✅ Assegna (${cand.length})</button>`:`<span class="pill plain" style="align-self:center">In attesa di accettazioni</span>`}</div>`;
+      footer=`<div class="btn-row"><button class="btn ghost" data-act="notifyPick" data-job="${j.id}">${icon("bell","sm")} Notifica fornitori</button>
+        ${cand.length?`<button class="btn accent" data-act="assignPick" data-job="${j.id}">${icon("check")} Assegna (${cand.length})</button>`:`<span class="pill plain" style="align-self:center">In attesa di accettazioni</span>`}</div>`;
     } else if(["assegnato","in_corso"].includes(j.stato)){
-      footer=`<div class="btn-row"><button class="btn ghost" data-act="notifyPick" data-job="${j.id}">🔔 Notifica</button><button class="btn" data-act="setStato" data-job="${j.id}" data-s="consegnato">Segna consegnato</button></div>`;
+      footer=`<div class="btn-row">${s?`<a class="btn ghost" href="${mailto(s.email,'['+j.code+'] '+j.title,'Buongiorno '+s.referente+',\\n\\nin merito alla commessa '+j.code+' — '+j.title+'.\\n\\n')}">${icon("mail","sm")} Email fornitore</a>`:""}<button class="btn" data-act="setStato" data-job="${j.id}" data-s="consegnato">Segna consegnato</button></div>`;
     }
   } else {
     const mine=resp.filter(r=>r.supplierId===u.supplierId);
     const accepted=mine.some(r=>r.tipo==="accettazione");
-    if(j.stato==="pubblicato"&&!accepted) footer=`<div class="btn-row"><button class="btn ghost" data-act="ask" data-job="${j.id}">❓ Fai una domanda</button><button class="btn accent" data-act="accept" data-job="${j.id}">✅ Accetta proposta</button></div>`;
-    else if(j.assegnatoA===u.supplierId) footer=`<button class="btn accent block" data-act="quickReq" data-job="${j.id}">📨 Contatta il caposquadra</button>`;
-    else if(accepted) footer=`<span class="pill ok lg">✅ Proposta inviata — in attesa di Righi</span>`;
+    if(j.stato==="pubblicato"&&!accepted) footer=`<div class="btn-row"><button class="btn ghost" data-act="ask" data-job="${j.id}">Fai una domanda</button><button class="btn accent" data-act="accept" data-job="${j.id}">${icon("check")} Accetta proposta</button></div>`;
+    else if(j.assegnatoA===u.supplierId) footer=`<button class="btn accent block" data-act="quickReq" data-job="${j.id}">${icon("send")} Contatta il caposquadra</button>`;
+    else if(accepted) footer=`<span class="pill ok lg">Proposta inviata — in attesa di Righi</span>`;
   }
   const thread = resp.filter(r=>isRighi||r.supplierId===u.supplierId);
   openModal(`${modalHead(esc(j.title))}
-    <div class="tags" style="margin-bottom:12px"><span class="pill ${late?'danger':st.pill}">${late?'In ritardo':st.label}</span><span class="pill brand">${t.icon} ${t.label}</span><span class="pill plain">${esc(j.settore)}</span><span class="mono muted" style="align-self:center;font-size:11px">${esc(j.code)}</span></div>
+    <div class="tags" style="margin-bottom:12px"><span class="pill ${late?'danger':st.pill}">${late?'In ritardo':st.label}</span>${tipPill(j.tipologia)}<span class="pill plain">${esc(j.settore)}</span><span class="mono muted" style="align-self:center;font-size:11px">${esc(j.code)}</span></div>
     <div class="row2">
       <div class="dl"><span class="k">Budget indicativo</span><span class="v">${fmtMoney(j.budget)}</span></div>
       <div class="dl"><span class="k">Consegna</span><span class="v">${fmtDate(j.dataConsegna)} <span class="soft" style="font-weight:400">(${relDays(j.dataConsegna)})</span></span></div>
@@ -825,226 +964,233 @@ function openJobModal(jid){
       <div class="dl"><span class="k">${isRighi?'Visibilità':'Assegnato a'}</span><span class="v">${isRighi?(j.visibility==='tutti'?'Tutti i fornitori':(j.invitati||[]).length+' selezionati'):(s?esc(s.name):'—')}</span></div>
     </div>
     ${j.descrizione?`<div class="dl"><span class="k">Note tecniche</span><span class="v" style="font-weight:400;line-height:1.5">${esc(j.descrizione)}</span></div>`:""}
-    ${layout?`<div class="attach layout" style="margin:4px 0 8px" data-act="openAtt" data-att="${layout.id}" data-job="${j.id}"><span class="fi">📐</span><span class="gr"><b>${esc(layout.name)}</b><span>Layout per quotazione · ${esc(layout.size||'')}</span></span><span class="btn sm ghost">Apri</span></div>`:""}
-    ${others.map(a=>`<div class="attach" style="margin-bottom:6px" data-act="openAtt" data-att="${a.id}" data-job="${j.id}"><span class="fi">${fileIcon(a)}</span><span class="gr"><b>${esc(a.name)}</b><span>${esc(a.size||a.type||'')}</span></span><span class="btn sm ghost">Apri</span></div>`).join("")}
+    ${layout?`<div class="attach layout" style="margin:4px 0 8px" data-act="openAtt" data-att="${layout.id}" data-job="${j.id}"><span class="fi">${icon("layout")}</span><span class="gr"><b>${esc(layout.name)}</b><span>Layout per quotazione · ${esc(layout.size||'')}</span></span><span class="btn sm ghost">Apri</span></div>`:""}
+    ${others.map(a=>`<div class="attach" style="margin-bottom:6px" data-act="openAtt" data-att="${a.id}" data-job="${j.id}"><span class="fi">${icon("doc")}</span><span class="gr"><b>${esc(a.name)}</b><span>${esc(a.size||a.type||'')}</span></span><span class="btn sm ghost">Apri</span></div>`).join("")}
     ${isRighi&&s?`<div class="dl" style="margin-top:8px"><span class="k">Fornitore</span><span class="v">${esc(s.name)} · ${esc(s.citta)}</span></div>`:""}
     ${thread.length?`<div class="divide"></div><div class="sect-t">Conversazione</div><div class="thread">${thread.map(msgHtml).join("")}</div>`:""}
     ${isRighi&&reqs.length?`<div class="divide"></div><div class="sect-t">Richieste sulla commessa</div><div class="rowlist">${reqs.map(reqRow).join("")}</div>`:""}
     ${footer?`<div class="divide"></div>${footer}`:""}`);
-  if(isRighi){ persist(); /* letture aggiornate */ }
+  if(isRighi) persist();
 }
-function msgHtml(r){ const s=supplier(r.supplierId); const mineSide=(currentUser().role==="fornitore"); const us = (r.from==="fornitore")===mineSide;
-  const who = r.from==="fornitore" ? (s?s.name:"Fornitore") : "Righi";
-  const label = r.tipo==="accettazione" ? "✅ Ha accettato"+(r.importo?" — "+fmtMoney(r.importo):"") : r.tipo==="domanda" ? "❓ Domanda" : "";
+function msgHtml(r){ const s=supplier(r.supplierId); const mineSide=(currentUser().role==="fornitore"); const us=(r.from==="fornitore")===mineSide;
+  const who=r.from==="fornitore"?(s?s.name:"Fornitore"):"Righi";
+  const label=r.tipo==="accettazione"?("Ha accettato"+(r.importo?" — "+fmtMoney(r.importo):"")):r.tipo==="domanda"?"Domanda":"";
   return `<div class="msg ${us?'us':'them'}"><div class="who">${esc(who)}${label?" · "+label:""}</div><div>${esc(r.testo)}</div><div class="t">${esc((r.at||'').replace('T',' '))}</div></div>`;
 }
 
-/* Modale: accetta proposta */
 function openAcceptModal(jid){ const j=byId(STATE.jobs,jid);
   openModal(`${modalHead("Accetta proposta")}
-    <p class="muted" style="font-size:13px;margin-top:0">${esc(j.title)} — puoi confermare al budget indicato o proporre il tuo importo.</p>
+    <p class="muted" style="font-size:13px;margin-top:0">${esc(j.title)} — conferma al budget indicato o proponi il tuo importo.</p>
     <div class="field"><label>Importo proposto (€)</label><input class="inp" id="acc-imp" type="number" inputmode="numeric" value="${j.budget||''}"></div>
     <div class="field"><label>Nota (facoltativa)</label><input class="inp" id="acc-note" placeholder="es. consegna in 15 giorni"></div>
-    <button class="btn accent block" data-act="doAccept" data-job="${jid}">✅ Invia accettazione</button>`);
+    <button class="btn accent block" data-act="doAccept" data-job="${jid}">${icon("check")} Invia accettazione</button>`);
 }
-/* Modale: domanda */
 function openAskModal(jid){ const j=byId(STATE.jobs,jid);
   openModal(`${modalHead("Fai una domanda")}
     <p class="muted" style="font-size:13px;margin-top:0">${esc(j.title)}</p>
     <div class="field"><label>La tua domanda</label><textarea class="inp" id="ask-t" placeholder="es. La distinta è completa?"></textarea></div>
     <button class="btn accent block" data-act="doAsk" data-job="${jid}">Invia domanda</button>`);
 }
-/* Modale: richiesta guidata */
-function openQuickReq(jid){ const j=byId(STATE.jobs,jid), c=capo(j.capoId);
-  App.qr={jobId:jid, tipo:null};
+function openQuickReq(jid){ const j=byId(STATE.jobs,jid), c=capo(j.capoId); App.qr={jobId:jid, tipo:null, email:true};
   openModal(`${modalHead("Contatta il caposquadra")}
     <div class="dl"><span class="k">Commessa</span><span class="v">${esc(j.title)} · ${esc(j.code)}</span></div>
-    <div class="dl"><span class="k">Caposquadra</span><span class="v">👷 ${esc(c?c.name:'—')}${c?` · <a href="tel:${esc((c.tel||'').replace(/\s/g,''))}">${esc(c.tel)}</a>`:''}</span></div>
+    <div class="dl"><span class="k">Caposquadra</span><span class="v">${esc(c?c.name:'—')}${c?` · <a href="tel:${esc((c.tel||'').replace(/\s/g,''))}">${esc(c.tel)}</a>`:''}</span></div>
     <div class="sect-t" style="margin-top:12px">Tipo di richiesta</div>
-    <div class="chips" id="qr-types">${Object.entries(REQ_TYPES).map(([k,v])=>`<button class="chip" data-qrtype="${k}"><span class="ci">${v.icon}</span>${v.label}</button>`).join("")}</div>
+    <div class="chips" id="qr-types">${Object.entries(REQ_TYPES).map(([k,v])=>`<button class="chip sm" data-qrtype="${k}">${v.label}</button>`).join("")}</div>
     <div class="field" style="margin-top:12px"><label>Dettaglio (facoltativo)</label><textarea class="inp" id="qr-note" placeholder="Poche parole bastano…"></textarea></div>
-    <button class="btn accent block" data-act="doQuickReq" data-job="${jid}" id="qr-send" disabled>📨 Invia al caposquadra</button>
-    <p class="muted center" style="font-size:12px;margin-bottom:0">Il caposquadra riceve una notifica immediata.</p>`);
+    <div class="toggle-row"><button class="switch on" data-act="toggleQrEmail" aria-label="email"></button><div class="gr"><b>Invia anche via email</b><span>Apre l'email precompilata a ${esc(c?c.name:'—')}</span></div></div>
+    <button class="btn accent block" data-act="doQuickReq" data-job="${jid}" id="qr-send" disabled>${icon("send")} Invia al caposquadra</button>`);
 }
-/* Modale: notifica fornitori */
 function openNotifyPick(jid){ const j=byId(STATE.jobs,jid);
   const targets = j.visibility==="selezionati" ? STATE.suppliers.filter(s=>(j.invitati||[]).includes(s.id)) : STATE.suppliers;
-  App.notifySel = new Set(targets.map(s=>s.id));
+  App.notifySel = new Set(targets.map(s=>s.id)); App.notifyEmail=true;
   openModal(`${modalHead("Notifica il lavoro")}
-    <p class="muted" style="font-size:13px;margin-top:0">Invia una notifica push del lavoro <b>${esc(j.title)}</b> ai fornitori scelti.</p>
-    <div class="chips" id="np-list">${STATE.suppliers.map(s=>`<button class="chip multi ${App.notifySel.has(s.id)?'on':''}" data-np="${s.id}">${esc(s.name)}</button>`).join("")}</div>
-    <button class="btn accent block" style="margin-top:14px" data-act="doNotify" data-job="${jid}">🔔 Invia notifica</button>`);
+    <p class="muted" style="font-size:13px;margin-top:0">Invia una notifica del lavoro <b>${esc(j.title)}</b> ai fornitori scelti.</p>
+    <div class="chips" id="np-list">${STATE.suppliers.map(s=>`<button class="chip multi sm ${App.notifySel.has(s.id)?'on':''}" data-np="${s.id}">${esc(s.name)}</button>`).join("")}</div>
+    <div class="toggle-row"><button class="switch on" data-act="toggleNotifyEmail" aria-label="email"></button><div class="gr"><b>Invia anche via email</b><span>Apre l'email precompilata ai fornitori selezionati</span></div></div>
+    <button class="btn accent block" data-act="doNotify" data-job="${jid}">${icon("bell")} Invia notifica</button>`);
 }
-/* Modale: assegna */
 function openAssignPick(jid){ const j=byId(STATE.jobs,jid);
   const cand=jobResponses(j.id).filter(r=>r.tipo==="accettazione");
   openModal(`${modalHead("Assegna la commessa")}
     <p class="muted" style="font-size:13px;margin-top:0">${esc(j.title)} — scegli il fornitore tra chi ha accettato.</p>
     <div class="rowlist">${cand.map(r=>{const s=supplier(r.supplierId);return `<div class="lrow"><span class="avatar sm" style="background:${colorFor(s.id)}">${initials(s.name)}</span>
-      <span class="gr"><b>${esc(s.name)}</b><span class="s">${esc(s.citta)} · ⭐ ${s.rating} · offerta ${fmtMoney(r.importo)}</span></span>
+      <span class="gr"><b>${esc(s.name)}</b><span class="s">${esc(s.citta)} · ${icon("star","sm")} ${s.rating} · offerta ${fmtMoney(r.importo)}</span></span>
       <button class="btn sm accent" data-act="assign" data-job="${jid}" data-sup="${s.id}">Assegna</button></div>`;}).join("")}</div>`);
 }
-/* Modale: richiesta dettaglio (Righi) */
 function openReqDetail(rid){ const r=byId(STATE.requests,rid); if(!r) return; r.read=true; persist();
   const j=byId(STATE.jobs,r.jobId), s=supplier(r.supplierId), c=capo(r.capoId), t=REQ_TYPES[r.tipo];
-  openModal(`${modalHead(t.icon+" "+t.label)}
+  openModal(`${modalHead(t.label)}
     <div class="dl"><span class="k">Fornitore</span><span class="v">${esc(s?s.name:'')}</span></div>
     <div class="dl"><span class="k">Commessa</span><span class="v">${esc(j?j.title:'')} · ${esc(j?j.code:'')}</span></div>
-    <div class="dl"><span class="k">Caposquadra</span><span class="v">👷 ${esc(c?c.name:'—')}</span></div>
+    <div class="dl"><span class="k">Caposquadra</span><span class="v">${esc(c?c.name:'—')}</span></div>
     <div class="dl"><span class="k">Ricevuta</span><span class="v">${esc((r.at||'').replace('T',' '))}</span></div>
     ${r.testo?`<div class="msg them" style="max-width:100%;margin:6px 0"><div>${esc(r.testo)}</div></div>`:""}
     <div class="divide"></div>
-    <div class="btn-row">${r.stato==="aperta"?`<button class="btn" data-act="reqStato" data-id="${rid}" data-s="presa">Prendi in carico</button>`:""}
-      ${r.stato!=="chiusa"?`<button class="btn accent" data-act="reqStato" data-id="${rid}" data-s="chiusa">Segna risolta</button>`:`<span class="pill ok lg">✅ Chiusa</span>`}</div>`);
+    <div class="btn-row">
+      ${s?`<a class="btn ghost" href="${mailto(s.email,'['+(j?j.code:'')+'] '+t.label,'Buongiorno '+(s?s.referente:'')+',\\n\\nin merito alla sua segnalazione ('+t.label+') sulla commessa '+(j?j.code:'')+'.\\n\\n')}">${icon("mail","sm")} Rispondi via email</a>`:""}
+      ${r.stato==="aperta"?`<button class="btn" data-act="reqStato" data-id="${rid}" data-s="presa">Prendi in carico</button>`:""}
+      ${r.stato!=="chiusa"?`<button class="btn accent" data-act="reqStato" data-id="${rid}" data-s="chiusa">${icon("check")} Segna risolta</button>`:`<span class="pill ok lg">Chiusa</span>`}</div>`);
 }
-/* Modale: notifiche */
 function openNotifCenter(){ const u=currentUser();
   let items;
   if(u.role==="righi"){
-    items=[...STATE.responses.filter(r=>r.from==="fornitore").map(r=>({at:r.at,read:r.read,icon:r.tipo==="accettazione"?"✅":"❓",txt:(r.tipo==="accettazione"?"Accettazione":"Domanda")+" — "+(supplier(r.supplierId)||{}).name,sub:(byId(STATE.jobs,r.jobId)||{}).title,job:r.jobId})),
-      ...STATE.requests.filter(r=>r.from==="fornitore").map(r=>({at:r.at,read:r.read,icon:REQ_TYPES[r.tipo].icon,txt:REQ_TYPES[r.tipo].label+" — "+(supplier(r.supplierId)||{}).name,sub:(byId(STATE.jobs,r.jobId)||{}).title,req:r.id}))];
+    items=[...STATE.responses.filter(r=>r.from==="fornitore").map(r=>({at:r.at,read:r.read,ic:r.tipo==="accettazione"?"check":"mail",txt:(r.tipo==="accettazione"?"Accettazione":"Domanda")+" — "+((supplier(r.supplierId)||{}).name||""),sub:(byId(STATE.jobs,r.jobId)||{}).title,job:r.jobId})),
+      ...STATE.requests.filter(r=>r.from==="fornitore").map(r=>({at:r.at,read:r.read,ic:r.tipo==='materiale'?'inbox':r.tipo==='ritardo'?'clock':'mail',txt:REQ_TYPES[r.tipo].label+" — "+((supplier(r.supplierId)||{}).name||""),sub:(byId(STATE.jobs,r.jobId)||{}).title,req:r.id}))];
   } else {
-    items=STATE.notifications.filter(n=>n.toUser===u.id).map(n=>({at:n.at,read:n.read,icon:n.icon||"🔔",txt:n.txt,sub:n.sub,job:n.jobId}));
+    items=STATE.notifications.filter(n=>n.toUser===u.id).map(n=>({at:n.at,read:n.read,ic:n.ic||"bell",txt:n.txt,sub:n.sub,job:n.jobId}));
   }
   items.sort((a,b)=>String(b.at).localeCompare(String(a.at)));
-  openModal(`${modalHead("🔔 Notifiche")}
-    ${items.length?`<div class="rowlist">${items.map(n=>`<div class="lrow ${!n.read?'unread':''}" ${n.job?`data-job="${n.job}"`:n.req?`data-req="${n.req}"`:""} style="cursor:pointer">
-      <span class="ic">${n.icon}</span><span class="gr"><b>${esc(n.txt)}</b><span class="s">${esc(n.sub||'')} · ${esc((n.at||'').replace('T',' '))}</span></span></div>`).join("")}</div>`
-      :`<div class="empty"><div class="em">🔔</div><p>Nessuna notifica</p></div>`}`);
-  // mark read
+  openModal(`${modalHead("Notifiche")}
+    ${items.length?`<div class="rowlist">${items.slice(0,40).map(n=>`<button class="lrow ${!n.read?'unread':''}" ${n.job?`data-job="${n.job}"`:n.req?`data-req="${n.req}"`:""} style="width:100%">
+      <span class="ic ${!n.read?'accent':''}">${icon(n.ic)}</span><span class="gr"><b>${esc(n.txt)}</b><span class="s">${esc(n.sub||'')} · ${esc((n.at||'').replace('T',' '))}</span></span></button>`).join("")}</div>`
+      :`<div class="empty">${icon("bell")}<p>Nessuna notifica</p></div>`}`);
   if(u.role==="righi"){ STATE.responses.forEach(r=>r.read=true); STATE.requests.forEach(r=>{ if(r.from==="fornitore") r.read=true; }); }
   else STATE.notifications.forEach(n=>{ if(n.toUser===u.id) n.read=true; });
   persist();
 }
-/* Modale: switch utente */
 function openSwitch(){
   openModal(`${modalHead("Cambia utente")}
-    <p class="muted" style="font-size:13px;margin-top:0">Passa rapidamente tra i due lati del portale per la demo.</p>
+    <p class="muted" style="font-size:13px;margin-top:0">Passa tra i due lati del portale per la demo.</p>
     ${STATE.users.map(u=>{const s=u.supplierId?supplier(u.supplierId):null;const cur=Session&&Session.userId===u.id;
       return `<button class="urow" style="color:var(--ink);background:var(--surface-2);border-color:var(--line)" data-login="${u.id}">
         <span class="avatar" style="background:${u.role==='righi'?'var(--accent)':colorFor(u.id)}">${initials(u.name)}</span>
-        <span class="gr"><b>${esc(u.name)} ${cur?'<span class="pill brand" style="margin-left:4px">attuale</span>':''}</b><span class="muted">${u.role==='righi'?esc(u.ruolo):esc(s?s.name:'')}</span></span><span class="arw">›</span></button>`;}).join("")}
+        <span class="gr"><b>${esc(u.name)} ${cur?'<span class="pill brand" style="margin-left:4px">attuale</span>':''}</b><span class="muted">${u.role==='righi'?esc(u.ruolo):esc(s?s.name:'')}</span></span><span class="arw">${icon("chev")}</span></button>`;}).join("")}
     <div class="divide"></div>
-    <button class="btn danger block" data-act="logout">Esci</button>`);
+    <button class="btn danger block" data-act="logout">${icon("logout","sm")} Esci</button>`);
 }
-/* Modale: apri allegato (simulato) */
+function openSupJobs(sid){ const s=supplier(sid); App.filters={q:"",stato:"",tipologia:"",settore:"",capo:"",fornitore:sid,late:false}; App.tab="lavori"; App.page=1; App.lavoriMode="table"; render(); }
 function openAttachment(jid,aid){ const j=byId(STATE.jobs,jid); const a=(j.allegati||[]).find(x=>x.id===aid); if(!a) return;
   if(a.dataUrl){ const w=window.open(); if(w) w.document.write(`<iframe src="${a.dataUrl}" style="border:0;width:100%;height:100vh"></iframe>`); return; }
-  toast("📄 "+a.name+" — anteprima non disponibile nel prototipo","warn");
+  toast(a.name+" — anteprima non disponibile nel prototipo","warn");
 }
 
 /* ============================ AZIONI ============================ */
-function toast(msg,kind){ const t=$("#toast"); t.className="toast show "+(kind||""); t.textContent=msg; clearTimeout(toast._t); toast._t=setTimeout(()=>t.className="toast "+(kind||""),2200); }
+function toast(msg,kind){ const t=$("#toast"); t.className="toast show "+(kind||""); t.textContent=msg; clearTimeout(toast._t); toast._t=setTimeout(()=>t.className="toast "+(kind||""),2400); }
 
 function doPublish(jid){ const j=byId(STATE.jobs,jid); if(!j) return; j.stato="pubblicato"; j.publishedAt=todayISO();
-  // notifica ai destinatari
   notifyJob(j, j.visibility==="selezionati"?(j.invitati||[]):STATE.suppliers.map(s=>s.id));
-  persist(); closeModal(); toast("🚀 Lavoro pubblicato","ok"); render(); }
-
+  persist(); closeModal(); toast("Lavoro pubblicato","ok"); render(); }
 function notifyJob(j, supplierIds){
-  supplierIds.forEach(sid=>{ const usr=STATE.users.find(u=>u.supplierId===sid); if(usr) STATE.notifications.push({id:uid("n"),toUser:usr.id,icon:TIPOLOGIE[j.tipologia].icon,txt:"Nuovo lavoro: "+j.title,sub:j.code+" · "+fmtMoney(j.budget),jobId:j.id,at:new Date().toISOString().slice(0,16),read:false}); });
+  supplierIds.forEach(sid=>{ const usr=STATE.users.find(u=>u.supplierId===sid); if(usr) STATE.notifications.push({id:uid("n"),toUser:usr.id,ic:"bolt",txt:"Nuovo lavoro: "+j.title,sub:j.code+" · "+fmtMoney(j.budget),jobId:j.id,at:new Date().toISOString().slice(0,16),read:false}); });
 }
-
+function emailJobToSuppliers(j, supplierIds){
+  const emails=supplierIds.map(id=>supplier(id)).filter(Boolean).map(s=>s.email);
+  if(!emails.length) return;
+  const body="Buongiorno,\n\nRighi Solutions propone un nuovo lavoro sul Portale Fornitori:\n\n"
+    +"Commessa: "+j.code+" — "+j.title+"\nTipologia: "+TIPOLOGIE[j.tipologia].label+"\nSettore: "+j.settore
+    +"\nBudget indicativo: "+fmtMoney(j.budget)+"\nConsegna desiderata: "+fmtDate(j.dataConsegna)
+    +"\n\nAccedete al portale per visualizzare il layout e accettare o porre domande.\n\nRighi Solutions — Ufficio Subappalti";
+  openMail(emails, "["+j.code+"] Nuovo lavoro: "+j.title, body);
+}
 function createJob(mode){
   const d=App.draft;
-  d.title=$("#nl-title").value.trim();
-  d.budget=$("#nl-budget").value;
-  d.capoId=$("#nl-capo").value;
-  d.dataRichiesta=$("#nl-req").value;
-  d.dataConsegna=$("#nl-cons").value;
-  d.descrizione=$("#nl-desc").value.trim();
+  d.title=$("#nl-title").value.trim(); d.budget=$("#nl-budget").value; d.capoId=$("#nl-capo").value;
+  d.dataRichiesta=$("#nl-req").value; d.dataConsegna=$("#nl-cons").value; d.descrizione=$("#nl-desc").value.trim();
   if(!d.title){ toast("Inserisci un titolo","warn"); $("#nl-title").focus(); return; }
   if(d.visibility==="selezionati" && !(d.invitati||[]).length){ toast("Scegli almeno un fornitore","warn"); return; }
-  const n=STATE.jobs.reduce((m,j)=>Math.max(m,parseInt((j.code||"").split("-")[1])||0),2600);
+  const n=STATE.jobs.reduce((m,j)=>Math.max(m,parseInt((j.code||"").split("-")[1])||0),2400);
   const job={ id:uid("j"), code:"RGH-"+(n+1), title:d.title, tipologia:d.tipologia, settore:d.settore, carpenteria:d.carpenteria,
     budget:d.budget?Number(d.budget):null, dataRichiesta:d.dataRichiesta, dataConsegna:d.dataConsegna, capoId:d.capoId,
     descrizione:d.descrizione, allegati:d.allegati||[], visibility:d.visibility, invitati:d.invitati||[],
     stato: mode==="publish"?"pubblicato":"bozza", assegnatoA:null, publishedAt: mode==="publish"?todayISO():null, createdAt:todayISO() };
   STATE.jobs.unshift(job);
-  if(mode==="publish") notifyJob(job, job.visibility==="selezionati"?job.invitati:STATE.suppliers.map(s=>s.id));
+  const targets=job.visibility==="selezionati"?job.invitati:STATE.suppliers.map(s=>s.id);
+  if(mode==="publish"){ notifyJob(job, targets); if(d.emailNotify) emailJobToSuppliers(job, targets); }
   App.draft=null; persist();
-  toast(mode==="publish"?"🚀 Lavoro pubblicato":"💾 Bozza salvata","ok");
-  App.tab="lavori"; render();
+  toast(mode==="publish"?"Lavoro pubblicato":"Bozza salvata","ok");
+  App.tab="lavori"; App.filters.stato=mode==="publish"?"da_assegnare":"bozza"; App.page=1; render();
 }
-
 function doAccept(jid){ const u=currentUser(); const imp=$("#acc-imp").value; const note=$("#acc-note").value.trim();
   STATE.responses.push({id:uid("r"),jobId:jid,supplierId:u.supplierId,tipo:"accettazione",testo:note||"Proposta accettata.",importo:imp?Number(imp):null,at:new Date().toISOString().slice(0,16),from:"fornitore",read:false});
-  persist(); closeModal(); toast("✅ Proposta inviata a Righi","ok"); render();
+  persist(); closeModal(); toast("Proposta inviata a Righi","ok"); render();
 }
 function doAsk(jid){ const u=currentUser(); const t=$("#ask-t").value.trim(); if(!t){ toast("Scrivi la domanda","warn"); return; }
   STATE.responses.push({id:uid("r"),jobId:jid,supplierId:u.supplierId,tipo:"domanda",testo:t,at:new Date().toISOString().slice(0,16),from:"fornitore",read:false});
   persist(); closeModal(); toast("Domanda inviata","ok"); render();
 }
 function doQuickReq(jid){ const u=currentUser(); const j=byId(STATE.jobs,jid); if(!App.qr||!App.qr.tipo){ toast("Scegli il tipo di richiesta","warn"); return; }
-  const note=$("#qr-note").value.trim();
+  const note=$("#qr-note").value.trim(); const c=capo(j.capoId); const tp=REQ_TYPES[App.qr.tipo];
   STATE.requests.push({id:uid("q"),jobId:jid,supplierId:u.supplierId,tipo:App.qr.tipo,testo:note,at:new Date().toISOString().slice(0,16),stato:"aperta",capoId:j.capoId,from:"fornitore",read:false});
-  App.qr=null; persist(); closeModal(); toast("📨 Richiesta inviata al caposquadra","ok"); render();
+  const wantEmail=App.qr.email; persist(); closeModal(); toast("Richiesta inviata al caposquadra","ok"); render();
+  if(wantEmail && c && c.email){ const body="Buongiorno "+c.name+",\n\nsegnalazione dal Portale Fornitori:\n\nCommessa: "+j.code+" — "+j.title+"\nTipo: "+tp.label+(note?("\nDettaglio: "+note):"")+"\nFornitore: "+(supplier(u.supplierId)||{}).name+"\n\nGrazie.";
+    openMail(c.email, "["+j.code+"] "+tp.label, body); }
 }
 function doNotify(jid){ const j=byId(STATE.jobs,jid); const ids=[...App.notifySel];
   if(!ids.length){ toast("Scegli almeno un fornitore","warn"); return; }
-  notifyJob(j, ids); persist(); closeModal(); toast("🔔 Notifica inviata a "+ids.length+" fornitor"+(ids.length>1?"i":"e"),"ok"); render();
+  notifyJob(j, ids); const wantEmail=App.notifyEmail; persist(); closeModal();
+  toast("Notifica inviata a "+ids.length+" fornitor"+(ids.length>1?"i":"e"),"ok"); render();
+  if(wantEmail) emailJobToSuppliers(j, ids);
 }
 function doAssign(jid,sid){ const j=byId(STATE.jobs,jid); const s=supplier(sid); j.assegnatoA=sid; j.stato="assegnato";
-  // notifica al fornitore assegnato
-  const usr=STATE.users.find(u=>u.supplierId===sid); if(usr) STATE.notifications.push({id:uid("n"),toUser:usr.id,icon:"🎉",txt:"Commessa assegnata: "+j.title,sub:j.code,jobId:j.id,at:new Date().toISOString().slice(0,16),read:false});
+  const usr=STATE.users.find(u=>u.supplierId===sid); if(usr) STATE.notifications.push({id:uid("n"),toUser:usr.id,ic:"check",txt:"Commessa assegnata: "+j.title,sub:j.code,jobId:j.id,at:new Date().toISOString().slice(0,16),read:false});
   STATE.responses.filter(r=>r.jobId===jid).forEach(r=>r.read=true);
-  persist(); closeModal(); toast("✅ Assegnato a "+s.name,"ok"); render();
+  persist(); closeModal(); toast("Assegnato a "+s.name,"ok"); render();
 }
 function setStato(jid,st){ const j=byId(STATE.jobs,jid); j.stato=st; persist(); closeModal(); toast("Stato aggiornato: "+STATI[st].label,"ok"); render(); }
-function reqStato(rid,st){ const r=byId(STATE.requests,rid); r.stato=st; r.read=true; persist(); closeModal(); toast(st==="chiusa"?"✅ Richiesta risolta":"Presa in carico","ok"); render(); }
+function reqStato(rid,st){ const r=byId(STATE.requests,rid); r.stato=st; r.read=true; persist(); closeModal(); toast(st==="chiusa"?"Richiesta risolta":"Presa in carico","ok"); render(); }
+
+/* aggiorna solo il contenitore risultati (mantiene focus sulla ricerca) */
+function updateResults(){ const el=$("#lav-results"); if(!el) return; const u=currentUser();
+  if(u.role==="righi"){ el.innerHTML = (App.lavoriMode==="board")?boardHtml():tableHtml(); }
+  else if(App.tab==="bacheca"){ let jobs=jobsForSupplier(u.supplierId).filter(j=>j.stato==="pubblicato"&&j.assegnatoA!==u.supplierId&&!jobResponses(j.id).some(r=>r.supplierId===u.supplierId&&r.tipo==="accettazione"));
+      const q=(App.fFilters.q||"").toLowerCase(); if(q) jobs=jobs.filter(j=>(j.title+" "+j.code+" "+j.settore).toLowerCase().includes(q));
+      el.innerHTML = jobs.length?`<div class="grid auto">${jobs.map(j=>supplierJobCard(j,u)).join("")}</div>`:`<div class="empty">${icon("inbox")}<p>Nessuna proposta</p></div>`; }
+  else if(App.tab==="miei"){ render(); }
+}
 
 /* ============================ Eventi ============================ */
 document.addEventListener("click",e=>{
-  const el=e.target.closest("[data-act],[data-login],[data-tab],[data-job],[data-req],[data-set],[data-toggle],[data-qrtype],[data-np],[data-close-bg],[data-m]");
+  const el=e.target.closest("[data-act],[data-login],[data-tab],[data-job],[data-req],[data-set],[data-toggle],[data-qrtype],[data-np],[data-close-bg]");
   if(!el) return;
-  // chiusura sfondo modale
   if(el.hasAttribute("data-close-bg") && e.target===el){ closeModal(); return; }
+  if(el.tagName==="A") return; // lascia procedere i mailto/tel
+  if(el.dataset.login){ setSession(el.dataset.login); App.tab=null; App.filters={q:"",stato:"",tipologia:"",settore:"",capo:"",fornitore:"",late:false}; App.fFilters={q:"",stato:""}; closeModal(); render(); return; }
+  if(el.dataset.tab && !el.dataset.act){ App.tab=el.dataset.tab; App.page=1; render(); window.scrollTo(0,0); return; }
 
-  // login / switch
-  if(el.dataset.login){ setSession(el.dataset.login); App.tab=null; closeModal(); render(); return; }
-
-  // tab
-  if(el.dataset.tab){ App.tab=el.dataset.tab; render(); window.scrollTo(0,0); return; }
-
-  const act=el.dataset.act;
-
-  // chip-set nel form nuovo lavoro
   if(el.dataset.set){ const g=el.dataset.set; App.draft=App.draft||{}; App.draft[g]=el.dataset.v;
-    if(g==="visibility"){ render(); } else { // aggiorna solo il gruppo
-      const grp=el.closest(".chips,.seg"); if(grp){ $$("[data-set='"+g+"']",grp.parentElement||document).forEach(b=>b.classList.remove("on")); }
-      $$("[data-set='"+g+"'][data-v='"+CSS.escape(el.dataset.v)+"']").forEach(b=>b.classList.add("on")); }
+    if(g==="visibility"){ render(); } else { const grp=el.closest(".chips"); if(grp){ $$("[data-set='"+g+"']",grp).forEach(b=>b.classList.remove("on")); } el.classList.add("on"); }
     return; }
   if(el.dataset.toggle==="inv"){ App.draft=App.draft||{invitati:[]}; App.draft.invitati=App.draft.invitati||[];
-    const id=el.dataset.v; const i=App.draft.invitati.indexOf(id); if(i<0) App.draft.invitati.push(id); else App.draft.invitati.splice(i,1);
-    el.classList.toggle("on"); return; }
-
-  // richiesta guidata: scelta tipo
-  if(el.dataset.qrtype){ App.qr=App.qr||{}; App.qr.tipo=el.dataset.qrtype;
-    $$("#qr-types .chip").forEach(c=>c.classList.remove("on","accent")); el.classList.add("on","accent");
-    const b=$("#qr-send"); if(b) b.disabled=false; return; }
-  // notify pick toggle
+    const id=el.dataset.v; const i=App.draft.invitati.indexOf(id); if(i<0) App.draft.invitati.push(id); else App.draft.invitati.splice(i,1); el.classList.toggle("on"); return; }
+  if(el.dataset.qrtype){ App.qr=App.qr||{}; App.qr.tipo=el.dataset.qrtype; $$("#qr-types .chip").forEach(c=>c.classList.remove("on","accent")); el.classList.add("on","accent"); const b=$("#qr-send"); if(b) b.disabled=false; return; }
   if(el.dataset.np){ const id=el.dataset.np; if(App.notifySel.has(id)) App.notifySel.delete(id); else App.notifySel.add(id); el.classList.toggle("on"); return; }
 
-  // apertura dettaglio job / richiesta (righe cliccabili)
-  if(el.dataset.job && !act){ openJobModal(el.dataset.job); return; }
-  if(el.dataset.req && !act){ openReqDetail(el.dataset.req); return; }
+  if(el.dataset.job && !el.dataset.act){ openJobModal(el.dataset.job); return; }
+  if(el.dataset.req && !el.dataset.act){ openReqDetail(el.dataset.req); return; }
 
+  const act=el.dataset.act;
   switch(act){
     case "closeModal": closeModal(); break;
     case "notif": openNotifCenter(); break;
     case "switch": openSwitch(); break;
     case "logout": setSession(null); closeModal(); App.tab=null; render(); break;
     case "goNuovo": App.tab="nuovo"; render(); break;
-    case "lavoriMode": App.lavoriMode=el.dataset.m; render(); break;
+    case "goTab": App.tab=el.dataset.tab; App.page=1; render(); window.scrollTo(0,0); break;
+    case "goFilter": App.tab="lavori"; App.lavoriMode="table"; App.page=1;
+      App.filters={q:"",stato:el.dataset.stato==="late"?"":el.dataset.stato,tipologia:"",settore:"",capo:"",fornitore:"",late:el.dataset.stato==="late"}; render(); window.scrollTo(0,0); break;
+    case "lavoriMode": App.lavoriMode=el.dataset.m; App.page=1; render(); break;
+    case "setStatoFilter": App.filters.stato=el.dataset.v; App.page=1; updateResults(); if($("#lav-search"))reflectFilterChips(); render(); break;
+    case "toggleLate": App.filters.late=!App.filters.late; App.page=1; render(); break;
+    case "clearFilter": App.filters[el.dataset.k]= el.dataset.k==="late"?false:""; App.page=1; render(); break;
+    case "clearAll": App.filters={q:"",stato:"",tipologia:"",settore:"",capo:"",fornitore:"",late:false}; App.page=1; render(); break;
+    case "sortBy": { const k=el.dataset.k; if(App.sort.key===k) App.sort.dir*=-1; else {App.sort.key=k; App.sort.dir=1;} updateResults(); break; }
+    case "more": App.page++; updateResults(); break;
+    case "colMore": App.lavoriMode="table"; App.filters.stato=(el.dataset.st==="assegnato")?"":(el.dataset.st==="pubblicato"?"da_assegnare":el.dataset.st); if(el.dataset.st==="assegnato"){App.filters.stato="";} App.page=1; render(); break;
+    case "fStato": App.fFilters.stato=el.dataset.v; render(); break;
+    case "supJobs": openSupJobs(el.dataset.sup); break;
     case "publish": doPublish(el.dataset.job); break;
     case "createJob": createJob(el.dataset.mode); break;
+    case "toggleDraftEmail": App.draft=App.draft||{}; App.draft.emailNotify=!App.draft.emailNotify; el.classList.toggle("on"); break;
     case "accept": openAcceptModal(el.dataset.job); break;
     case "doAccept": doAccept(el.dataset.job); break;
     case "ask": openAskModal(el.dataset.job); break;
     case "doAsk": doAsk(el.dataset.job); break;
     case "quickReq": openQuickReq(el.dataset.job); break;
+    case "toggleQrEmail": App.qr=App.qr||{}; App.qr.email=!App.qr.email; el.classList.toggle("on"); break;
     case "doQuickReq": doQuickReq(el.dataset.job); break;
     case "notifyPick": openNotifyPick(el.dataset.job); break;
+    case "toggleNotifyEmail": App.notifyEmail=!App.notifyEmail; el.classList.toggle("on"); break;
     case "doNotify": doNotify(el.dataset.job); break;
     case "assignPick": openAssignPick(el.dataset.job); break;
     case "assign": doAssign(el.dataset.job, el.dataset.sup); break;
@@ -1054,19 +1200,25 @@ document.addEventListener("click",e=>{
     case "openAtt": openAttachment(el.dataset.job, el.dataset.att); break;
   }
 });
+function reflectFilterChips(){ /* no-op: la ricerca aggiorna via updateResults, i chip via render */ }
 
-// input file allegati (nuovo lavoro)
+// ricerca istantanea (senza perdere il focus)
+document.addEventListener("input",e=>{
+  if(e.target && e.target.id==="lav-search"){ App.filters.q=e.target.value; App.page=1; updateResults(); }
+  if(e.target && e.target.id==="forn-search"){ App.fFilters.q=e.target.value; updateResults(); }
+});
+// select filtri avanzati
 document.addEventListener("change",e=>{
+  if(e.target && e.target.dataset && e.target.dataset.adv){ App.filters[e.target.dataset.adv]=e.target.value; App.page=1; render(); return; }
   if(e.target && e.target.id==="nl-file"){
     App.draft=App.draft||{allegati:[]}; App.draft.allegati=App.draft.allegati||[];
     const files=[...e.target.files]; let pend=files.length;
     files.forEach((f,idx)=>{
-      const isLayout = (App.draft.allegati.length===0 && idx===0) || /layout/i.test(f.name);
+      const isLayout=(App.draft.allegati.length===0 && idx===0) || /layout/i.test(f.name);
       const a={id:uid("a"),name:f.name,type:f.type||f.name.split(".").pop(),size:(f.size>1024?Math.round(f.size/1024)+" KB":f.size+" B"),layout:isLayout};
       if(f.size<600000 && /image|pdf/.test(f.type)){ const rd=new FileReader(); rd.onload=()=>{ a.dataUrl=rd.result; App.draft.allegati.push(a); if(--pend===0) render(); }; rd.readAsDataURL(f); }
       else { App.draft.allegati.push(a); if(--pend===0) render(); }
     });
-    if(!files.length) return;
   }
 });
 

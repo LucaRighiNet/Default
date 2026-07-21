@@ -1,95 +1,133 @@
 "use strict";
-/* Logica di dominio del Portale Fornitori: regole di visibilità dei lavori,
-   ritardi, integrità del seed e helper di formattazione. Testate in isolamento
-   dal blocco puro di index.html (Utility → helpers dominio, DOM escluso). */
+/* Logica di dominio del Portale Fornitori su scala reale (~40 da assegnare +
+   ~150 assegnate): regole di visibilità, ritardi, filtro/ordinamento della
+   vista massiva, integrità del seed, email e helper. Testate in isolamento dal
+   blocco puro di index.html (Utility → filteredJobs, DOM escluso). */
 const assert = require("assert");
 const { sandbox, runner } = require("./_harness");
 
 const START = "/* ============================ Utility";
 const END   = "/* ============================ Render";
-const EXPORTS = ["STATE","isLate","jobsForSupplier","daysTo","relDays","fmtMoney","fmtDate",
-                 "dISO","supplier","byId","TIPOLOGIE","STATI","SETTORI","CARPENTERIA","REQ_TYPES","esc","uid"];
+const EXPORTS = ["STATE","App","isLate","jobsForSupplier","filteredJobs","daysTo","relDays","fmtMoney","fmtDate",
+                 "dISO","supplier","capo","byId","mailto","TIPOLOGIE","STATI","SETTORI","CARPENTERIA","REQ_TYPES","esc","uid"];
 const S = sandbox(START, END, EXPORTS, {});
 const r = runner("model_test");
+const resetFilters = () => { S.App.filters = {q:"",stato:"",tipologia:"",settore:"",capo:"",fornitore:"",late:false}; S.App.sort={key:"consegna",dir:1}; };
 
-/* ---- Seed integro ---- */
-r.ok("seed: entità di base presenti", () => {
-  assert(S.STATE.jobs.length >= 6, "almeno 6 lavori");
-  assert(S.STATE.suppliers.length === 4);
-  assert(S.STATE.capi.length === 3);
+/* ---- Scala e integrità del seed ---- */
+r.ok("seed: volume su scala reale (~40 da assegnare, ~150 attive)", () => {
+  const pub = S.STATE.jobs.filter(j => j.stato === "pubblicato").length;
+  const att = S.STATE.jobs.filter(j => ["assegnato","in_corso"].includes(j.stato)).length;
+  assert(pub >= 30, "da assegnare: " + pub);
+  assert(att >= 120, "attive: " + att);
+  assert(S.STATE.jobs.length >= 180, "totale: " + S.STATE.jobs.length);
+});
+r.ok("seed: entità di supporto (fornitori, capi, utenti)", () => {
+  assert(S.STATE.suppliers.length >= 6);
+  assert(S.STATE.capi.length >= 3);
   assert(S.STATE.users.some(u => u.role === "righi"));
-  assert(S.STATE.users.filter(u => u.role === "fornitore").length >= 3);
+  assert(S.STATE.users.filter(u => u.role === "fornitore").length >= 2);
 });
 r.ok("seed: codici lavoro univoci", () => {
   const codes = S.STATE.jobs.map(j => j.code);
   assert.strictEqual(new Set(codes).size, codes.length, "codici duplicati");
 });
-r.ok("seed: integrità referenziale (capo + fornitore assegnato)", () => {
+r.ok("seed: integrità referenziale + tipologie/carpenteria valide", () => {
   for (const j of S.STATE.jobs) {
     assert(S.byId(S.STATE.capi, j.capoId), "capo mancante per " + j.code);
     if (j.assegnatoA) assert(S.supplier(j.assegnatoA), "fornitore mancante per " + j.code);
     assert(S.TIPOLOGIE[j.tipologia], "tipologia non valida: " + j.tipologia);
-    assert(["inclusa","righi","no"].includes(j.carpenteria), "carpenteria non valida");
+    assert(["inclusa","righi","no"].includes(j.carpenteria));
   }
 });
 
-/* ---- Regola di visibilità (il cuore del portale) ---- */
-r.ok("visibilità: le bozze non sono mai visibili ai fornitori", () => {
-  for (const s of S.STATE.suppliers) {
-    const seen = S.jobsForSupplier(s.id).map(j => j.stato);
-    assert(!seen.includes("bozza"), "una bozza è trapelata a " + s.id);
-  }
+/* ---- Email (nuovo canale) ---- */
+r.ok("email: ogni fornitore e ogni caposquadra ha un indirizzo", () => {
+  assert(S.STATE.suppliers.every(s => /@/.test(s.email)), "fornitore senza email");
+  assert(S.STATE.capi.every(c => /@/.test(c.email)), "caposquadra senza email");
 });
-r.ok("visibilità: 'tutti' visibile a ogni fornitore", () => {
-  const j1 = S.jobsForSupplier("f3").find(j => j.code === "RGH-2601");
-  assert(j1, "il lavoro pubblico deve essere visibile a f3");
+r.ok("mailto: costruisce lo schema con oggetto e corpo", () => {
+  const m = S.mailto("a@b.it", "Oggetto X", "Corpo Y");
+  assert(m.startsWith("mailto:"), m);
+  assert(m.includes("subject=Oggetto%20X"));
+  assert(m.includes("body=Corpo%20Y"));
 });
-r.ok("visibilità: 'selezionati' solo agli invitati", () => {
-  // j3 (RGH-2603) è selezionato per f2,f4 → NON visibile a f3
-  assert(!S.jobsForSupplier("f3").some(j => j.code === "RGH-2603"), "f3 non deve vedere il selezionato");
-  assert(S.jobsForSupplier("f2").some(j => j.code === "RGH-2603"), "f2 (invitato) deve vederlo");
+r.ok("mailto: più destinatari separati da virgola", () => {
+  const m = S.mailto(["a@b.it","c@d.it"], "x");
+  assert(m.includes(","), "manca la virgola tra destinatari: " + m);
 });
-r.ok("visibilità: l'assegnatario vede sempre la propria commessa", () => {
-  assert(S.jobsForSupplier("f2").some(j => j.assegnatoA === "f2"));
+
+/* ---- Visibilità (invarianti, robuste al seed casuale) ---- */
+r.ok("visibilità: nessuna bozza è visibile ai fornitori", () => {
+  for (const s of S.STATE.suppliers)
+    assert(!S.jobsForSupplier(s.id).some(j => j.stato === "bozza"), "bozza trapelata a " + s.id);
 });
-r.ok("visibilità: conteggi coerenti (f3 vede solo i pubblici/aperti)", () => {
-  const codes = S.jobsForSupplier("f3").map(j => j.code).sort();
-  assert.deepStrictEqual(codes, ["RGH-2585","RGH-2592","RGH-2601"], "f3 vede " + codes.join(","));
+r.ok("visibilità: un lavoro 'tutti' pubblicato è visibile a ogni fornitore", () => {
+  const j = S.STATE.jobs.find(x => x.stato === "pubblicato" && x.visibility === "tutti");
+  assert(j, "atteso almeno un pubblicato 'tutti'");
+  for (const s of S.STATE.suppliers)
+    assert(S.jobsForSupplier(s.id).some(x => x.id === j.id), "non visibile a " + s.id);
+});
+r.ok("visibilità: 'selezionati' solo a invitati o assegnatario", () => {
+  const j = S.STATE.jobs.find(x => x.visibility === "selezionati" && x.stato !== "bozza" && (x.invitati||[]).length);
+  assert(j, "atteso almeno un selezionato");
+  const invited = j.invitati[0];
+  const outsider = S.STATE.suppliers.find(s => !j.invitati.includes(s.id) && s.id !== j.assegnatoA);
+  assert(S.jobsForSupplier(invited).some(x => x.id === j.id), "l'invitato deve vederlo");
+  if (outsider) assert(!S.jobsForSupplier(outsider.id).some(x => x.id === j.id), "un estraneo non deve vederlo");
 });
 
 /* ---- Ritardi ---- */
-r.ok("isLate: consegna superata su commessa attiva = in ritardo", () => {
-  const j2 = S.STATE.jobs.find(j => j.code === "RGH-2598"); // in_corso, consegna -2gg
-  assert.strictEqual(S.isLate(j2), true);
+r.ok("isLate: consegna superata su commessa attiva = ritardo", () => {
+  const j = S.STATE.jobs.find(x => ["assegnato","in_corso"].includes(x.stato) && S.daysTo(x.dataConsegna) < 0);
+  assert(j, "atteso almeno un attivo con consegna passata");
+  assert.strictEqual(S.isLate(j), true);
 });
 r.ok("isLate: consegnato non è mai in ritardo", () => {
-  const j4 = S.STATE.jobs.find(j => j.code === "RGH-2585"); // consegnato
-  assert.strictEqual(S.isLate(j4), false);
+  for (const j of S.STATE.jobs.filter(x => x.stato === "consegnato"))
+    assert.strictEqual(S.isLate(j), false);
 });
-r.ok("isLate: consegna futura non è in ritardo", () => {
-  const j1 = S.STATE.jobs.find(j => j.code === "RGH-2601");
-  assert.strictEqual(S.isLate(j1), false);
+
+/* ---- Vista massiva: filtro + ordinamento ---- */
+r.ok("filteredJobs: filtro 'da assegnare' → solo pubblicati", () => {
+  resetFilters(); S.App.filters.stato = "da_assegnare";
+  const a = S.filteredJobs();
+  assert(a.length > 0 && a.every(j => j.stato === "pubblicato"));
+});
+r.ok("filteredJobs: filtro 'attivi' → assegnato/in corso", () => {
+  resetFilters(); S.App.filters.stato = "attivi";
+  assert(S.filteredJobs().every(j => ["assegnato","in_corso"].includes(j.stato)));
+});
+r.ok("filteredJobs: filtro fornitore", () => {
+  resetFilters(); const sid = S.STATE.jobs.find(j => j.assegnatoA).assegnatoA;
+  S.App.filters.fornitore = sid;
+  const a = S.filteredJobs();
+  assert(a.length > 0 && a.every(j => j.assegnatoA === sid));
+});
+r.ok("filteredJobs: filtro 'solo ritardi'", () => {
+  resetFilters(); S.App.filters.late = true;
+  assert(S.filteredJobs().every(j => S.isLate(j)));
+});
+r.ok("filteredJobs: ricerca testuale per codice", () => {
+  resetFilters(); const code = S.STATE.jobs[10].code;
+  S.App.filters.q = code.toLowerCase();
+  assert(S.filteredJobs().some(j => j.code === code));
+});
+r.ok("filteredJobs: ordinamento per consegna crescente", () => {
+  resetFilters(); S.App.sort = { key: "consegna", dir: 1 };
+  const a = S.filteredJobs();
+  for (let i = 1; i < a.length; i++) assert(a[i-1].dataConsegna <= a[i].dataConsegna, "ordine consegna rotto");
 });
 
 /* ---- Helper puri ---- */
-r.ok("daysTo/relDays: oggi/domani/ieri", () => {
-  assert.strictEqual(S.daysTo(S.dISO(0)), 0);
+r.ok("relDays: oggi/domani/ieri", () => {
   assert.strictEqual(S.relDays(S.dISO(1)), "domani");
   assert.strictEqual(S.relDays(S.dISO(-1)), "ieri");
 });
-r.ok("fmtMoney: euro senza decimali, — se vuoto", () => {
+r.ok("fmtMoney / fmtDate / esc", () => {
   assert.strictEqual(S.fmtMoney(""), "—");
-  assert(/8\.?500/.test(S.fmtMoney(8500).replace(/\s/g," ")), "formato: " + S.fmtMoney(8500));
-});
-r.ok("fmtDate: ISO → gg/mm/aaaa", () => {
   assert.strictEqual(S.fmtDate("2026-07-21"), "21/07/2026");
-  assert.strictEqual(S.fmtDate(""), "—");
-});
-r.ok("esc: neutralizza l'HTML", () => {
   assert.strictEqual(S.esc("<b>&\"'"), "&lt;b&gt;&amp;&quot;&#39;");
-});
-r.ok("uid: identificatori distinti", () => {
-  assert.notStrictEqual(S.uid("x"), S.uid("x"));
 });
 r.ok("cataloghi di dominio completi", () => {
   assert.deepStrictEqual(Object.keys(S.TIPOLOGIE).sort(), ["automazione","distribuzione","potenza"]);

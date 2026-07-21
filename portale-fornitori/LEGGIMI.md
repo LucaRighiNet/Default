@@ -30,13 +30,23 @@ Righi e il lato fornitore per vedere entrambe le prospettive.
 
 **Lato Righi**
 - **Dashboard**: lavori pubblicati/assegnati, **ritardi**, accettazioni da
-  valutare, richieste dei fornitori.
-- **Lavori**: pipeline a **bacheca Kanban** o elenco; apri una scheda per
-  pubblicare, **notificare** fornitori, **assegnare**.
+  valutare, richieste dei fornitori (le KPI sono cliccabili e portano al filtro).
+- **Lavori — vista massiva**: pensata per **centinaia di commesse in parallelo**
+  (~150 assegnate + ~40 da assegnare nel seed dimostrativo). **Elenco** a tabella
+  densa con **ricerca**, **filtri** (stato, tipologia, settore, caposquadra,
+  fornitore, solo ritardi), **ordinamento** e paginazione; in alternativa la
+  **bacheca Kanban** per una lettura d'insieme. Apri una scheda per pubblicare,
+  **notificare** fornitori, **assegnare**.
 - **Nuovo lavoro**: form a input guidati (tipologia, settore, carpenteria come
   chip; layout allegabile; budget, date, caposquadra; visibilità *tutti /
-  selezionati*).
-- **Richieste** e anagrafica **Fornitori** accreditati.
+  selezionati*; notifica anche via **email**).
+- **Richieste** e anagrafica **Fornitori** accreditati (con contatto **email**).
+
+**Notifiche ed email**: ogni evento (pubblicazione, notifica mirata, richiesta
+guidata, risposta) genera una **notifica in app**; dove serve comunicare fuori
+dal portale è disponibile l'**email precompilata** (destinatario, oggetto e
+corpo pronti) verso fornitori e caposquadra. L'invio automatico lato server è
+la naturale evoluzione (vedi `BACKEND.md`).
 
 **Lato Fornitore**
 - **Bacheca**: i lavori proposti da Righi; **Accetta** o **fai una domanda** con

@@ -1,19 +1,15 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Righi Portale Fornitori">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Righi Solutions">
   <defs>
     <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#0E6A74"/>
       <stop offset="1" stop-color="#083D44"/>
     </linearGradient>
   </defs>
-  <rect x="16" y="16" width="480" height="480" rx="104" fill="url(#g)"/>
-  <!-- quadro / panel grid motif -->
-  <g stroke="#EAF6F6" stroke-opacity="0.18" stroke-width="10">
-    <line x1="96" y1="150" x2="416" y2="150"/>
-    <line x1="96" y1="362" x2="416" y2="362"/>
-  </g>
-  <!-- stylised R -->
-  <path d="M150 128 h132 a86 86 0 0 1 0 172 h-58 l96 84 h-74 l-96 -84 v84 h-64 V128 z
-           M186 186 v58 h84 a29 29 0 0 0 0 -58 z" fill="#EAF6F6"/>
-  <!-- amber spark / plug accent -->
-  <path d="M330 210 l44 0 -26 40 40 0 -66 92 16 -64 -34 0 z" fill="#E07B27"/>
+  <rect x="16" y="16" width="480" height="480" rx="96" fill="url(#g)"/>
+  <!-- monogramma R geometrico -->
+  <path d="M150 128 h132 a84 84 0 0 1 20 165 l70 91 h-78 l-64 -84 h-32 v84 h-56 V128 z
+           M162 184 v66 h108 a33 33 0 0 0 0 -66 z" fill="#F4F8F8"/>
+  <!-- nodi circuito (accenno elettrotecnico, tono corporate) -->
+  <circle cx="360" cy="150" r="12" fill="#F4F8F8" fill-opacity="0.55"/>
+  <circle cx="360" cy="362" r="12" fill="#F4F8F8" fill-opacity="0.55"/>
 </svg>

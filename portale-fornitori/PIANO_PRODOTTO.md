@@ -65,13 +65,20 @@ Di conseguenza il prodotto è progettato attorno a due driver:
 
 - **Accessi predisposti** con selezione utente e ruolo (Righi / Fornitore),
   sessione persistente e cambio-utente rapido per la demo.
-- **Lato Righi**: dashboard (KPI, ritardi, accettazioni da valutare, richieste),
-  pipeline lavori a **bacheca Kanban** ed elenco, form **Nuovo lavoro** a input
-  guidati, gestione **richieste**, anagrafica **fornitori** accreditati.
-- **Lato Fornitore**: **bacheca** dei lavori disponibili, **I miei lavori** con
-  consegne, **richieste guidate** al caposquadra, **profilo** di accreditamento.
+- **Lato Righi**: dashboard (KPI cliccabili, ritardi, accettazioni da valutare,
+  richieste), **vista massiva** dei lavori a **tabella filtrabile/ordinabile con
+  ricerca e paginazione** (dimensionata per ~150 commesse assegnate + ~40 da
+  assegnare in contemporanea) più **bacheca Kanban** d'insieme, form **Nuovo
+  lavoro** a input guidati, gestione **richieste**, anagrafica **fornitori**.
+- **Lato Fornitore**: **bacheca** dei lavori disponibili (con ricerca), **I miei
+  lavori** con consegne e filtri, **richieste guidate** al caposquadra,
+  **profilo** di accreditamento.
 - **Pubblicazione, notifica mirata, accettazione, assegnazione** end-to-end.
+- **Notifiche in app + email**: ogni evento genera una notifica; dove serve
+  comunicare fuori dal portale è pronta l'**email precompilata** (mailto) verso
+  fornitori e caposquadra. L'invio server-side è la Fase 1 (`BACKEND.md`).
 - **Ritardi** evidenziati automaticamente (consegna superata su commessa attiva).
+- **Interfaccia professionale senza emoji**, icone SVG, identità Righi Solutions.
 - **Offline-first** (PWA + service worker); dati nello storage del dispositivo.
 - **Seam di backend** già pronto (`Sync` + `RemoteAdapter`) — vedi `BACKEND.md`.
 
