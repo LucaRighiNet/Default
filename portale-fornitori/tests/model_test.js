@@ -9,9 +9,12 @@ const { sandbox, runner } = require("./_harness");
 const START = "/* ============================ Utility";
 const END   = "/* ============================ Render";
 const EXPORTS = ["STATE","App","isLate","jobsForSupplier","filteredJobs","daysTo","relDays","fmtMoney","fmtDate",
-                 "dISO","supplier","capo","byId","mailto","isCapo","activeHours","supplierMonthlyLoad","monthKey",
-                 "toCSV","parseCSV","TIPOLOGIE","STATI","SETTORI","CARPENTERIA","REQ_TYPES","esc","uid"];
+                 "dISO","addDays","supplier","capo","byId","mailto","isCapo","activeHours","supplierMonthlyLoad","monthKey",
+                 "toCSV","parseCSV","supplierMetrics","freeCapacity","monthLoad","daysBetween","jobHealth","suggestSuppliers",
+                 "TIPOLOGIE","STATI","SETTORI","CARPENTERIA","REQ_TYPES","AVANZAMENTO","CERT","esc","uid"];
 const S = sandbox(START, END, EXPORTS, {});
+// secondo sandbox fino a "Eventi" per le funzioni-azione pure (senza DOM)
+const SA = sandbox(START, "/* ============================ Eventi", ["STATE","applyDateChange","addDays"], {});
 const r = runner("model_test");
 const resetFilters = () => { S.App.filters = {q:"",stato:"",tipologia:"",settore:"",capo:"",fornitore:"",late:false}; S.App.sort={key:"consegna",dir:1}; };
 
@@ -142,6 +145,89 @@ r.ok("cataloghi di dominio completi", () => {
   assert.deepStrictEqual(Object.keys(S.TIPOLOGIE).sort(), ["automazione","distribuzione","potenza"]);
   assert(S.SETTORI.length >= 6);
   assert(Object.keys(S.REQ_TYPES).includes("materiale") && Object.keys(S.REQ_TYPES).includes("dubbio"));
+  assert(Object.keys(S.REQ_TYPES).includes("slittamento"), "manca il tipo slittamento");
+});
+
+/* ---- Fase A/B: anagrafica categorizzata + capacità ---- */
+r.ok("anagrafica: coordinate, zona, capacità e certificazioni presenti", () => {
+  for (const s of S.STATE.suppliers) {
+    assert(typeof s.lat === "number" && typeof s.lng === "number", "coordinate mancanti: " + s.id);
+    assert(s.zona, "zona mancante: " + s.id);
+    assert(s.capacitaMese > 0, "capacità non valida: " + s.id);
+    assert(Array.isArray(s.certificazioni), "certificazioni non array: " + s.id);
+  }
+});
+r.ok("freeCapacity = capacità − carico del mese, mai > capacità", () => {
+  const mk = S.monthKey(S.dISO(0));
+  for (const s of S.STATE.suppliers) {
+    const free = S.freeCapacity(s.id, mk);
+    assert.strictEqual(free, s.capacitaMese - S.monthLoad(s.id, mk), "freeCapacity errata per " + s.id);
+    assert(free <= s.capacitaMese);
+  }
+});
+r.ok("seed: variabilità del carico (non tutti saturi/liberi)", () => {
+  const ratios = S.STATE.suppliers.map(s => S.monthLoad(s.id, S.monthKey(S.dISO(0))) / s.capacitaMese);
+  assert(Math.min(...ratios) < 0.6 && Math.max(...ratios) > 0.6, "carico non variabile: " + ratios.map(x=>x.toFixed(2)).join(","));
+});
+
+/* ---- Fase B: metriche fornitore ---- */
+r.ok("supplierMetrics: campi coerenti e puntualità 0..100", () => {
+  for (const s of S.STATE.suppliers) {
+    const m = S.supplierMetrics(s.id);
+    assert(m.puntualita === null || (m.puntualita >= 0 && m.puntualita <= 100), "puntualità fuori range");
+    assert(m.consegnate >= 0 && m.commesseAttive >= 0 && m.oreAttive >= 0);
+    assert(m.tassoAccett === null || (m.tassoAccett >= 0 && m.tassoAccett <= 100));
+  }
+});
+r.ok("supplierMetrics: puntualità = consegne on-time / consegnate", () => {
+  const s = S.STATE.suppliers.find(x => S.STATE.jobs.some(j => j.assegnatoA === x.id && j.stato === "consegnato" && j.dataConsegnaEffettiva));
+  assert(s, "atteso un fornitore con consegne");
+  const del = S.STATE.jobs.filter(j => j.assegnatoA === s.id && j.stato === "consegnato" && j.dataConsegnaEffettiva);
+  const onTime = del.filter(j => j.dataConsegnaEffettiva <= j.dataConsegna).length;
+  assert.strictEqual(S.supplierMetrics(s.id).puntualita, Math.round(onTime / del.length * 100));
+});
+
+/* ---- Fase C: cambio data consegna ---- */
+r.ok("applyDateChange: sovrascrive la data e registra lo storico", () => {
+  const j = SA.STATE.jobs.find(x => ["assegnato","in_corso"].includes(x.stato) && x.assegnatoA);
+  const before = j.dataConsegna; const n0 = (j.storicoDate||[]).length;
+  const nd = SA.addDays(before, 12);
+  assert.strictEqual(SA.applyDateChange(j, nd, "test", "fornitore", j.assegnatoA), true);
+  assert.strictEqual(j.dataConsegna, nd, "data non sovrascritta");
+  assert.strictEqual(j.storicoDate.length, n0 + 1, "storico non aggiornato");
+  assert.strictEqual(j.storicoDate[j.storicoDate.length-1].from, before);
+});
+r.ok("applyDateChange: no-op se la data non cambia", () => {
+  const j = SA.STATE.jobs.find(x => ["assegnato","in_corso"].includes(x.stato) && x.assegnatoA);
+  const n0 = j.storicoDate.length;
+  assert.strictEqual(SA.applyDateChange(j, j.dataConsegna, "x", "fornitore", j.assegnatoA), false);
+  assert.strictEqual(j.storicoDate.length, n0, "storico non deve cambiare");
+});
+
+/* ---- Fase D: semaforo + assegnazione intelligente ---- */
+r.ok("jobHealth: consegnato=done, in ritardo=rosso, livelli validi", () => {
+  const done = S.STATE.jobs.find(j => j.stato === "consegnato");
+  if (done) assert.strictEqual(S.jobHealth(done).level, "done");
+  const lateJob = S.STATE.jobs.find(j => S.isLate(j));
+  if (lateJob) assert.strictEqual(S.jobHealth(lateJob).level, "rosso");
+  for (const j of S.STATE.jobs) assert(["verde","giallo","rosso","done","draft"].includes(S.jobHealth(j).level));
+});
+r.ok("suggestSuppliers: ordinato per punteggio, overload = libere < ore", () => {
+  const job = S.STATE.jobs.find(j => j.stato === "pubblicato");
+  const sg = S.suggestSuppliers(job);
+  assert(sg.length === S.STATE.suppliers.length);
+  for (let i = 1; i < sg.length; i++) assert(sg[i-1].score >= sg[i].score, "non ordinato");
+  for (const x of sg) assert.strictEqual(x.overload, x.free < (job.oreStimate||0));
+});
+r.ok("suggestSuppliers: chi è specializzato+settore batte chi non lo è", () => {
+  const job = S.STATE.jobs.find(j => j.stato === "pubblicato");
+  const match = S.STATE.suppliers.find(s => s.specialties.includes(job.tipologia) && s.settori.includes(job.settore));
+  const noMatch = S.STATE.suppliers.find(s => !s.specialties.includes(job.tipologia) && !s.settori.includes(job.settore));
+  if (match && noMatch) {
+    const sg = S.suggestSuppliers(job);
+    const rm = sg.find(x => x.sid === match.id), rn = sg.find(x => x.sid === noMatch.id);
+    assert(rm.score > rn.score, "il match deve avere punteggio maggiore");
+  }
 });
 
 /* ---- Ruoli Righi ---- */

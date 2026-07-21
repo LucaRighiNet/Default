@@ -112,6 +112,38 @@ main{max-width:1180px;margin:0 auto;padding:16px calc(var(--sar) + 14px) calc(va
 .kpi .foot{font-size:11.5px;color:var(--muted);margin-top:2px}
 .kpi.click{cursor:pointer;transition:box-shadow .15s}
 .kpi.click:hover{box-shadow:0 4px 16px rgba(16,40,48,.12)}
+/* metriche fornitore */
+.mgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.mkpi{background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:9px 10px;display:flex;flex-direction:column;gap:1px}
+.mkpi .v{font-size:20px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+.mkpi .l{font-size:11px;color:var(--muted)}
+.mkpi .s{font-size:10.5px;color:var(--muted)}
+.mkpi.ok .v{color:var(--ok)} .mkpi.warn .v{color:var(--warn)} .mkpi.danger .v{color:var(--danger)}
+.metric-rows{margin-top:10px;display:flex;flex-direction:column;gap:6px;font-size:12.5px}
+.metric-rows > div{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.spark{display:flex;align-items:flex-end;gap:4px;height:38px;margin-top:12px}
+.spark .sbar{flex:1;background:var(--brand-tint);border:1px solid var(--brand-line);border-radius:3px 3px 0 0;min-height:3px}
+.spark-x{display:flex;gap:4px;font-size:10px;color:var(--muted);margin-top:2px}
+.spark-x span{flex:1;text-align:center;text-transform:uppercase}
+@media(max-width:560px){ .mgrid{grid-template-columns:1fr 1fr} }
+/* semaforo salute commessa */
+.hdot{display:inline-block;width:9px;height:9px;border-radius:50%;vertical-align:middle;flex:0 0 auto}
+.hdot.verde{background:var(--ok)} .hdot.giallo{background:var(--warn)} .hdot.rosso{background:var(--danger)}
+/* avanzamento a un tocco */
+.steps{display:flex;gap:6px;flex-wrap:wrap}
+.step{flex:1;min-width:72px;border:1px solid var(--line);background:var(--surface);border-radius:9px;padding:8px 6px;font-size:12px;text-align:center;color:var(--ink-soft);min-height:auto;position:relative}
+.step.done{background:var(--brand-tint);border-color:var(--brand-line);color:var(--brand-deep);font-weight:600}
+.step.cur{background:var(--brand);border-color:var(--brand);color:#fff;font-weight:600}
+.progress{display:flex;align-items:center;gap:6px;margin:6px 0}
+.progress .seg{flex:1;height:6px;border-radius:3px;background:var(--surface-3)}
+.progress .seg.on{background:var(--brand)}
+/* mappa fornitori (SVG offline) */
+.map-wrap{border:1px solid var(--line);border-radius:var(--r);overflow:hidden;box-shadow:var(--shadow)}
+.map-svg{display:block;width:100%;height:auto;background:linear-gradient(160deg,#eaf0f3,#e3eaee)}
+.map-svg .pin{cursor:pointer}
+.map-svg .pin:hover circle{stroke:var(--ink)}
+.map-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--ink-soft);padding:10px 2px 0}
+.map-legend i{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:5px;vertical-align:middle}
 
 /* ---- Pills / badges ---- */
 .pill{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;padding:3px 9px;border-radius:999px;border:1px solid var(--line);background:var(--surface-2);color:var(--ink-soft);white-space:nowrap;font-weight:500}
@@ -157,6 +189,8 @@ textarea.inp{min-height:80px;resize:vertical;line-height:1.45}
 .chip.on .dot{background:#fff}
 .chip.on.accent{background:var(--accent);border-color:var(--accent)}
 .chip.multi.on{background:var(--brand-tint);border-color:var(--brand-line);color:var(--brand-deep)}
+.chip.sugg{border-color:var(--accent);color:var(--accent-deep)}
+.chip.multi.on.sugg{background:var(--accent-tint);border-color:var(--accent);color:var(--accent-deep)}
 .chip.sm{min-height:34px;padding:6px 11px;font-size:12.5px}
 .seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface)}
 .seg button{border:none;background:transparent;padding:8px 13px;font-size:13px;color:var(--ink-soft);min-height:40px;border-right:1px solid var(--line);display:inline-flex;align-items:center;gap:6px}
@@ -349,6 +383,7 @@ const esc = s => String(s==null?"":s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&
 const uid = p => (p||"id")+"_"+Math.random().toString(36).slice(2,9);
 const todayISO = ()=> new Date().toISOString().slice(0,10);
 function dISO(off){ const d=new Date(); d.setHours(12,0,0,0); d.setDate(d.getDate()+(off||0)); return d.toISOString().slice(0,10); }
+function addDays(iso,n){ const d=new Date((iso||todayISO())+"T12:00:00"); d.setDate(d.getDate()+(n||0)); return d.toISOString().slice(0,10); }
 function fmtDate(iso){ if(!iso) return "—"; const [y,m,d]=iso.split("-"); return d+"/"+m+"/"+y; }
 function fmtDateShort(iso){ if(!iso) return "—"; const [,m,d]=iso.split("-"); return d+"/"+m; }
 const eur = new Intl.NumberFormat('it-IT',{style:'currency',currency:'EUR',maximumFractionDigits:0});
@@ -403,7 +438,7 @@ function mailto(to, subject, body, cc){
 function openMail(to,subject,body,cc){ const a=document.createElement("a"); a.href=mailto(to,subject,body,cc); a.style.display="none"; document.body.appendChild(a); a.click(); setTimeout(()=>a.remove(),0); }
 
 /* ============================ Storage ============================ */
-const KEY="righi_portale_v3", SESSKEY="righi_portale_sess_v3";
+const KEY="righi_portale_v4", SESSKEY="righi_portale_sess_v4";
 function makeLocalAdapter(){ return {
   get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } },
   set(k,v){ try{ localStorage.setItem(k,v); }catch(e){} },
@@ -462,11 +497,24 @@ const BOARD_COLS=[["bozza","Bozze"],["pubblicato","Da assegnare"],["assegnato","
 const REQ_TYPES = {
   dubbio:   {label:"Dubbio tecnico", pill:"info"},
   materiale:{label:"Mancanza materiale", pill:"warn"},
+  slittamento:{label:"Richiesta di slittamento", pill:"warn"},
   ritardo:  {label:"Segnalazione ritardo", pill:"danger"},
   sopralluogo:{label:"Chiarimento layout / sopralluogo", pill:"brand"},
   collaudo: {label:"Pronto per collaudo / ritiro", pill:"ok"},
   altro:    {label:"Altro", pill:""},
 };
+// Avanzamento produzione (sotto-stato lato fornitore, un tocco)
+const AVANZAMENTO = { materiale:{label:"Materiale ricevuto"}, cablaggio:{label:"Cablaggio in corso"}, collaudo:{label:"In collaudo"}, pronto:{label:"Pronto al ritiro"} };
+const AVZ_ORDER = ["materiale","cablaggio","collaudo","pronto"];
+// Certificazioni/qualifiche fornitore
+const CERT = { hv:"Quadri >250A", food:"Igienico/food", atex:"ATEX" };
+// Città (lat, lng, zona) per mappa e ottimizzazione trasporti
+const CITY = {
+  "Cesena":[44.14,12.24,"Romagna"], "Bologna":[44.49,11.34,"Bologna"], "Parma":[44.80,10.33,"Parma"],
+  "Forlì":[44.22,12.04,"Romagna"], "Rimini":[44.06,12.57,"Romagna"], "Modena":[44.65,10.93,"Modena"],
+  "Ravenna":[44.42,12.20,"Romagna"], "Imola":[44.35,11.71,"Bologna"]
+};
+const RIGHI_HQ = {name:"Righi Solutions", citta:"Cesena", lat:44.14, lng:12.24};
 
 /* ============================ Seed ============================ */
 function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
@@ -482,16 +530,17 @@ function seed(){
   ];
   capi.forEach(c=> c.email=slug(c.name.split(" ")[0])[0]+"."+slug(c.name.split(" ")[1])+"@righinet.com");
   const supDefs=[
-    ["Elettro Cablaggi Snc","Cesena",["automazione","distribuzione"],["Packaging","Legno"],4.6,"Giuseppe Marani"],
-    ["QuadriPro Srl","Bologna",["potenza","distribuzione"],["Food & Beverage","Vetro"],4.4,"Paolo Testi"],
-    ["Cablaggi Rapidi","Forlì",["automazione"],["Packaging","Logistica"],4.1,"Anna Riva"],
-    ["TecnoQuadri","Parma",["automazione","potenza"],["Ceramica","Automotive"],4.7,"Marco Delli"],
-    ["Impianti Adriatica","Rimini",["distribuzione","potenza"],["Logistica","Food & Beverage"],4.2,"Elena Fabbri"],
-    ["EMC Wiring","Modena",["automazione","distribuzione"],["Automotive","Farmaceutico"],4.5,"Roberto Sala"],
-    ["Quadristica 2000","Ravenna",["potenza"],["Vetro","Ceramica"],3.9,"Chiara Monti"],
-    ["Nuova Elettromeccanica","Imola",["automazione","potenza","distribuzione"],["Packaging","Farmaceutico"],4.3,"Franco Belli"],
+    // name, città, specialties, settori, rating, referente, capacitaMese (ore), certificazioni
+    ["Elettro Cablaggi Snc","Cesena",["automazione","distribuzione"],["Packaging","Legno"],4.6,"Giuseppe Marani",900,["food"]],
+    ["QuadriPro Srl","Bologna",["potenza","distribuzione"],["Food & Beverage","Vetro"],4.4,"Paolo Testi",1300,["hv","food"]],
+    ["Cablaggi Rapidi","Forlì",["automazione"],["Packaging","Logistica"],4.1,"Anna Riva",700,[]],
+    ["TecnoQuadri","Parma",["automazione","potenza"],["Ceramica","Automotive"],4.7,"Marco Delli",1100,["hv","atex"]],
+    ["Impianti Adriatica","Rimini",["distribuzione","potenza"],["Logistica","Food & Beverage"],4.2,"Elena Fabbri",800,["hv"]],
+    ["EMC Wiring","Modena",["automazione","distribuzione"],["Automotive","Farmaceutico"],4.5,"Roberto Sala",1200,["atex","food"]],
+    ["Quadristica 2000","Ravenna",["potenza"],["Vetro","Ceramica"],3.9,"Chiara Monti",650,["hv"]],
+    ["Nuova Elettromeccanica","Imola",["automazione","potenza","distribuzione"],["Packaging","Farmaceutico"],4.3,"Franco Belli",1400,["hv","atex","food"]],
   ];
-  const suppliers=supDefs.map((d,i)=>({id:"f"+(i+1),name:d[0],citta:d[1],accredited:true,specialties:d[2],settori:d[3],rating:d[4],referente:d[5],email:"preventivi@"+slug(d[0])+".it"}));
+  const suppliers=supDefs.map((d,i)=>{ const c=CITY[d[1]]||[44.3,12.0,"—"]; return {id:"f"+(i+1),name:d[0],citta:d[1],lat:c[0],lng:c[1],zona:c[2],accredited:true,specialties:d[2],settori:d[3],rating:d[4],referente:d[5],capacitaMese:d[6],certificazioni:d[7],email:"preventivi@"+slug(d[0])+".it"}; });
   const users=[
     {id:"u_resp", name:"Marco Neri", role:"righi", righiRole:"responsabile", ruolo:"Responsabile Produzione", email:"produzione@righinet.com"},
     {id:"u_cs1", name:"Andrea Bianchi", role:"righi", righiRole:"caposquadra", capoId:"cs1", ruolo:"Caposquadra", email:capi[0].email},
@@ -511,21 +560,25 @@ function seed(){
       descrizione:"Cablaggio e cablatura secondo schemi e distinta forniti. Collaudo funzionale prima della consegna.",
       oreStimate:Math.round((20+rng()*360)/5)*5,
       allegati:[{id:uid("a"),name:"Layout_"+slug(set)+"_"+codeN+".pdf",type:"application/pdf",layout:true,size:(300+Math.floor(rng()*500))+" KB"}],
-      visibility:"tutti", invitati:[], stato, assegnatoA:null, publishedAt:null, createdAt:dISO(-Math.floor(rng()*60)) };
-    codeN++; Object.assign(j,opts||{}); return j;
+      visibility:"tutti", invitati:[], stato, assegnatoA:null, publishedAt:null, createdAt:dISO(-Math.floor(rng()*60)),
+      storicoDate:[], dataConsegnaEffettiva:null, assegnatoAt:null, avanzamento:null };
+    codeN++; Object.assign(j,opts||{}); j.dataConsegnaBase=j.dataConsegna; return j;
   }
   // 40 da assegnare (pubblicati)
   for(let i=0;i<40;i++){ const sel=rng()<0.35; const inv=sel?suppliers.filter(()=>rng()<0.4).map(s=>s.id).slice(0,3):[];
     jobs.push(mk("pubblicato",{ visibility:sel&&inv.length?"selezionati":"tutti", invitati:inv,
       dataRichiesta:dISO(-Math.floor(rng()*8)), dataConsegna:dISO(8+Math.floor(rng()*34)), publishedAt:dISO(-Math.floor(rng()*8)) })); }
   // 150 assegnati / in corso
-  for(let i=0;i<150;i++){ const sup=pick(suppliers); const st=rng()<0.5?"assegnato":"in_corso"; const cons=Math.floor(-8+rng()*36);
+  for(let i=0;i<150;i++){ const sup=pick(suppliers); const st=rng()<0.5?"assegnato":"in_corso"; const cons=Math.floor(-8+rng()*130);
     jobs.push(mk(st,{ assegnatoA:sup.id, visibility:rng()<0.5?"selezionati":"tutti", invitati:[sup.id],
-      dataRichiesta:dISO(-(14+Math.floor(rng()*45))), dataConsegna:dISO(cons), publishedAt:dISO(-(12+Math.floor(rng()*40))) })); }
-  // 22 consegnati
-  for(let i=0;i<22;i++){ const sup=pick(suppliers);
-    jobs.push(mk("consegnato",{ assegnatoA:sup.id, invitati:[sup.id],
-      dataRichiesta:dISO(-(40+Math.floor(rng()*30))), dataConsegna:dISO(-(3+Math.floor(rng()*35))), publishedAt:dISO(-(38+Math.floor(rng()*28))) })); }
+      dataRichiesta:dISO(-(14+Math.floor(rng()*45))), dataConsegna:dISO(cons), publishedAt:dISO(-(12+Math.floor(rng()*40))),
+      assegnatoAt:dISO(-(3+Math.floor(rng()*80))),
+      avanzamento: st==="in_corso" ? pick(["materiale","cablaggio","cablaggio","collaudo","pronto"]) : (rng()<0.4?"materiale":null) })); }
+  // 22 consegnati (con data effettiva: mix puntuali/in ritardo -> puntualita)
+  for(let i=0;i<22;i++){ const sup=pick(suppliers); const co=-(6+Math.floor(rng()*34)); const onTime=rng()<0.72; const delta=onTime? -Math.floor(rng()*3) : (1+Math.floor(rng()*7));
+    jobs.push(mk("consegnato",{ assegnatoA:sup.id, invitati:[sup.id], avanzamento:"pronto",
+      dataRichiesta:dISO(co-30-Math.floor(rng()*20)), dataConsegna:dISO(co), publishedAt:dISO(co-28-Math.floor(rng()*10)),
+      assegnatoAt:dISO(co-(15+Math.floor(rng()*40))), dataConsegnaEffettiva:dISO(Math.min(co+delta,-1)) })); }
   // 6 bozze
   for(let i=0;i<6;i++){ jobs.push(mk("bozza",{ allegati:[], dataRichiesta:dISO(0), dataConsegna:dISO(20+Math.floor(rng()*20)) })); }
 
@@ -540,10 +593,17 @@ function seed(){
   });
   // richieste guidate su alcune commesse attive
   const active=jobs.filter(j=>j.assegnatoA&&(j.stato==="assegnato"||j.stato==="in_corso"));
-  for(let i=0;i<10;i++){ const j=active[Math.floor(rng()*active.length)]; const tp=pick(Object.keys(REQ_TYPES));
+  const genTypes=["dubbio","materiale","sopralluogo","collaudo","altro"];
+  for(let i=0;i<10;i++){ const j=active[Math.floor(rng()*active.length)]; const tp=pick(genTypes);
     requests.push({id:uid("q"),jobId:j.id,supplierId:j.assegnatoA,tipo:tp,testo:tp==="materiale"?"Mancano alcuni morsetti sezionabili.":tp==="dubbio"?"Siglatura morsetti non chiara sul foglio 4.":"",at:dISO(-Math.floor(rng()*3))+"T"+(8+i)+":30",stato:i<6?"aperta":"presa",capoId:j.capoId,from:"fornitore",read:i>=6}); }
+  // richieste di slittamento aperte (da approvare)
+  for(let i=0;i<3;i++){ const j=active[Math.floor(rng()*active.length)]; if(!j) continue;
+    requests.push({id:uid("q"),jobId:j.id,supplierId:j.assegnatoA,tipo:"slittamento",testo:"Ritardo nella fornitura del materiale dal nostro fornitore.",dataProposta:addDays(j.dataConsegna,7+Math.floor(rng()*7)),esito:null,at:dISO(-Math.floor(rng()*2))+"T10:1"+i,stato:"aperta",capoId:j.capoId,from:"fornitore",read:false}); }
+  // slittamenti già approvati in passato (storico su ~15% delle commesse attive)
+  active.filter(()=>rng()<0.15).forEach(j=>{ const orig=addDays(j.dataConsegna,-(5+Math.floor(rng()*8))); j.dataConsegnaBase=orig;
+    j.storicoDate.push({from:orig,to:j.dataConsegna,byRole:"caposquadra",by:j.capoId,at:dISO(-(3+Math.floor(rng()*20))),motivo:"Slittamento concordato",tipo:"slittamento"}); });
 
-  return {v:2, capi, suppliers, users, jobs, responses, requests, notifications};
+  return {v:4, capi, suppliers, users, jobs, responses, requests, notifications};
 }
 
 /* ============================ Stato ============================ */
@@ -578,6 +638,54 @@ function activeHours(sid){ return STATE.jobs.filter(j=>["assegnato","in_corso"].
 function supplierMonthlyLoad(){ const map={}, months=new Set();
   STATE.jobs.filter(j=>["assegnato","in_corso"].includes(j.stato)&&j.assegnatoA).forEach(j=>{ const k=monthKey(j.dataConsegna); map[j.assegnatoA]=map[j.assegnatoA]||{}; map[j.assegnatoA][k]=(map[j.assegnatoA][k]||0)+(j.oreStimate||0); months.add(k); });
   return {map, months:[...months].sort()}; }
+// carico e capacità per mese di consegna
+function monthLoad(sid, mk){ return STATE.jobs.filter(j=>["assegnato","in_corso"].includes(j.stato)&&j.assegnatoA===sid&&monthKey(j.dataConsegna)===mk).reduce((s,j)=>s+(j.oreStimate||0),0); }
+function freeCapacity(sid, mk){ const s=supplier(sid); if(!s) return 0; mk=mk||monthKey(todayISO()); return (s.capacitaMese||0) - monthLoad(sid, mk); }
+function loadRatio(sid, mk){ const s=supplier(sid); if(!s||!s.capacitaMese) return 1; mk=mk||monthKey(todayISO()); return monthLoad(sid, mk)/s.capacitaMese; }
+function daysBetween(a,b){ if(!a||!b) return null; return Math.round((new Date(b+"T12:00:00")-new Date(a+"T12:00:00"))/86400000); }
+// Metriche fornitore (calcolate, non memorizzate) — identiche lato Righi e lato fornitore
+function supplierMetrics(sid){
+  const jobs=STATE.jobs.filter(j=>j.assegnatoA===sid);
+  const delivered=jobs.filter(j=>j.stato==="consegnato"&&j.dataConsegnaEffettiva);
+  const onTime=delivered.filter(j=> j.dataConsegnaEffettiva<=j.dataConsegna).length;
+  const puntualita=delivered.length? Math.round(onTime/delivered.length*100) : null;
+  const lateDel=delivered.filter(j=> j.dataConsegnaEffettiva>j.dataConsegna);
+  const ritardoMedio=lateDel.length? Math.round(lateDel.reduce((s,j)=>s+(daysBetween(j.dataConsegna,j.dataConsegnaEffettiva)||0),0)/lateDel.length) : 0;
+  const slittamenti=jobs.reduce((s,j)=>s+((j.storicoDate&&j.storicoDate.length)||0),0);
+  const perMonth={}; jobs.filter(j=>j.assegnatoAt).forEach(j=>{ const k=monthKey(j.assegnatoAt); perMonth[k]=(perMonth[k]||0)+1; });
+  const months=Object.keys(perMonth).sort(); const takenTotal=jobs.filter(j=>j.assegnatoAt).length;
+  const perMeseAvg=months.length? takenTotal/months.length : 0;
+  const reqs=STATE.requests.filter(r=>r.supplierId===sid); const richiestePerTipo={};
+  reqs.forEach(r=>{ richiestePerTipo[r.tipo]=(richiestePerTipo[r.tipo]||0)+1; });
+  const invited=STATE.jobs.filter(j=>(j.invitati||[]).includes(sid));
+  const acceptedInvited=invited.filter(j=> j.assegnatoA===sid || STATE.responses.some(r=>r.jobId===j.id&&r.supplierId===sid&&r.tipo==="accettazione")).length;
+  const tassoAccett=invited.length? Math.round(acceptedInvited/invited.length*100) : null;
+  const accs=STATE.responses.filter(r=>r.supplierId===sid&&r.tipo==="accettazione");
+  const respTimes=accs.map(a=>{ const j=byId(STATE.jobs,a.jobId); return (j&&j.publishedAt)? daysBetween(j.publishedAt,(a.at||"").slice(0,10)) : null; }).filter(x=>x!=null&&x>=0);
+  const tempoRisposta=respTimes.length? Math.round(respTimes.reduce((s,x)=>s+x,0)/respTimes.length*10)/10 : null;
+  return { puntualita, ritardoMedio, slittamenti, perMonth, months, takenTotal, perMeseAvg,
+    richiestePerTipo, richiesteTot:reqs.length, tassoAccett, tempoRisposta,
+    oreAttive:activeHours(sid), commesseAttive:jobs.filter(j=>["assegnato","in_corso"].includes(j.stato)).length, consegnate:delivered.length };
+}
+function metricsCardHtml(sid){ const m=supplierMetrics(sid);
+  const pu=m.puntualita==null?"—":m.puntualita+"%"; const puCls=m.puntualita==null?"":m.puntualita>=90?"ok":m.puntualita>=75?"warn":"danger";
+  const maxM=Math.max(1,...Object.values(m.perMonth));
+  return `<div class="card">
+    <div class="sect-t">${icon("star","sm")} Metriche fornitore</div>
+    <div class="mgrid">
+      <div class="mkpi ${puCls}"><span class="v">${pu}</span><span class="l">Puntualità</span><span class="s">${m.consegnate} consegnate${m.slittamenti?` · ${m.slittamenti} slitt.`:""}</span></div>
+      <div class="mkpi"><span class="v">${m.perMeseAvg?m.perMeseAvg.toFixed(1):"0"}</span><span class="l">Lavori / mese</span><span class="s">${m.takenTotal} totali</span></div>
+      <div class="mkpi"><span class="v">${m.oreAttive}h</span><span class="l">Carico attivo</span><span class="s">${m.commesseAttive} commesse</span></div>
+      <div class="mkpi"><span class="v">${m.tassoAccett==null?"—":m.tassoAccett+"%"}</span><span class="l">Accettazione</span><span class="s">${m.tempoRisposta==null?"":"risposta "+m.tempoRisposta+" gg"}</span></div>
+    </div>
+    <div class="metric-rows">
+      <div><span class="muted">Ritardo medio consegne</span><b>${m.ritardoMedio?m.ritardoMedio+" gg":"nessuno"}</b></div>
+      <div><span class="muted">Richieste sollevate</span><b>${m.richiesteTot}</b>${Object.entries(m.richiestePerTipo).map(([k,v])=>`<span class="pill plain">${REQ_TYPES[k]?REQ_TYPES[k].label:k}: ${v}</span>`).join("")}</div>
+    </div>
+    ${m.months.length?`<div class="spark" aria-hidden="true">${m.months.slice(-6).map(k=>`<span class="sbar" title="${monthLabel(k)}: ${m.perMonth[k]}" style="height:${Math.round(m.perMonth[k]/maxM*100)}%"></span>`).join("")}</div>
+      <div class="spark-x">${m.months.slice(-6).map(k=>`<span>${MESI[(+k.split("-")[1])-1]}</span>`).join("")}</div>`:""}
+  </div>`;
+}
 /* CSV */
 function csvCell(v){ v=(v==null?"":String(v)); return /[";\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; }
 function toCSV(rows){ return "﻿"+rows.map(r=>r.map(csvCell).join(";")).join("\r\n"); }
@@ -614,6 +722,44 @@ function filteredJobs(){
     return vx<vy?-dir:vx>vy?dir:0; });
   return a;
 }
+
+// Semaforo salute commessa (predittivo)
+function jobHealth(j){
+  if(["consegnato","chiuso"].includes(j.stato)) return {level:"done",label:"Consegnato"};
+  if(j.stato==="bozza") return {level:"draft",label:"Bozza"};
+  if(isLate(j)) return {level:"rosso",label:"In ritardo"};
+  const dleft=daysTo(j.dataConsegna);
+  if(j.stato==="pubblicato"){ const hasAcc=jobResponses(j.id).some(r=>r.tipo==="accettazione");
+    if(dleft!=null&&dleft<10&&!hasAcc) return {level:"rosso",label:"Urgente da assegnare"};
+    if(dleft!=null&&dleft<20&&!hasAcc) return {level:"giallo",label:"Da assegnare"};
+    return {level:"verde",label:"In tempo"}; }
+  const stepIdx=j.avanzamento?AVZ_ORDER.indexOf(j.avanzamento)+1:0;
+  const m=j.assegnatoA?supplierMetrics(j.assegnatoA):null; const punt=(m&&m.puntualita!=null)?m.puntualita:85;
+  if(dleft!=null){
+    if(dleft<7&&stepIdx<3) return {level:"rosso",label:"A rischio ritardo"};
+    if(dleft<14&&stepIdx<2) return {level:"giallo",label:"Da monitorare"};
+    if(dleft<21&&punt<75&&stepIdx<3) return {level:"giallo",label:"Fornitore poco puntuale"};
+  }
+  return {level:"verde",label:"In tempo"};
+}
+function healthDot(j){ const h=jobHealth(j); if(["done","draft"].includes(h.level)) return ""; return `<span class="hdot ${h.level}" title="${h.label}"></span>`; }
+// Assegnazione intelligente: punteggio fornitori per una commessa
+function suggestSuppliers(job){ const mk=monthKey(job.dataConsegna); const need=job.oreStimate||0;
+  const needHv=job.tipologia==="potenza"; const needFood=/food|farmaceutico/i.test(job.settore);
+  return STATE.suppliers.filter(s=>s.accredited).map(s=>{ const m=supplierMetrics(s.id); let score=0; const reasons=[];
+    if(s.specialties.includes(job.tipologia)){ score+=35; reasons.push("specializzato"); }
+    if(s.settori.includes(job.settore)){ score+=20; reasons.push("settore"); }
+    if(needHv&&s.certificazioni.includes("hv")){ score+=12; reasons.push(">250A"); }
+    if(needFood&&s.certificazioni.includes("food")){ score+=10; reasons.push("igienico"); }
+    const free=freeCapacity(s.id,mk);
+    if(free>=need){ score+=20; reasons.push("capacità"); } else if(free>0){ score+=8; } else { score-=12; reasons.push("saturo"); }
+    if(m.puntualita!=null){ score+=Math.round((m.puntualita-70)/3); if(m.puntualita>=90) reasons.push("puntuale"); } else { score+=3; }
+    return {sid:s.id, score, free, need, overload:free<need, reasons, puntualita:m.puntualita };
+  }).sort((a,b)=>b.score-a.score);
+}
+// Proiezione geografica (lat/lng -> x/y su viewBox 100×50) per la mappa SVG offline
+function projGeo(lat,lng){ const LAT=[43.95,44.90], LNG=[10.10,12.75];
+  const x=7+((lng-LNG[0])/(LNG[1]-LNG[0]))*86; const y=7+(1-(lat-LAT[0])/(LAT[1]-LAT[0]))*36; return {x, y}; }
 
 /* ============================ Render ============================ */
 function render(){
@@ -697,6 +843,7 @@ function viewRighiDashboard(){
   const pub=base.filter(j=>j.stato==="pubblicato").length;
   const ass=base.filter(j=>["assegnato","in_corso"].includes(j.stato)).length;
   const late=base.filter(isLate);
+  const risk=base.filter(j=>!isLate(j)&&["pubblicato","assegnato","in_corso"].includes(j.stato)&&["giallo","rosso"].includes(jobHealth(j).level));
   const openReq=scopedRequests().filter(r=>r.stato==="aperta");
   const candid=STATE.responses.filter(r=>r.tipo==="accettazione"&&!r.read&&STATE.jobs.some(j=>j.id===r.jobId&&j.stato==="pubblicato"&&scopedIds.has(j.id)));
   return `
@@ -726,6 +873,14 @@ function viewRighiDashboard(){
         :`<div class="empty">${icon("check")}<p>Nessuna richiesta aperta</p></div>`}
     </div>
   </div>
+  ${risk.length?`<div class="card" style="margin-top:14px;border-left:4px solid var(--warn)">
+    <div class="sect-t" style="color:var(--warn)">${icon("bolt","sm")} A rischio (${risk.length}) — anticipa il ritardo</div>
+    <div class="rowlist">${risk.slice(0,5).map(j=>{const s=supplier(j.assegnatoA);const h=jobHealth(j);return `
+      <div class="lrow" data-job="${j.id}">
+        <span class="hdot ${h.level}" style="width:12px;height:12px;margin:0 12px 0 6px"></span>
+        <span class="gr"><b>${esc(j.title)}</b><span class="s">${s?esc(s.name):'da assegnare'} · consegna ${fmtDate(j.dataConsegna)} (${relDays(j.dataConsegna)}) · ${h.label}</span></span>
+        <span class="pill ${h.level==='rosso'?'danger':'warn'}">${h.label}</span></div>`;}).join("")}
+      ${risk.length>5?`<div class="col-more" data-act="goFilter" data-stato="attivi">Vedi tutte ${icon("chev","sm")}</div>`:""}</div></div>`:""}
   ${late.length?`<div class="card leftbar late" style="margin-top:14px">
     <div class="sect-t" style="color:var(--danger)">${icon("clock","sm")} Consegne in ritardo (${late.length})</div>
     <div class="rowlist">${late.slice(0,5).map(j=>{const s=supplier(j.assegnatoA);return `
@@ -736,10 +891,11 @@ function viewRighiDashboard(){
       ${late.length>5?`<div class="col-more" data-act="goFilter" data-stato="late">Vedi tutti i ${late.length} ritardi ${icon("chev","sm")}</div>`:""}</div></div>`:""}`;
 }
 function reqRow(r){ const j=byId(STATE.jobs,r.jobId),s=supplier(r.supplierId),t=REQ_TYPES[r.tipo],c=capo(r.capoId);
+  const sub=r.tipo==="slittamento"&&r.dataProposta ? `${esc(j?j.title:'')} · nuova data ${fmtDate(r.dataProposta)}` : `${esc(j?j.title:'')} · caposquadra ${esc(c?c.name:'—')}`;
   return `<button class="lrow ${!r.read?'unread':''}" data-req="${r.id}" style="width:100%">
-    <span class="ic ${t.pill==='danger'?'danger':t.pill==='warn'?'accent':'info'}">${icon(r.tipo==='materiale'?'inbox':r.tipo==='ritardo'?'clock':'mail')}</span>
-    <span class="gr"><b>${t.label} — ${esc(s?s.name:'')}</b><span class="s">${esc(j?j.title:'')} · caposquadra ${esc(c?c.name:'—')} · ${fmtDate((r.at||'').slice(0,10))}</span></span>
-    <span class="pill ${r.stato==='aperta'?'warn':r.stato==='presa'?'info':'ok'}">${r.stato==='aperta'?'Aperta':r.stato==='presa'?'In carico':'Chiusa'}</span></button>`; }
+    <span class="ic ${t.pill==='danger'?'danger':t.pill==='warn'?'accent':'info'}">${icon(r.tipo==='materiale'?'inbox':r.tipo==='ritardo'?'clock':r.tipo==='slittamento'?'calendar':'mail')}</span>
+    <span class="gr"><b>${t.label} — ${esc(s?s.name:'')}</b><span class="s">${sub} · ${fmtDate((r.at||'').slice(0,10))}</span></span>
+    <span class="pill ${r.esito==='approvato'?'ok':r.esito==='rifiutato'?'danger':r.stato==='aperta'?'warn':r.stato==='presa'?'info':'ok'}">${r.esito?(r.esito==='approvato'?'Approvato':'Rifiutato'):r.stato==='aperta'?'Aperta':r.stato==='presa'?'In carico':'Chiusa'}</span></button>`; }
 
 /* ==================== VIEW: Righi — Lavori (vista massiva) ==================== */
 function viewRighiLavori(){
@@ -789,7 +945,7 @@ function tableHtml(){
 function jobItem(j){ const t=TIPOLOGIE[j.tipologia], st=STATI[j.stato], late=isLate(j), s=supplier(j.assegnatoA);
   return `<button class="jitem ${late?'late':''}" data-job="${j.id}">
     <span class="gr">
-      <span class="code">${esc(j.code)}</span>
+      <span class="code">${healthDot(j)} ${esc(j.code)}</span>
       <div class="t">${esc(j.title)}</div>
       <div class="meta"><span class="pill plain"><span class="dot ${t.dot}"></span>${t.short}</span><span class="pill plain">${esc(j.settore)}</span>${s?`<span class="pill ${late?'danger':st.pill}">${esc(s.name)}</span>`:`<span class="pill ${st.pill}">${st.label}</span>`}</div>
       <div class="foot"><span>${icon("calendar","sm")} <span class="b">${fmtDate(j.dataConsegna)}</span> ${late?`<span class="pill danger">${Math.abs(daysTo(j.dataConsegna))}gg</span>`:`<span class="muted">(${relDays(j.dataConsegna)})</span>`}</span><span class="b">${fmtMoney(j.budget)}</span></div>
@@ -799,7 +955,7 @@ function jobItem(j){ const t=TIPOLOGIE[j.tipologia], st=STATI[j.stato], late=isL
 }
 function rowHtml(j){ const t=TIPOLOGIE[j.tipologia], st=STATI[j.stato], late=isLate(j), s=supplier(j.assegnatoA), c=capo(j.capoId);
   return `<tr class="${late?'late':''}" data-job="${j.id}">
-    <td class="code">${esc(j.code)}</td>
+    <td class="code"><span style="display:inline-flex;align-items:center;gap:6px">${healthDot(j)}${esc(j.code)}</span></td>
     <td><div class="t-title">${esc(j.title)}</div></td>
     <td><span class="pill plain"><span class="dot ${t.dot}"></span>${t.short}</span></td>
     <td>${esc(j.settore)}</td>
@@ -890,9 +1046,34 @@ function viewRighiRichieste(){
 }
 
 /* ==================== VIEW: Righi — Fornitori ==================== */
+function mapHtml(){
+  const u=currentUser(); const capoZone=isCapo(u); const myZones={}; const usedByCapo=new Set();
+  if(capoZone){ STATE.jobs.filter(j=>j.capoId===u.capoId&&["assegnato","in_corso"].includes(j.stato)&&j.assegnatoA).forEach(j=>{ const s=supplier(j.assegnatoA); if(s){ myZones[s.zona]=(myZones[s.zona]||0)+1; usedByCapo.add(s.id); } }); }
+  const hq=projGeo(RIGHI_HQ.lat,RIGHI_HQ.lng);
+  const lines=STATE.suppliers.map(s=>{ const p=projGeo(s.lat,s.lng); return `<line x1="${hq.x.toFixed(1)}" y1="${hq.y.toFixed(1)}" x2="${p.x.toFixed(1)}" y2="${p.y.toFixed(1)}" stroke="#9aa8b0" stroke-width="0.25" stroke-dasharray="0.8 0.8" opacity="0.5"/>`; }).join("");
+  const pins=STATE.suppliers.map(s=>{ const p=projGeo(s.lat,s.lng); const r=loadRatio(s.id); const col=r>1?"#C0392B":r>=0.7?"#B4791A":"#2E7D53"; const used=usedByCapo.has(s.id);
+    return `<g class="pin" data-act="supDetail" data-sup="${s.id}">
+      <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3" fill="transparent"/>
+      ${used?`<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3.1" fill="none" stroke="#1E2748" stroke-width="0.6"/>`:""}
+      <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="1.9" fill="${col}" stroke="#fff" stroke-width="0.4"/>
+      <text x="${p.x.toFixed(1)}" y="${(p.y-2.6).toFixed(1)}" text-anchor="middle" font-size="2.4" fill="#15242B">${esc(s.citta)}</text></g>`; }).join("");
+  return `<div class="map-wrap"><svg class="map-svg" viewBox="0 0 100 50" role="img" aria-label="Mappa fornitori Righi">
+    <rect x="0" y="0" width="100" height="50" fill="#e9eff2"/>
+    ${lines}
+    <g><rect x="${(hq.x-1.5).toFixed(1)}" y="${(hq.y+2.5).toFixed(1)}" width="3" height="3" transform="rotate(45 ${hq.x.toFixed(1)} ${(hq.y+4).toFixed(1)})" fill="#1E2748"/><text x="${hq.x.toFixed(1)}" y="${(hq.y+8.5).toFixed(1)}" text-anchor="middle" font-size="2.6" font-weight="700" fill="#141B33">Righi HQ</text></g>
+    ${pins}
+  </svg></div>
+  <div class="map-legend"><span><i style="background:#2E7D53"></i>carico basso</span><span><i style="background:#B4791A"></i>quasi saturo</span><span><i style="background:#C0392B"></i>saturo</span>${capoZone?`<span><i style="background:transparent;border:1.5px solid #1E2748"></i>già usato da te</span>`:""}</div>
+  ${(capoZone&&Object.keys(myZones).length)?`<div class="card" style="margin-top:12px"><div class="sect-t">Le tue zone attive — ottimizza i trasporti</div><div class="tags">${Object.entries(myZones).map(([z,n])=>`<span class="pill brand">${esc(z)}: ${n} commesse</span>`).join("")}</div><p class="muted" style="font-size:12px;margin:8px 0 0">Accorpa i nuovi lavori dove hai già squadre attive per ridurre le trasferte.</p></div>`:""}
+  <p class="muted" style="font-size:12px;margin-top:10px">Tocca un pin per scheda, metriche e capacità libera del fornitore. Il colore indica il carico del mese corrente.</p>`;
+}
 function viewFornitori(){
+  const mode=App.fornMode||"lista";
   const load=supplierMonthlyLoad(); const months=load.months.filter(m=>m>=monthKey(todayISO())).slice(0,6);
-  return `<div class="view-head"><div><h2>Fornitori accreditati</h2><p>${STATE.suppliers.length} terzisti · carico attivo, specializzazioni e settori</p></div></div>
+  const head=`<div class="view-head"><div><h2>Fornitori accreditati</h2><p>${STATE.suppliers.length} terzisti · carico, specializzazioni e mappa</p></div>
+    <div class="seg"><button class="${mode==='lista'?'on':''}" data-act="fornMode" data-m="lista">${icon("list","sm")} Elenco</button><button class="${mode==='mappa'?'on':''}" data-act="fornMode" data-m="mappa">${icon("building","sm")} Mappa</button></div></div>`;
+  if(mode==="mappa") return head+mapHtml();
+  return head+`
   <div class="card" style="margin-bottom:14px">
     <div class="sect-t">${icon("clock2","sm")} Carico terzisti — ore assegnate attive per mese di consegna</div>
     <div class="scroll-x"><table class="tbl" style="min-width:560px"><thead><tr><th>Fornitore</th>${months.map(m=>`<th class="num">${monthLabel(m)}</th>`).join("")}<th class="num">Totale attivo</th></tr></thead>
@@ -907,11 +1088,13 @@ function viewFornitori(){
       <span class="avatar" style="background:${colorFor(s.id)}">${initials(s.name)}</span>
       <div style="flex:1;min-width:0"><b style="font-size:15px">${esc(s.name)}</b><div class="muted" style="font-size:12.5px">${esc(s.citta)} · ${icon("star","sm")} ${s.rating}</div></div>
       ${active?`<span class="pill ok">${active} attivi · ${ore} h</span>`:`<span class="pill plain">libero</span>`}</div>
-      <div class="tags" style="margin-bottom:8px">${s.specialties.map(sp=>`<span class="pill brand"><span class="dot ${TIPOLOGIE[sp].dot}"></span>${TIPOLOGIE[sp].short}</span>`).join("")}</div>
+      <div class="tags" style="margin-bottom:6px">${s.specialties.map(sp=>`<span class="pill brand"><span class="dot ${TIPOLOGIE[sp].dot}"></span>${TIPOLOGIE[sp].short}</span>`).join("")}${(s.certificazioni||[]).map(c=>`<span class="pill accent">${CERT[c]||c}</span>`).join("")}</div>
       <div class="tags">${s.settori.map(se=>`<span class="pill plain">${esc(se)}</span>`).join("")}</div>
-      <div class="btn-row" style="margin-top:11px"><button class="btn ghost sm" data-act="emailSup" data-sup="${s.id}">${icon("mail","sm")} Email</button>
+      <div style="margin-top:8px;font-size:12px;color:var(--ink-soft)">Capacità ${s.capacitaMese}h/mese · libere ora <b>${freeCapacity(s.id)}h</b> · zona ${esc(s.zona)}</div>
+      <div class="btn-row" style="margin-top:10px"><button class="btn ghost sm" data-act="supDetail" data-sup="${s.id}">${icon("star","sm")} Scheda &amp; metriche</button>
+        <button class="btn ghost sm" data-act="emailSup" data-sup="${s.id}">${icon("mail","sm")} Email</button>
         <button class="btn ghost sm" data-act="supJobs" data-sup="${s.id}">${active} commesse</button></div>
-      <div class="muted" style="font-size:12px;margin-top:9px">Referente: ${esc(s.referente)} · ${esc(s.email)}</div></div>`;
+      <div class="muted" style="font-size:12px;margin-top:9px">Referente: ${esc(s.referente)}</div></div>`;
   }).join("")}</div>`;
 }
 
@@ -1008,9 +1191,12 @@ function viewProfilo(u){
       <div class="card kpi ok"><span class="v">${done}</span><span class="l">Consegnate</span></div>
       <div class="card kpi"><span class="v">${s.rating}</span><span class="l">Valutazione</span></div></div>
     <div class="field"><label>Specializzazioni</label><div class="tags">${s.specialties.map(sp=>`<span class="pill brand"><span class="dot ${TIPOLOGIE[sp].dot}"></span>${TIPOLOGIE[sp].short}</span>`).join("")}</div></div>
-    <div class="field"><label>Settori</label><div class="tags">${s.settori.map(se=>`<span class="pill plain">${esc(se)}</span>`).join("")}</div></div>
-    <div class="field"><label>Contatti</label><div class="soft">${esc(s.referente)} · ${esc(s.email)}</div></div>
-  </div>`;
+    <div class="field"><label>Certificazioni</label><div class="tags">${(s.certificazioni&&s.certificazioni.length)?s.certificazioni.map(c=>`<span class="pill accent">${CERT[c]||c}</span>`).join(""):'<span class="muted">—</span>'}</div></div>
+    <div class="row2"><div class="field"><label>Settori</label><div class="tags">${s.settori.map(se=>`<span class="pill plain">${esc(se)}</span>`).join("")}</div></div>
+      <div class="field"><label>Capacità mensile</label><div class="soft">${s.capacitaMese} h/mese · libere ora: <b>${freeCapacity(s.id)} h</b></div></div></div>
+    <div class="field"><label>Contatti</label><div class="soft">${esc(s.referente)} · ${esc(s.email)} · ${esc(s.citta)} (${esc(s.zona)})</div></div>
+  </div>
+  ${metricsCardHtml(s.id)}`;
 }
 
 /* ============================ MODALS ============================ */
@@ -1018,6 +1204,16 @@ function openModal(html){ $("#modal-host").innerHTML=`<div class="modal-bg" data
 function closeModal(){ $("#modal-host").innerHTML=""; }
 function modalHead(title){ return `<div class="modal-h"><h3>${title}</h3><button class="x" data-act="closeModal" aria-label="Chiudi">${icon("x")}</button></div>`; }
 
+function avanzamentoBlock(j, editable){
+  if(!["assegnato","in_corso"].includes(j.stato)) return "";
+  const cur=j.avanzamento?AVZ_ORDER.indexOf(j.avanzamento):-1;
+  return `<div class="divide"></div><div class="sect-t">Avanzamento produzione</div>
+    <div class="progress">${AVZ_ORDER.map((k,i)=>`<span class="seg ${i<=cur?'on':''}"></span>`).join("")}</div>
+    <div class="steps">${AVZ_ORDER.map((k,i)=> editable
+      ? `<button class="step ${i<cur?'done':i===cur?'cur':''}" data-act="setAvz" data-job="${j.id}" data-step="${k}">${AVANZAMENTO[k].label}</button>`
+      : `<span class="step ${i<cur?'done':i===cur?'cur':''}">${AVANZAMENTO[k].label}</span>`).join("")}</div>
+    ${editable?`<p class="muted" style="font-size:12px;margin:6px 0 0">Tocca lo stato raggiunto: Righi lo vede subito.</p>`:(j.avanzamentoAt?`<p class="muted" style="font-size:12px;margin:6px 0 0">Ultimo aggiornamento: ${esc((j.avanzamentoAt||'').replace('T',' '))}</p>`:"")}`;
+}
 function openJobModal(jid){
   const u=currentUser(); const j=byId(STATE.jobs,jid); if(!j) return;
   const t=TIPOLOGIE[j.tipologia], st=STATI[j.stato], c=capo(j.capoId), s=supplier(j.assegnatoA), late=isLate(j);
@@ -1035,7 +1231,7 @@ function openJobModal(jid){
       footer=`<div class="btn-row"><button class="btn ghost" data-act="notifyPick" data-job="${j.id}">${icon("bell","sm")} Notifica fornitori</button>
         ${cand.length?`<button class="btn accent" data-act="assignPick" data-job="${j.id}">${icon("check")} Assegna (${cand.length})</button>`:`<span class="pill plain" style="align-self:center">In attesa di accettazioni</span>`}</div>`;
     } else if(["assegnato","in_corso"].includes(j.stato)){
-      footer=`<div class="btn-row">${s?`<button class="btn ghost" data-act="emailJobSup" data-job="${j.id}">${icon("mail","sm")} Email fornitore</button>`:""}<button class="btn" data-act="setStato" data-job="${j.id}" data-s="consegnato">Segna consegnato</button></div>`;
+      footer=`<div class="btn-row">${s?`<button class="btn ghost" data-act="emailJobSup" data-job="${j.id}">${icon("mail","sm")} Email fornitore</button>`:""}<button class="btn ghost" data-act="editDate" data-job="${j.id}">${icon("calendar","sm")} Modifica data</button><button class="btn" data-act="setStato" data-job="${j.id}" data-s="consegnato">Segna consegnato</button></div>`;
     }
   } else {
     const mine=resp.filter(r=>r.supplierId===u.supplierId);
@@ -1044,7 +1240,7 @@ function openJobModal(jid){
     else if(j.assegnatoA===u.supplierId) footer=`<button class="btn accent block" data-act="quickReq" data-job="${j.id}">${icon("send")} Contatta il caposquadra</button>`;
     else if(accepted) footer=`<span class="pill ok lg">Proposta inviata — in attesa di Righi</span>`;
   }
-  const thread = resp.filter(r=>isRighi||r.supplierId===u.supplierId);
+  const thread = resp.filter(r=>["accettazione","domanda"].includes(r.tipo) && (isRighi||r.supplierId===u.supplierId));
   openModal(`${modalHead(esc(j.title))}
     <div class="tags" style="margin-bottom:12px"><span class="pill ${late?'danger':st.pill}">${late?'In ritardo':st.label}</span>${tipPill(j.tipologia)}<span class="pill plain">${esc(j.settore)}</span><span class="mono muted" style="align-self:center;font-size:11px">${esc(j.code)}</span></div>
     <div class="row2">
@@ -1061,6 +1257,8 @@ function openJobModal(jid){
     ${others.map(a=>`<div class="attach" style="margin-bottom:6px" data-act="openAtt" data-att="${a.id}" data-job="${j.id}"><span class="fi">${icon("doc")}</span><span class="gr"><b>${esc(a.name)}</b><span>${esc(a.size||a.type||'')}</span></span><span class="btn sm ghost">Apri</span></div>`).join("")}
     ${isRighi&&s?`<div class="dl" style="margin-top:8px"><span class="k">Fornitore</span><span class="v">${esc(s.name)} · ${esc(s.citta)}</span></div>`:""}
     ${thread.length?`<div class="divide"></div><div class="sect-t">Conversazione</div><div class="thread">${thread.map(msgHtml).join("")}</div>`:""}
+    ${(j.storicoDate&&j.storicoDate.length)?`<div class="divide"></div><div class="sect-t">${icon("calendar","sm")} Storico consegna</div><div class="rowlist">${j.storicoDate.slice().reverse().map(h=>`<div class="lrow" style="padding:8px 4px"><span class="ic ${h.tipo==='slittamento'?'accent':'info'}">${icon("calendar")}</span><span class="gr"><b>${fmtDate(h.from)} ${icon("chev","sm")} ${fmtDate(h.to)}</b><span class="s">${h.tipo==='slittamento'?'Slittamento':'Modifica'}${h.byRole?' · '+esc(h.byRole):''}${h.motivo?' · '+esc(h.motivo):''}</span></span></div>`).join("")}</div>`:""}
+    ${avanzamentoBlock(j, !isRighi && j.assegnatoA===u.supplierId)}
     ${isRighi&&reqs.length?`<div class="divide"></div><div class="sect-t">Richieste sulla commessa</div><div class="rowlist">${reqs.map(reqRow).join("")}</div>`:""}
     ${footer?`<div class="divide"></div>${footer}`:""}`);
   if(isRighi) persist();
@@ -1090,6 +1288,7 @@ function openQuickReq(jid){ const j=byId(STATE.jobs,jid), c=capo(j.capoId); App.
     <div class="dl"><span class="k">Caposquadra</span><span class="v">${esc(c?c.name:'—')}${c?` · <a href="tel:${esc((c.tel||'').replace(/\s/g,''))}">${esc(c.tel)}</a>`:''}</span></div>
     <div class="sect-t" style="margin-top:12px">Tipo di richiesta</div>
     <div class="chips" id="qr-types">${Object.entries(REQ_TYPES).map(([k,v])=>`<button class="chip sm" data-qrtype="${k}">${v.label}</button>`).join("")}</div>
+    <div class="field hide" id="qr-slip" style="margin-top:12px"><label>Nuova data di consegna proposta</label><input class="inp" id="qr-date" type="date" value="${addDays(j.dataConsegna,10)}"><span class="hint">Consegna attuale: ${fmtDate(j.dataConsegna)} — lo slittamento va approvato da Righi.</span></div>
     <div class="field" style="margin-top:12px"><label>Dettaglio (facoltativo)</label><textarea class="inp" id="qr-note" placeholder="Poche parole bastano…"></textarea></div>
     <div class="toggle-row"><button class="switch on" data-act="toggleQrEmail" aria-label="email"></button><div class="gr"><b>Invia anche via email</b><span>Apre l'email precompilata a ${esc(c?c.name:'—')}</span></div></div>
     <button class="btn accent block" data-act="doQuickReq" data-job="${jid}" id="qr-send" disabled>${icon("send")} Invia al caposquadra</button>`);
@@ -1097,39 +1296,60 @@ function openQuickReq(jid){ const j=byId(STATE.jobs,jid), c=capo(j.capoId); App.
 function openNotifyPick(jid){ const j=byId(STATE.jobs,jid);
   const targets = j.visibility==="selezionati" ? STATE.suppliers.filter(s=>(j.invitati||[]).includes(s.id)) : STATE.suppliers;
   App.notifySel = new Set(targets.map(s=>s.id)); App.notifyEmail=true;
+  const sugg=suggestSuppliers(j).slice(0,3); const suggSet=new Set(sugg.map(r=>r.sid));
   openModal(`${modalHead("Notifica il lavoro")}
     <p class="muted" style="font-size:13px;margin-top:0">Invia una notifica del lavoro <b>${esc(j.title)}</b> ai fornitori scelti.</p>
-    <div class="chips" id="np-list">${STATE.suppliers.map(s=>`<button class="chip multi sm ${App.notifySel.has(s.id)?'on':''}" data-np="${s.id}">${esc(s.name)}</button>`).join("")}</div>
+    <div class="sect-t">${icon("bolt","sm")} Consigliati per questa commessa</div>
+    <div class="rowlist" style="margin-bottom:10px">${sugg.map(r=>{const s=supplier(r.sid);return `<div class="lrow" style="padding:8px 4px"><span class="avatar sm" style="background:${colorFor(s.id)}">${initials(s.name)}</span>
+      <span class="gr"><b>${esc(s.name)}</b><span class="s">${r.reasons.join(" · ")||"—"} · libere ${r.free}h${r.overload?' · <span style="color:var(--danger)">saturo</span>':''}${r.puntualita!=null?" · punt "+r.puntualita+"%":""}</span></span></div>`;}).join("")}</div>
+    <div class="sect-t">Fornitori (i consigliati sono evidenziati)</div>
+    <div class="chips" id="np-list">${STATE.suppliers.map(s=>`<button class="chip multi sm ${App.notifySel.has(s.id)?'on':''} ${suggSet.has(s.id)?'sugg':''}" data-np="${s.id}">${suggSet.has(s.id)?icon("star","sm")+' ':''}${esc(s.name)}</button>`).join("")}</div>
     <div class="toggle-row"><button class="switch on" data-act="toggleNotifyEmail" aria-label="email"></button><div class="gr"><b>Invia anche via email</b><span>Apre l'email precompilata ai fornitori selezionati</span></div></div>
     <button class="btn accent block" data-act="doNotify" data-job="${jid}">${icon("bell")} Invia notifica</button>`);
 }
 function openAssignPick(jid){ const j=byId(STATE.jobs,jid);
-  const cand=jobResponses(j.id).filter(r=>r.tipo==="accettazione");
+  const sMap={}; suggestSuppliers(j).forEach(r=>sMap[r.sid]=r);
+  const cand=jobResponses(j.id).filter(r=>r.tipo==="accettazione").sort((a,b)=>((sMap[b.supplierId]||{}).score||0)-((sMap[a.supplierId]||{}).score||0));
   openModal(`${modalHead("Assegna la commessa")}
-    <p class="muted" style="font-size:13px;margin-top:0">${esc(j.title)} — scegli il fornitore tra chi ha accettato.</p>
-    <div class="rowlist">${cand.map(r=>{const s=supplier(r.supplierId);return `<div class="lrow"><span class="avatar sm" style="background:${colorFor(s.id)}">${initials(s.name)}</span>
-      <span class="gr"><b>${esc(s.name)}</b><span class="s">${esc(s.citta)} · ${icon("star","sm")} ${s.rating} · offerta ${fmtMoney(r.importo)}</span></span>
-      <button class="btn sm accent" data-act="assign" data-job="${jid}" data-sup="${s.id}">Assegna</button></div>`;}).join("")}</div>`);
+    <p class="muted" style="font-size:13px;margin-top:0">${esc(j.title)} — ordinati per idoneità (specializzazione, capacità, puntualità).</p>
+    <div class="rowlist">${cand.map(r=>{const s=supplier(r.supplierId); const sg=sMap[r.supplierId]||{};
+      return `<div class="lrow"><span class="avatar sm" style="background:${colorFor(s.id)}">${initials(s.name)}</span>
+      <span class="gr"><b>${esc(s.name)}${(sg.reasons&&sg.reasons.includes("puntuale"))?' <span class="pill ok">puntuale</span>':''}</b><span class="s">offerta ${fmtMoney(r.importo)} · libere ${sg.free!=null?sg.free+'h':'—'}${sg.overload?' · <span style="color:var(--danger)">sovraccarico</span>':''}${sg.puntualita!=null?' · punt '+sg.puntualita+'%':''}</span></span>
+      <button class="btn sm accent" data-act="assign" data-job="${jid}" data-sup="${s.id}">Assegna</button></div>`;}).join("")}</div>
+    <p class="muted" style="font-size:12px;margin-top:8px">L'ordine considera specializzazione, settore, certificazioni, capacità libera nel mese di consegna e puntualità.</p>`);
 }
 function openReqDetail(rid){ const r=byId(STATE.requests,rid); if(!r) return; r.read=true; persist();
   const j=byId(STATE.jobs,r.jobId), s=supplier(r.supplierId), c=capo(r.capoId), t=REQ_TYPES[r.tipo];
+  const isSlip=r.tipo==="slittamento";
   openModal(`${modalHead(t.label)}
     <div class="dl"><span class="k">Fornitore</span><span class="v">${esc(s?s.name:'')}</span></div>
     <div class="dl"><span class="k">Commessa</span><span class="v">${esc(j?j.title:'')} · ${esc(j?j.code:'')}</span></div>
     <div class="dl"><span class="k">Caposquadra</span><span class="v">${esc(c?c.name:'—')}</span></div>
+    ${isSlip&&j?`<div class="row2"><div class="dl"><span class="k">Consegna attuale</span><span class="v">${fmtDate(j.dataConsegna)}</span></div><div class="dl"><span class="k">Data proposta</span><span class="v" style="color:var(--accent-deep)">${fmtDate(r.dataProposta)} <span class="soft" style="font-weight:400">(+${daysBetween(j.dataConsegna,r.dataProposta)} gg)</span></span></div></div>`:""}
     <div class="dl"><span class="k">Ricevuta</span><span class="v">${esc((r.at||'').replace('T',' '))}</span></div>
     ${r.testo?`<div class="msg them" style="max-width:100%;margin:6px 0"><div>${esc(r.testo)}</div></div>`:""}
+    ${r.esito?`<div><span class="pill ${r.esito==='approvato'?'ok':'danger'} lg">${r.esito==='approvato'?'Approvato — consegna aggiornata':'Rifiutato'}</span></div>`:""}
     <div class="divide"></div>
     <div class="btn-row">
       ${s?`<button class="btn ghost" data-act="emailReq" data-id="${rid}">${icon("mail","sm")} Rispondi via email</button>`:""}
-      ${r.stato==="aperta"?`<button class="btn" data-act="reqStato" data-id="${rid}" data-s="presa">Prendi in carico</button>`:""}
-      ${r.stato!=="chiusa"?`<button class="btn accent" data-act="reqStato" data-id="${rid}" data-s="chiusa">${icon("check")} Segna risolta</button>`:`<span class="pill ok lg">Chiusa</span>`}</div>`);
+      ${isSlip
+        ? (r.stato!=="chiusa"?`<button class="btn danger" data-act="rejectSlip" data-id="${rid}">Rifiuta</button><button class="btn accent" data-act="approveSlip" data-id="${rid}">${icon("check")} Approva e sposta</button>`:"")
+        : `${r.stato==="aperta"?`<button class="btn" data-act="reqStato" data-id="${rid}" data-s="presa">Prendi in carico</button>`:""}${r.stato!=="chiusa"?`<button class="btn accent" data-act="reqStato" data-id="${rid}" data-s="chiusa">${icon("check")} Segna risolta</button>`:`<span class="pill ok lg">Chiusa</span>`}`}
+    </div>`);
+}
+function openEditDate(jid){ const j=byId(STATE.jobs,jid);
+  openModal(`${modalHead("Modifica data di consegna")}
+    <div class="dl"><span class="k">Commessa</span><span class="v">${esc(j.title)} · ${esc(j.code)}</span></div>
+    <div class="dl"><span class="k">Consegna attuale</span><span class="v">${fmtDate(j.dataConsegna)}${j.dataConsegnaBase&&j.dataConsegnaBase!==j.dataConsegna?` <span class="soft" style="font-weight:400">(base ${fmtDate(j.dataConsegnaBase)})</span>`:""}</span></div>
+    <div class="field"><label>Nuova data di consegna</label><input class="inp" id="ed-date" type="date" value="${j.dataConsegna}"></div>
+    <div class="field"><label>Motivo (facoltativo)</label><input class="inp" id="ed-note" placeholder="es. anticipo richiesto dal cliente"></div>
+    <button class="btn accent block" data-act="doEditDate" data-job="${jid}">${icon("calendar","sm")} Aggiorna e notifica il fornitore</button>`);
 }
 function openNotifCenter(){ const u=currentUser();
   let items;
   if(u.role==="righi"){
     const jids=new Set(scopedJobs().map(j=>j.id));
-    items=[...STATE.responses.filter(r=>r.from==="fornitore"&&jids.has(r.jobId)).map(r=>({at:r.at,read:r.read,ic:r.tipo==="accettazione"?"check":"mail",txt:(r.tipo==="accettazione"?"Accettazione":"Domanda")+" — "+((supplier(r.supplierId)||{}).name||""),sub:(byId(STATE.jobs,r.jobId)||{}).title,job:r.jobId})),
+    items=[...STATE.responses.filter(r=>r.from==="fornitore"&&jids.has(r.jobId)).map(r=>({at:r.at,read:r.read,ic:r.tipo==="accettazione"?"check":r.tipo==="avanzamento"?"bolt":"mail",txt:(r.tipo==="accettazione"?"Accettazione":r.tipo==="avanzamento"?("Avanzamento: "+r.testo):"Domanda")+" — "+((supplier(r.supplierId)||{}).name||""),sub:(byId(STATE.jobs,r.jobId)||{}).title,job:r.jobId})),
       ...scopedRequests().filter(r=>r.from==="fornitore").map(r=>({at:r.at,read:r.read,ic:r.tipo==='materiale'?'inbox':r.tipo==='ritardo'?'clock':'mail',txt:REQ_TYPES[r.tipo].label+" — "+((supplier(r.supplierId)||{}).name||""),sub:(byId(STATE.jobs,r.jobId)||{}).title,req:r.id}))];
   } else {
     items=STATE.notifications.filter(n=>n.toUser===u.id).map(n=>({at:n.at,read:n.read,ic:n.ic||"bell",txt:n.txt,sub:n.sub,job:n.jobId}));
@@ -1179,6 +1399,21 @@ function openGuide(){ const u=currentUser(); const isR=u.role==="righi"; const c
     <div class="rowlist">${body.join("")}</div>
     <div class="divide"></div><button class="btn accent block" data-act="closeModal">Ho capito</button>`);
 }
+function openSupplierModal(sid){ const s=supplier(sid); if(!s) return;
+  openModal(`${modalHead(esc(s.name))}
+    <div class="tags" style="margin-bottom:12px">${s.specialties.map(sp=>`<span class="pill brand"><span class="dot ${TIPOLOGIE[sp].dot}"></span>${TIPOLOGIE[sp].short}</span>`).join("")}${(s.certificazioni||[]).map(c=>`<span class="pill accent">${CERT[c]||c}</span>`).join("")}</div>
+    <div class="row2">
+      <div class="dl"><span class="k">Sede / zona</span><span class="v">${esc(s.citta)} · ${esc(s.zona)}</span></div>
+      <div class="dl"><span class="k">Valutazione</span><span class="v">${s.rating}</span></div>
+      <div class="dl"><span class="k">Capacità mensile</span><span class="v">${s.capacitaMese} h</span></div>
+      <div class="dl"><span class="k">Libere questo mese</span><span class="v">${freeCapacity(sid)} h</span></div>
+      <div class="dl"><span class="k">Settori</span><span class="v">${s.settori.join(", ")}</span></div>
+      <div class="dl"><span class="k">Referente</span><span class="v">${esc(s.referente)} · ${esc(s.email)}</span></div>
+    </div>
+    ${metricsCardHtml(sid)}
+    <div class="divide"></div>
+    <div class="btn-row"><button class="btn ghost" data-act="emailSup" data-sup="${sid}">${icon("mail","sm")} Email</button><button class="btn" data-act="supJobs" data-sup="${sid}">Commesse del fornitore</button></div>`);
+}
 
 /* ============================ AZIONI ============================ */
 function toast(msg,kind){ const t=$("#toast"); t.className="toast show "+(kind||""); t.textContent=msg; clearTimeout(toast._t); toast._t=setTimeout(()=>t.className="toast "+(kind||""),2400); }
@@ -1220,7 +1455,8 @@ function createJob(mode){
   const job={ id:uid("j"), code:"RGH-"+(n+1), title:d.title, tipologia:d.tipologia, settore:d.settore, carpenteria:d.carpenteria,
     budget:d.budget?Number(d.budget):null, oreStimate:d.ore?Number(d.ore):null, dataRichiesta:d.dataRichiesta, dataConsegna:d.dataConsegna, capoId:d.capoId,
     descrizione:d.descrizione, allegati:d.allegati||[], visibility:d.visibility, invitati:d.invitati||[],
-    stato: mode==="publish"?"pubblicato":"bozza", assegnatoA:null, publishedAt: mode==="publish"?todayISO():null, createdAt:todayISO() };
+    stato: mode==="publish"?"pubblicato":"bozza", assegnatoA:null, publishedAt: mode==="publish"?todayISO():null, createdAt:todayISO(),
+    dataConsegnaBase:d.dataConsegna, storicoDate:[], dataConsegnaEffettiva:null, assegnatoAt:null, avanzamento:null };
   STATE.jobs.unshift(job);
   const targets=job.visibility==="selezionati"?job.invitati:STATE.suppliers.map(s=>s.id);
   if(mode==="publish"){ notifyJob(job, targets); if(d.emailNotify) emailJobToSuppliers(job, targets); }
@@ -1246,16 +1482,17 @@ function importJobsCSV(text){
     n++; added++; STATE.jobs.unshift({ id:uid("j"), code:"RGH-"+n, title:tit, tipologia:tip,
       settore:(iSet>=0&&row[iSet])?row[iSet].trim():SETTORI[0], carpenteria:car, budget:num(row[iBud]), oreStimate:num(row[iOre]),
       dataRichiesta:(iReq>=0&&row[iReq])?row[iReq].trim():todayISO(), dataConsegna:(iCon>=0&&row[iCon])?row[iCon].trim():dISO(21),
-      capoId:cap.id, descrizione:"", allegati:[], visibility:vis, invitati:[], stato:"bozza", assegnatoA:null, publishedAt:null, createdAt:todayISO() }); }
+      capoId:cap.id, descrizione:"", allegati:[], visibility:vis, invitati:[], stato:"bozza", assegnatoA:null, publishedAt:null, createdAt:todayISO(),
+      dataConsegnaBase:(iCon>=0&&row[iCon])?row[iCon].trim():dISO(21), storicoDate:[], dataConsegnaEffettiva:null, assegnatoAt:null, avanzamento:null }); }
   persist(); toast(added+" commesse importate in bozza","ok");
   App.tab="lavori"; App.lavoriMode="table"; App.filters={q:"",stato:"bozza",tipologia:"",settore:"",capo:"",fornitore:"",late:false}; App.page=1; render();
 }
 function exportOrders(){
   const jobs=scopedJobs().filter(j=>["assegnato","in_corso","consegnato"].includes(j.stato)&&j.assegnatoA);
   if(!jobs.length){ toast("Nessun ordine accettato da esportare","warn"); return; }
-  const rows=[["commessa","titolo","tipologia","settore","fornitore","referente","email_fornitore","importo_eur","ore","data_consegna","caposquadra","stato"]];
+  const rows=[["commessa","titolo","tipologia","settore","fornitore","referente","email_fornitore","importo_eur","ore","data_consegna","data_consegna_base","n_slittamenti","avanzamento","caposquadra","stato"]];
   jobs.forEach(j=>{ const s=supplier(j.assegnatoA)||{}; const acc=jobResponses(j.id).find(r=>r.supplierId===j.assegnatoA&&r.tipo==="accettazione");
-    rows.push([j.code,j.title,TIPOLOGIE[j.tipologia].label,j.settore,s.name||"",s.referente||"",s.email||"",(acc&&acc.importo)?acc.importo:(j.budget||""),j.oreStimate||"",j.dataConsegna,(capo(j.capoId)||{}).name||"",STATI[j.stato].label]); });
+    rows.push([j.code,j.title,TIPOLOGIE[j.tipologia].label,j.settore,s.name||"",s.referente||"",s.email||"",(acc&&acc.importo)?acc.importo:(j.budget||""),j.oreStimate||"",j.dataConsegna,j.dataConsegnaBase||j.dataConsegna,(j.storicoDate||[]).length,j.avanzamento?AVANZAMENTO[j.avanzamento].label:"",(capo(j.capoId)||{}).name||"",STATI[j.stato].label]); });
   downloadFile("ordini_accettati_righi.csv", toCSV(rows)); toast(jobs.length+" ordini esportati (CSV per ERP)","ok");
 }
 function doAccept(jid){ const u=currentUser(); const imp=$("#acc-imp").value; const note=$("#acc-note").value.trim();
@@ -1268,10 +1505,32 @@ function doAsk(jid){ const u=currentUser(); const t=$("#ask-t").value.trim(); if
 }
 function doQuickReq(jid){ const u=currentUser(); const j=byId(STATE.jobs,jid); if(!App.qr||!App.qr.tipo){ toast("Scegli il tipo di richiesta","warn"); return; }
   const note=$("#qr-note").value.trim(); const c=capo(j.capoId); const tp=REQ_TYPES[App.qr.tipo];
-  STATE.requests.push({id:uid("q"),jobId:jid,supplierId:u.supplierId,tipo:App.qr.tipo,testo:note,at:new Date().toISOString().slice(0,16),stato:"aperta",capoId:j.capoId,from:"fornitore",read:false});
-  const wantEmail=App.qr.email; persist(); closeModal(); toast("Richiesta inviata al caposquadra","ok"); render();
-  if(wantEmail && c && c.email){ const body="Buongiorno "+c.name+",\n\nsegnalazione dal Portale Fornitori:\n\nCommessa: "+j.code+" — "+j.title+"\nTipo: "+tp.label+(note?("\nDettaglio: "+note):"")+"\nFornitore: "+(supplier(u.supplierId)||{}).name+"\n\nGrazie.";
+  const req={id:uid("q"),jobId:jid,supplierId:u.supplierId,tipo:App.qr.tipo,testo:note,at:new Date().toISOString().slice(0,16),stato:"aperta",capoId:j.capoId,from:"fornitore",read:false};
+  if(App.qr.tipo==="slittamento"){ const d=$("#qr-date")?$("#qr-date").value:""; if(!d){ toast("Indica la nuova data proposta","warn"); return; } req.dataProposta=d; req.esito=null; }
+  STATE.requests.push(req);
+  const wantEmail=App.qr.email; persist(); closeModal(); toast(App.qr.tipo==="slittamento"?"Richiesta di slittamento inviata":"Richiesta inviata al caposquadra","ok"); render();
+  if(wantEmail && c && c.email){ const body="Buongiorno "+c.name+",\n\nsegnalazione dal Portale Fornitori:\n\nCommessa: "+j.code+" — "+j.title+"\nTipo: "+tp.label+(req.dataProposta?("\nNuova data proposta: "+fmtDate(req.dataProposta)):"")+(note?("\nDettaglio: "+note):"")+"\nFornitore: "+(supplier(u.supplierId)||{}).name+"\n\nGrazie.";
     openEmailModal(c.email, "["+j.code+"] "+tp.label, body); }
+}
+// Cambio data consegna: registra storico, sovrascrive, notifica il fornitore
+function applyDateChange(j, newDate, motivo, byRole, byUser){
+  if(!newDate || newDate===j.dataConsegna) return false;
+  j.storicoDate=j.storicoDate||[]; j.storicoDate.push({from:j.dataConsegna,to:newDate,by:byUser,byRole,at:new Date().toISOString().slice(0,16),motivo:motivo||"",tipo:byRole==="fornitore"?"slittamento":"modifica"});
+  j.dataConsegna=newDate;
+  const usr=STATE.users.find(u=>u.supplierId===j.assegnatoA);
+  if(usr) STATE.notifications.push({id:uid("n"),toUser:usr.id,ic:"calendar",txt:"Consegna aggiornata: "+fmtDate(newDate),sub:j.code+" — "+j.title,jobId:j.id,at:new Date().toISOString().slice(0,16),read:false});
+  return true;
+}
+function doEditDate(jid){ const j=byId(STATE.jobs,jid); const d=$("#ed-date")?$("#ed-date").value:""; const m=$("#ed-note")?$("#ed-note").value.trim():"";
+  if(!d){ toast("Indica la nuova data","warn"); return; } const u=currentUser();
+  if(applyDateChange(j, d, m||"Modifica da Righi", isCapo(u)?"caposquadra":"responsabile", u.id)){ persist(); closeModal(); toast("Data consegna aggiornata · fornitore notificato","ok"); render(); }
+  else { toast("Nessuna modifica","warn"); }
+}
+function resolveSlip(rid, approve){ const r=byId(STATE.requests,rid); if(!r) return; const j=byId(STATE.jobs,r.jobId); const u=currentUser();
+  r.stato="chiusa"; r.esito=approve?"approvato":"rifiutato"; r.read=true;
+  if(approve && j){ applyDateChange(j, r.dataProposta, "Slittamento approvato", "fornitore", r.supplierId); }
+  else { const usr=STATE.users.find(x=>x.supplierId===r.supplierId); if(usr) STATE.notifications.push({id:uid("n"),toUser:usr.id,ic:"x",txt:"Slittamento non approvato",sub:(j?j.code+" — "+j.title:""),jobId:r.jobId,at:new Date().toISOString().slice(0,16),read:false}); }
+  persist(); closeModal(); toast(approve?"Slittamento approvato · consegna aggiornata":"Slittamento rifiutato","ok"); render();
 }
 function doNotify(jid){ const j=byId(STATE.jobs,jid); const ids=[...App.notifySel];
   if(!ids.length){ toast("Scegli almeno un fornitore","warn"); return; }
@@ -1279,12 +1538,17 @@ function doNotify(jid){ const j=byId(STATE.jobs,jid); const ids=[...App.notifySe
   toast("Notifica inviata a "+ids.length+" fornitor"+(ids.length>1?"i":"e"),"ok"); render();
   if(wantEmail) emailJobToSuppliers(j, ids);
 }
-function doAssign(jid,sid){ const j=byId(STATE.jobs,jid); const s=supplier(sid); j.assegnatoA=sid; j.stato="assegnato";
+function doAssign(jid,sid){ const j=byId(STATE.jobs,jid); const s=supplier(sid); j.assegnatoA=sid; j.stato="assegnato"; j.assegnatoAt=todayISO();
   const usr=STATE.users.find(u=>u.supplierId===sid); if(usr) STATE.notifications.push({id:uid("n"),toUser:usr.id,ic:"check",txt:"Commessa assegnata: "+j.title,sub:j.code,jobId:j.id,at:new Date().toISOString().slice(0,16),read:false});
   STATE.responses.filter(r=>r.jobId===jid).forEach(r=>r.read=true);
   persist(); closeModal(); toast("Assegnato a "+s.name,"ok"); render();
 }
-function setStato(jid,st){ const j=byId(STATE.jobs,jid); j.stato=st; persist(); closeModal(); toast("Stato aggiornato: "+STATI[st].label,"ok"); render(); }
+function setStato(jid,st){ const j=byId(STATE.jobs,jid); j.stato=st; if(st==="consegnato"&&!j.dataConsegnaEffettiva) j.dataConsegnaEffettiva=todayISO(); persist(); closeModal(); toast("Stato aggiornato: "+STATI[st].label,"ok"); render(); }
+function setAvanzamento(jid, step){ const u=currentUser(); const j=byId(STATE.jobs,jid); if(!j||!u.supplierId||j.assegnatoA!==u.supplierId) return;
+  j.avanzamento=step; j.avanzamentoAt=new Date().toISOString().slice(0,16); j.avanzamentoBy=u.id;
+  STATE.responses.push({id:uid("r"),jobId:jid,supplierId:u.supplierId,tipo:"avanzamento",testo:AVANZAMENTO[step].label,at:j.avanzamentoAt,from:"fornitore",read:false});
+  persist(); closeModal(); toast("Avanzamento: "+AVANZAMENTO[step].label,"ok"); render();
+}
 function reqStato(rid,st){ const r=byId(STATE.requests,rid); r.stato=st; r.read=true; persist(); closeModal(); toast(st==="chiusa"?"Richiesta risolta":"Presa in carico","ok"); render(); }
 
 /* aggiorna solo il contenitore risultati (mantiene focus sulla ricerca) */
@@ -1310,7 +1574,7 @@ document.addEventListener("click",e=>{
     return; }
   if(el.dataset.toggle==="inv"){ App.draft=App.draft||{invitati:[]}; App.draft.invitati=App.draft.invitati||[];
     const id=el.dataset.v; const i=App.draft.invitati.indexOf(id); if(i<0) App.draft.invitati.push(id); else App.draft.invitati.splice(i,1); el.classList.toggle("on"); return; }
-  if(el.dataset.qrtype){ App.qr=App.qr||{}; App.qr.tipo=el.dataset.qrtype; $$("#qr-types .chip").forEach(c=>c.classList.remove("on","accent")); el.classList.add("on","accent"); const b=$("#qr-send"); if(b) b.disabled=false; return; }
+  if(el.dataset.qrtype){ App.qr=App.qr||{}; App.qr.tipo=el.dataset.qrtype; $$("#qr-types .chip").forEach(c=>c.classList.remove("on","accent")); el.classList.add("on","accent"); const b=$("#qr-send"); if(b) b.disabled=false; const slip=$("#qr-slip"); if(slip) slip.classList.toggle("hide", el.dataset.qrtype!=="slittamento"); return; }
   if(el.dataset.np){ const id=el.dataset.np; if(App.notifySel.has(id)) App.notifySel.delete(id); else App.notifySel.add(id); el.classList.toggle("on"); return; }
 
   if(el.dataset.job && !el.dataset.act){ openJobModal(el.dataset.job); return; }
@@ -1327,6 +1591,7 @@ document.addEventListener("click",e=>{
     case "goFilter": App.tab="lavori"; App.lavoriMode="table"; App.page=1;
       App.filters={q:"",stato:el.dataset.stato==="late"?"":el.dataset.stato,tipologia:"",settore:"",capo:"",fornitore:"",late:el.dataset.stato==="late"}; render(); window.scrollTo(0,0); break;
     case "lavoriMode": App.lavoriMode=el.dataset.m; App.page=1; render(); break;
+    case "fornMode": App.fornMode=el.dataset.m; render(); break;
     case "setStatoFilter": App.filters.stato=el.dataset.v; App.page=1; updateResults(); if($("#lav-search"))reflectFilterChips(); render(); break;
     case "toggleLate": App.filters.late=!App.filters.late; App.page=1; render(); break;
     case "clearFilter": App.filters[el.dataset.k]= el.dataset.k==="late"?false:""; App.page=1; render(); break;
@@ -1336,6 +1601,7 @@ document.addEventListener("click",e=>{
     case "colMore": App.lavoriMode="table"; App.filters.stato=(el.dataset.st==="assegnato")?"":(el.dataset.st==="pubblicato"?"da_assegnare":el.dataset.st); if(el.dataset.st==="assegnato"){App.filters.stato="";} App.page=1; render(); break;
     case "fStato": App.fFilters.stato=el.dataset.v; render(); break;
     case "supJobs": openSupJobs(el.dataset.sup); break;
+    case "supDetail": openSupplierModal(el.dataset.sup); break;
     case "publish": doPublish(el.dataset.job); break;
     case "createJob": createJob(el.dataset.mode); break;
     case "toggleDraftEmail": App.draft=App.draft||{}; App.draft.emailNotify=!App.draft.emailNotify; el.classList.toggle("on"); break;
@@ -1352,7 +1618,12 @@ document.addEventListener("click",e=>{
     case "assignPick": openAssignPick(el.dataset.job); break;
     case "assign": doAssign(el.dataset.job, el.dataset.sup); break;
     case "setStato": setStato(el.dataset.job, el.dataset.s); break;
+    case "setAvz": setAvanzamento(el.dataset.job, el.dataset.step); break;
     case "reqStato": reqStato(el.dataset.id, el.dataset.s); break;
+    case "approveSlip": resolveSlip(el.dataset.id, true); break;
+    case "rejectSlip": resolveSlip(el.dataset.id, false); break;
+    case "editDate": openEditDate(el.dataset.job); break;
+    case "doEditDate": doEditDate(el.dataset.job); break;
     case "rmAtt": App.draft.allegati=(App.draft.allegati||[]).filter(a=>a.id!==el.dataset.id); render(); break;
     case "openAtt": openAttachment(el.dataset.job, el.dataset.att); break;
     case "guide": openGuide(); break;

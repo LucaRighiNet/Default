@@ -38,7 +38,9 @@ users(id uuid pk, email text unique, role text check in ('righi','fornitore'),
       name text, supplier_id uuid null fk suppliers, caposquadra bool default false,
       created_at timestamptz)                                   -- id = auth.uid()
 suppliers(id uuid pk, name text, citta text, accredited bool, specialties text[],
-          settori text[], rating numeric, referente text, created_at)
+          settori text[], rating numeric, referente text, created_at,
+          lat numeric, lng numeric, zona text,          -- mappa + ottimizzazione trasporti
+          capacita_mese int, certificazioni text[])     -- carico libero + match requisiti
 ```
 
 ## 2. Modello dati (Postgres)
@@ -50,6 +52,11 @@ letti da più fornitori, quindi conviene tabellare da subito.
 jobs(id uuid pk, code text unique, title text, tipologia text, settore text,
      carpenteria text, budget numeric, ore_stimate int,   -- ore_stimate: SOLO Righi (mai esposto ai fornitori)
      data_richiesta date, data_consegna date,
+     data_consegna_base date,                             -- data originale (per contare gli slittamenti)
+     data_consegna_effettiva date,                        -- consegna reale → puntualità
+     assegnato_at date,                                   -- per metriche (lavori/mese, tempo risposta)
+     avanzamento text,                                    -- materiale|cablaggio|collaudo|pronto|null (aggiornato dal fornitore)
+     storico_date jsonb,                                  -- [{from,to,by,byRole,at,motivo,tipo}]
      capo_id uuid fk users, descrizione text, visibility text check in ('tutti','selezionati'),
      stato text, assegnato_a uuid null fk suppliers,
      created_by uuid fk users, published_at timestamptz, created_at timestamptz)
@@ -64,8 +71,9 @@ risposte(id uuid pk, job_id uuid fk jobs, supplier_id uuid fk suppliers,
          from_side text, read bool default false, at timestamptz)
 
 richieste(id uuid pk, job_id uuid fk jobs, supplier_id uuid fk suppliers,
-          tipo text check in ('dubbio','materiale','ritardo','sopralluogo','collaudo','altro'),
+          tipo text check in ('dubbio','materiale','slittamento','ritardo','sopralluogo','collaudo','altro'),
           testo text, stato text check in ('aperta','presa','chiusa'),
+          data_proposta date, esito text check in ('approvato','rifiutato'),  -- solo per 'slittamento'
           capo_id uuid fk users, read bool default false, at timestamptz)
 
 notifiche(id uuid pk, to_user uuid fk users, icon text, txt text, sub text,

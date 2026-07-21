@@ -87,6 +87,21 @@ Di conseguenza il prodotto è progettato attorno a due driver:
   compone in una finestra dedicata (apri nel client / copia testo), senza
   interrompere l'app. L'invio server-side è la Fase 1 (`BACKEND.md`).
 - **Ritardi** evidenziati automaticamente (consegna superata su commessa attiva).
+- **Metriche fornitore** (visibili a Righi e al fornitore): puntualità, lavori/mese,
+  carico ore, richieste sollevate, tasso di accettazione, tempo di risposta,
+  ritardo medio, con mini-trend mensile.
+- **Ciclo di vita consegna**: richiesta di **slittamento** dal fornitore con
+  approvazione del caposquadra (sovrascrive la data + storico + notifica) e
+  **modifica diretta** della data da Righi; storico completo dei cambi.
+- **Assegnazione intelligente**: anagrafica categorizzata (specializzazioni,
+  settori, **zona/coordinate**, **capacità mensile**, **certificazioni**) che
+  alimenta il **suggerimento fornitori** in pubblicazione/assegnazione,
+  l'**avviso di sovraccarico** e il **semaforo salute commessa** (predittivo).
+- **Avanzamento a un tocco** lato fornitore (materiale → cablaggio → collaudo →
+  pronto), notificato a Righi.
+- **Mappa fornitori** (SVG offline): pin colorati per carico, click per scheda e
+  capacità libera; per il caposquadra evidenzia le zone già presidiate
+  (ottimizzazione trasporti).
 - **Interfaccia professionale senza emoji**, icone SVG, identità Righi Solutions.
 - **Offline-first** (PWA + service worker); dati nello storage del dispositivo.
 - **Seam di backend** già pronto (`Sync` + `RemoteAdapter`) — vedi `BACKEND.md`.

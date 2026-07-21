@@ -73,6 +73,27 @@ diventa una **lista di schede compatte tap-friendly** (niente tabelle da
 scorrere in orizzontale), le finestre si aprono come *bottom sheet* e i comandi
 rispettano le aree di sicurezza del dispositivo.
 
+**Metriche fornitore** (uguali per Righi e fornitore): nel profilo (lato
+fornitore) e nella *Scheda & metriche* (lato Righi) trovi **puntualità**,
+**lavori/mese**, **carico ore**, **richieste sollevate**, **tasso di
+accettazione**, **tempo di risposta** e **ritardo medio**, con mini-trend.
+
+**Slittamenti e modifica consegna**: dal dettaglio commessa il fornitore può
+chiedere uno **slittamento** (nuova data + motivo) che il caposquadra
+**approva/rifiuta** (se approvato sovrascrive la consegna e notifica); Righi può
+anche **modificare direttamente** la data. Ogni cambio resta nello **storico**.
+
+**Assegnazione intelligente**: l'anagrafica fornitore è categorizzata (zona,
+capacità mensile, certificazioni oltre a specializzazioni e settori). In
+pubblicazione/assegnazione il portale **consiglia i fornitori** migliori e
+segnala i **sovraccarichi**; il **semaforo** verde/giallo/rosso su ogni commessa
+anticipa i ritardi. Il fornitore aggiorna l'**avanzamento con un tocco**
+(materiale → cablaggio → collaudo → pronto).
+
+**Mappa fornitori** (in *Fornitori → Mappa*): pin colorati per carico del mese;
+tocca un pin per scheda e capacità libera. Da caposquadra evidenzia le **zone
+già presidiate** per accorpare i lavori e ridurre le trasferte.
+
 **Lato Fornitore**
 - **Bacheca**: i lavori proposti da Righi; **Accetta** o **fai una domanda** con
   un tocco; il **layout** per la quotazione è in evidenza.
