@@ -60,10 +60,10 @@ input,select,textarea{font-family:inherit;font-size:16px;color:var(--ink)}
   padding:calc(var(--sat) + 10px) calc(var(--sar) + 14px) 10px calc(var(--sal) + 14px);
   display:flex;align-items:center;gap:10px;box-shadow:0 1px 0 rgba(0,0,0,.12);
 }
-.brand{display:flex;align-items:center;gap:10px;min-width:0}
+.brand{display:flex;align-items:center;gap:10px;min-width:0;overflow:hidden}
 .logomark{width:32px;height:32px;flex:0 0 auto;border-radius:8px}
-.brand .bt{min-width:0}
-.brand .bt b{display:block;font-size:14px;font-weight:700;line-height:1.1;letter-spacing:.06em;white-space:nowrap}
+.brand .bt{min-width:0;overflow:hidden}
+.brand .bt b{display:block;font-size:14px;font-weight:700;line-height:1.1;letter-spacing:.06em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .brand .bt span{display:block;font-size:11px;opacity:.72;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.01em}
 .tb-spacer{flex:1}
 .tb-btn{border:1px solid rgba(234,246,246,.28);background:rgba(234,246,246,.08);color:#EAF6F6;border-radius:10px;min-height:40px;min-width:40px;padding:0 12px;display:inline-flex;align-items:center;justify-content:center;gap:7px;font-size:13px;position:relative}
@@ -196,6 +196,17 @@ table.tbl .code{font-family:var(--mono);font-size:11.5px;color:var(--muted);whit
 table.tbl .num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 table.tbl tr.late td{background:linear-gradient(90deg,var(--danger-tint),transparent 30%)}
 .morebtn{display:flex;justify-content:center;padding:14px}
+/* Lista compatta per la vista massiva su mobile (al posto della tabella larga) */
+.jlist{display:flex;flex-direction:column;gap:8px}
+.jitem{display:flex;gap:10px;align-items:stretch;background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--brand);border-radius:11px;padding:11px 12px;box-shadow:var(--shadow);text-align:left;width:100%}
+.jitem.late{border-left-color:var(--danger)}
+.jitem .gr{flex:1;min-width:0}
+.jitem .code{font-family:var(--mono);font-size:10.5px;color:var(--muted)}
+.jitem .t{font-weight:600;font-size:14px;margin:1px 0 6px;line-height:1.3}
+.jitem .meta{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:7px}
+.jitem .foot{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:12.5px;color:var(--ink-soft);flex-wrap:wrap}
+.jitem .foot .b{color:var(--ink);font-weight:600}
+.jitem .arw{align-self:center;color:var(--muted);display:flex}
 
 /* Board */
 .board{display:grid;grid-template-columns:repeat(5,minmax(220px,1fr));gap:12px;overflow-x:auto;padding-bottom:8px}
@@ -313,6 +324,8 @@ table.tbl tr.late td{background:linear-gradient(90deg,var(--danger-tint),transpa
   .grid.k2,.grid.k3,.grid.k4{grid-template-columns:1fr}
   .row2{grid-template-columns:1fr}
   .tb-btn span.lbl{display:none}
+  .role-chip{display:none}
+  .brand .bt b{font-size:13px;letter-spacing:.03em}
   table.tbl th{top:56px}
 }
 </style>
@@ -340,6 +353,7 @@ function relDays(iso){ const n=daysTo(iso); if(n==null) return ""; if(n===0) ret
 function initials(name){ return String(name||"?").split(/\s+/).slice(0,2).map(w=>w[0]||"").join("").toUpperCase(); }
 function colorFor(id){ const c=["#0C5A63","#2A6BB0","#8A5A2B","#5E8C5A","#7A5AA8","#C0392B","#127C71","#3B6EA5"]; let h=0; for(const ch of String(id)) h=(h*31+ch.charCodeAt(0))>>>0; return c[h%c.length]; }
 function slug(s){ return String(s).toLowerCase().normalize('NFD').replace(/[^\w]+/g,''); }
+function isNarrow(){ try{ return typeof window!=="undefined" && window.matchMedia && window.matchMedia("(max-width:640px)").matches; }catch(e){ return false; } }
 
 /* Icone SVG inline (nessuna emoji) */
 const IC = {
@@ -530,7 +544,11 @@ const byId = (arr,id)=> arr.find(x=>x.id===id);
 const supplier = id => byId(STATE.suppliers,id);
 const capo = id => byId(STATE.capi,id);
 const currentUser = ()=> Session ? byId(STATE.users, Session.userId) : null;
-function jobsForSupplier(sid){ return STATE.jobs.filter(j=> j.stato!=="bozza" && (j.visibility==="tutti" || (j.invitati||[]).includes(sid) || j.assegnatoA===sid)); }
+function jobsForSupplier(sid){ return STATE.jobs.filter(j=>{
+  if(j.stato==="bozza") return false;                       // le bozze non escono mai
+  if(j.assegnatoA) return j.assegnatoA===sid;               // assegnato: solo l'assegnatario lo vede
+  return j.visibility==="tutti" || (j.invitati||[]).includes(sid); // non ancora assegnato: per visibilità
+}); }
 function isLate(j){ const n=daysTo(j.dataConsegna); return n!=null && n<0 && !["consegnato","chiuso"].includes(j.stato); }
 function jobResponses(jid){ return STATE.responses.filter(r=>r.jobId===jid); }
 function jobRequests(jid){ return STATE.requests.filter(r=>r.jobId===jid); }
@@ -713,16 +731,25 @@ function filterBar(){
 }
 function tableHtml(){
   const all=filteredJobs(); const shown=all.slice(0,App.page*PAGE);
+  const rline=`<div class="result-line"><span><b style="color:var(--ink)">${all.length}</b> lavori${all.length?` · mostrati ${shown.length}`:""}</span><span>${all.filter(isLate).length} in ritardo</span></div>`;
+  if(!all.length) return `${rline}<div class="empty">${icon("search")}<p>Nessun lavoro con questi filtri</p><button class="btn ghost sm" data-act="clearAll" style="margin-top:10px">Azzera filtri</button></div>`;
+  const more=all.length>shown.length?`<div class="morebtn"><button class="btn ghost" data-act="more">Mostra altri ${Math.min(PAGE,all.length-shown.length)} (${all.length-shown.length} rimanenti)</button></div>`:"";
+  if(isNarrow()) return `${rline}<div class="jlist">${shown.map(jobItem).join("")}</div>${more}`;
   const th=(k,l,extra)=>`<th class="sortable ${extra||''}" data-act="sortBy" data-k="${k}">${l} ${App.sort.key===k?icon("sort","sm"):""}</th>`;
-  return `<div class="result-line"><span><b style="color:var(--ink)">${all.length}</b> lavori${all.length?` · mostrati ${shown.length}`:""}</span>
-    <span>${all.filter(isLate).length} in ritardo</span></div>
-  ${all.length?`<div class="scroll-x"><table class="tbl"><thead><tr>
+  return `${rline}<div class="scroll-x"><table class="tbl"><thead><tr>
     ${th("code","Codice")}${th("title","Lavoro")}<th>Tipologia</th><th>Settore</th>${th("consegna","Consegna")}${th("budget","Budget","num")}<th>Caposquadra</th>${th("stato","Stato / Fornitore")}
-  </tr></thead><tbody>
-    ${shown.map(rowHtml).join("")}
-  </tbody></table></div>
-  ${all.length>shown.length?`<div class="morebtn"><button class="btn ghost" data-act="more">Mostra altri ${Math.min(PAGE,all.length-shown.length)} (${all.length-shown.length} rimanenti)</button></div>`:""}`
-  :`<div class="empty">${icon("search")}<p>Nessun lavoro con questi filtri</p><button class="btn ghost sm" data-act="clearAll" style="margin-top:10px">Azzera filtri</button></div>`}`;
+  </tr></thead><tbody>${shown.map(rowHtml).join("")}</tbody></table></div>${more}`;
+}
+function jobItem(j){ const t=TIPOLOGIE[j.tipologia], st=STATI[j.stato], late=isLate(j), s=supplier(j.assegnatoA);
+  return `<button class="jitem ${late?'late':''}" data-job="${j.id}">
+    <span class="gr">
+      <span class="code">${esc(j.code)}</span>
+      <div class="t">${esc(j.title)}</div>
+      <div class="meta"><span class="pill plain"><span class="dot ${t.dot}"></span>${t.short}</span><span class="pill plain">${esc(j.settore)}</span>${s?`<span class="pill ${late?'danger':st.pill}">${esc(s.name)}</span>`:`<span class="pill ${st.pill}">${st.label}</span>`}</div>
+      <div class="foot"><span>${icon("calendar","sm")} <span class="b">${fmtDate(j.dataConsegna)}</span> ${late?`<span class="pill danger">${Math.abs(daysTo(j.dataConsegna))}gg</span>`:`<span class="muted">(${relDays(j.dataConsegna)})</span>`}</span><span class="b">${fmtMoney(j.budget)}</span></div>
+    </span>
+    <span class="arw">${icon("chev")}</span>
+  </button>`;
 }
 function rowHtml(j){ const t=TIPOLOGIE[j.tipologia], st=STATI[j.stato], late=isLate(j), s=supplier(j.assegnatoA), c=capo(j.capoId);
   return `<tr class="${late?'late':''}" data-job="${j.id}">
@@ -1221,6 +1248,10 @@ document.addEventListener("change",e=>{
     });
   }
 });
+
+/* ri-render al cambio di breakpoint mobile/desktop (tabella <-> schede) */
+let _narrow = isNarrow(), _rzt=null;
+window.addEventListener("resize",()=>{ clearTimeout(_rzt); _rzt=setTimeout(()=>{ const n=isNarrow(); if(n!==_narrow){ _narrow=n; if(currentUser()) render(); } },200); });
 
 /* ============================ Boot ============================ */
 render();

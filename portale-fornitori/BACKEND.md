@@ -75,10 +75,13 @@ notifiche(id uuid pk, to_user uuid fk users, icon text, txt text, sub text,
 
 Attivare **Row Level Security** su tutte le tabelle. Regole chiave:
 
-- **`jobs` in lettura per un fornitore**: solo se `stato <> 'bozza'` **e**
-  (`visibility='tutti'` **oppure** invitato in `job_inviti` **oppure**
-  `assegnato_a = supplier`). È esattamente la funzione `jobsForSupplier()` del
-  client: va replicata come policy così il filtro è **sul server**, non solo in UI.
+- **`jobs` in lettura per un fornitore**: `stato <> 'bozza'` **e** —
+  se il lavoro è **assegnato** (`assegnato_a` valorizzato) lo vede **solo
+  l'assegnatario**; se **non è ancora assegnato** lo vedono i fornitori secondo
+  visibilità (`'tutti'` oppure invitati in `job_inviti`). Così un fornitore
+  **non vede i lavori assegnati ad altri**, mentre Righi vede tutto. È
+  esattamente la funzione `jobsForSupplier()` del client: va replicata come
+  policy così il filtro è **sul server**, non solo in UI.
 - **`jobs` in scrittura**: solo `role='righi'`.
 - **`risposte`**: un fornitore vede/scrive solo le proprie; Righi le vede tutte.
 - **`richieste`**: un fornitore vede/scrive le proprie; il caposquadra della
@@ -91,9 +94,11 @@ Esempio (visibilità lavoro lato fornitore):
 create policy job_read_fornitore on jobs for select using (
   stato <> 'bozza' and exists (
     select 1 from users u where u.id = auth.uid() and u.role = 'fornitore' and (
-      jobs.visibility = 'tutti'
-      or jobs.assegnato_a = u.supplier_id
-      or exists (select 1 from job_inviti i where i.job_id = jobs.id and i.supplier_id = u.supplier_id)
+      jobs.assegnato_a = u.supplier_id                       -- assegnato: solo l'assegnatario
+      or (jobs.assegnato_a is null and (                     -- non assegnato: per visibilità
+            jobs.visibility = 'tutti'
+            or exists (select 1 from job_inviti i where i.job_id = jobs.id and i.supplier_id = u.supplier_id)
+      ))
     )
   )
 );

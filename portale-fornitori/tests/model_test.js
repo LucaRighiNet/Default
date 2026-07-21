@@ -68,13 +68,21 @@ r.ok("visibilità: un lavoro 'tutti' pubblicato è visibile a ogni fornitore", (
   for (const s of S.STATE.suppliers)
     assert(S.jobsForSupplier(s.id).some(x => x.id === j.id), "non visibile a " + s.id);
 });
-r.ok("visibilità: 'selezionati' solo a invitati o assegnatario", () => {
-  const j = S.STATE.jobs.find(x => x.visibility === "selezionati" && x.stato !== "bozza" && (x.invitati||[]).length);
-  assert(j, "atteso almeno un selezionato");
+r.ok("visibilità: 'selezionati' (non assegnato) solo agli invitati", () => {
+  const j = S.STATE.jobs.find(x => x.visibility === "selezionati" && x.stato === "pubblicato" && (x.invitati||[]).length);
+  assert(j, "atteso almeno un pubblicato selezionato");
   const invited = j.invitati[0];
-  const outsider = S.STATE.suppliers.find(s => !j.invitati.includes(s.id) && s.id !== j.assegnatoA);
+  const outsider = S.STATE.suppliers.find(s => !j.invitati.includes(s.id));
   assert(S.jobsForSupplier(invited).some(x => x.id === j.id), "l'invitato deve vederlo");
   if (outsider) assert(!S.jobsForSupplier(outsider.id).some(x => x.id === j.id), "un estraneo non deve vederlo");
+});
+r.ok("visibilità: un lavoro ASSEGNATO è visibile solo all'assegnatario", () => {
+  // requisito: i fornitori non vedono i lavori assegnati ad altri, neanche se 'tutti'
+  const j = S.STATE.jobs.find(x => x.assegnatoA && x.visibility === "tutti" && x.stato !== "consegnato");
+  assert(j, "atteso un assegnato con visibilità 'tutti'");
+  assert(S.jobsForSupplier(j.assegnatoA).some(x => x.id === j.id), "l'assegnatario deve vederlo");
+  const other = S.STATE.suppliers.find(s => s.id !== j.assegnatoA);
+  assert(!S.jobsForSupplier(other.id).some(x => x.id === j.id), "un altro fornitore NON deve vedere un lavoro assegnato ad altri");
 });
 
 /* ---- Ritardi ---- */

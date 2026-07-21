@@ -48,6 +48,16 @@ dal portale è disponibile l'**email precompilata** (destinatario, oggetto e
 corpo pronti) verso fornitori e caposquadra. L'invio automatico lato server è
 la naturale evoluzione (vedi `BACKEND.md`).
 
+**Visibilità dei lavori**: un fornitore vede i lavori proposti secondo la
+visibilità (*tutti* o *selezionati*), ma **appena un lavoro viene assegnato
+resta visibile solo all'assegnatario** — gli altri fornitori non vedono le
+commesse affidate a terzi. **Righi vede sempre tutto.**
+
+**Mobile**: interfaccia mobile-first. Su smartphone la vista massiva dei lavori
+diventa una **lista di schede compatte tap-friendly** (niente tabelle da
+scorrere in orizzontale), le finestre si aprono come *bottom sheet* e i comandi
+rispettano le aree di sicurezza del dispositivo.
+
 **Lato Fornitore**
 - **Bacheca**: i lavori proposti da Righi; **Accetta** o **fai una domanda** con
   un tocco; il **layout** per la quotazione è in evidenza.
