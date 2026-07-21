@@ -1,0 +1,21 @@
+name: portale-fornitori CI
+on:
+  push:
+    branches: [ "**" ]
+    paths:
+      - 'portale-fornitori/**'
+      - '.github/workflows/portale-ci.yml'
+  pull_request:
+    paths:
+      - 'portale-fornitori/**'
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Esegui le suite native del portale
+        working-directory: portale-fornitori
+        run: node tests/run_all.js

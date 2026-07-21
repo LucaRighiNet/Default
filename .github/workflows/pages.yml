@@ -7,6 +7,8 @@ name: Deploy hub-nozze to GitHub Pages
 # NOTA DIFFUSIONE: viene pubblicata SOLO l'app (index.html, sw.js, manifest,
 # icone, legal/, dist/). Documenti interni, tests/ e tools/ restano nel repo
 # ma NON finiscono sul sito.
+# hub-nozze resta alla radice del sito; il Portale Fornitori è pubblicato sotto
+# /portale/ (solo i file dell'app: index.html, sw.js, manifest, logo).
 on:
   workflow_dispatch:
   push:
@@ -14,6 +16,7 @@ on:
       - main
     paths:
       - 'hub-nozze/**'
+      - 'portale-fornitori/**'
       - '.github/workflows/pages.yml'
 permissions:
   contents: read
@@ -38,6 +41,11 @@ jobs:
              hub-nozze/apple-touch-icon.png _site_src/
           cp hub-nozze/legal/*.md _site_src/legal/
           cp hub-nozze/dist/Hub_Nozze.html _site_src/dist/
+      - name: Aggiungi il Portale Fornitori sotto /portale/ (solo file dell'app)
+        run: |
+          mkdir -p _site_src/portale
+          cp portale-fornitori/index.html portale-fornitori/sw.js \
+             portale-fornitori/manifest.json portale-fornitori/logo.svg _site_src/portale/
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

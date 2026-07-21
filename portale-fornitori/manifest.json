@@ -1,0 +1,16 @@
+{
+  "name": "Portale Fornitori Righi",
+  "short_name": "Righi Portale",
+  "description": "Portale fornitori Righi: pubblicazione, assegnazione e gestione dei lavori di subappalto (cablaggio e costruzione quadri elettrici).",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#EDF1F3",
+  "theme_color": "#0C5A63",
+  "lang": "it",
+  "categories": ["business", "productivity"],
+  "icons": [
+    { "src": "logo.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "logo.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}
