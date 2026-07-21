@@ -29,18 +29,33 @@ Righi e il lato fornitore per vedere entrambe le prospettive.
 ## Cosa puoi provare
 
 **Lato Righi**
-- **Dashboard**: lavori pubblicati/assegnati, **ritardi**, accettazioni da
-  valutare, richieste dei fornitori (le KPI sono cliccabili e portano al filtro).
-- **Lavori — vista massiva**: pensata per **centinaia di commesse in parallelo**
+- **Dashboard** (per ruolo, vedi sotto): commesse pubblicate/assegnate,
+  **ritardi**, accettazioni da valutare, richieste dei fornitori (KPI cliccabili
+  che portano al filtro).
+- **Commesse — vista massiva**: pensata per **centinaia di commesse in parallelo**
   (~150 assegnate + ~40 da assegnare nel seed dimostrativo). **Elenco** a tabella
   densa con **ricerca**, **filtri** (stato, tipologia, settore, caposquadra,
   fornitore, solo ritardi), **ordinamento** e paginazione; in alternativa la
-  **bacheca Kanban** per una lettura d'insieme. Apri una scheda per pubblicare,
-  **notificare** fornitori, **assegnare**.
-- **Nuovo lavoro**: form a input guidati (tipologia, settore, carpenteria come
-  chip; layout allegabile; budget, date, caposquadra; visibilità *tutti /
-  selezionati*; notifica anche via **email**).
+  **bacheca Kanban**. Apri una scheda per pubblicare, **notificare**, **assegnare**.
+- **Ore stimate di produzione**: campo **riservato a Righi** (mai visibile al
+  fornitore) su ogni commessa; alimenta il **carico terzisti** — nella scheda
+  **Fornitori** vedi la somma delle ore attive per fornitore e **mese di consegna**.
+- **Nuovo lavoro**: form a input guidati (tipologia, settore, carpenteria, budget,
+  **ore**, date, caposquadra, layout; visibilità *tutti / selezionati*; notifica
+  anche via **email**). In alternativa **import massivo da Excel/CSV** (con
+  template scaricabile): le commesse entrano come bozze.
+- **Esporta ordini (ERP)**: da Commesse esporti in **CSV** gli ordini accettati
+  (fornitore, importo, ore, consegna…) per l'emissione ordine in amministrazione.
 - **Richieste** e anagrafica **Fornitori** accreditati (con contatto **email**).
+
+**Ruoli e accessi (lato Righi)**
+- **Responsabile di produzione**: vede **tutte** le commesse, pubblica, assegna,
+  importa/esporta, governa il carico dei terzisti.
+- **Caposquadra**: vede in Dashboard e Commesse **solo i progetti che segue**
+  (di cui è riferimento) e le relative richieste dei fornitori.
+
+**Guida in app**: il pulsante **?** in alto apre una guida passo-passo diversa
+per Responsabile, Caposquadra e Fornitore.
 
 **Notifiche ed email**: ogni evento (pubblicazione, notifica mirata, richiesta
 guidata, risposta) genera una **notifica in app**; dove serve comunicare fuori

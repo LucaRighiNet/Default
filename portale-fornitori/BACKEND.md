@@ -48,7 +48,8 @@ letti da più fornitori, quindi conviene tabellare da subito.
 
 ```
 jobs(id uuid pk, code text unique, title text, tipologia text, settore text,
-     carpenteria text, budget numeric, data_richiesta date, data_consegna date,
+     carpenteria text, budget numeric, ore_stimate int,   -- ore_stimate: SOLO Righi (mai esposto ai fornitori)
+     data_richiesta date, data_consegna date,
      capo_id uuid fk users, descrizione text, visibility text check in ('tutti','selezionati'),
      stato text, assegnato_a uuid null fk suppliers,
      created_by uuid fk users, published_at timestamptz, created_at timestamptz)
@@ -87,6 +88,27 @@ Attivare **Row Level Security** su tutte le tabelle. Regole chiave:
 - **`richieste`**: un fornitore vede/scrive le proprie; il caposquadra della
   commessa e l'ufficio subappalti le vedono.
 - **`notifiche`**: ognuno legge solo `to_user = auth.uid()`.
+- **Ruoli Righi**: il *responsabile* (`role='righi'`, non caposquadra) vede tutte
+  le `jobs`; il *caposquadra* (`caposquadra=true`) vede solo `capo_id = auth.uid()`
+  (dashboard/elenco/richieste filtrati). Le funzioni di gestione (creazione,
+  assegnazione, import/export) restano al responsabile.
+- **Campi riservati Righi**: `ore_stimate` non va mai esposto ai fornitori — usare
+  una **view** dedicata (o column-level privileges) per il lato fornitore che non
+  includa la colonna. Le ore alimentano il carico terzisti (somma per fornitore ×
+  mese di consegna), calcolabile lato server con una view aggregata.
+
+## 4-bis. Import massivo ed export ERP
+
+- **Import**: il client accetta un file **CSV** (Excel → "Salva come CSV") e crea
+  le commesse in bozza; la versione server può accettare direttamente `.xlsx`
+  (parsing lato Edge Function) e validare le intestazioni del template.
+- **Export ordini accettati**: il client genera un **CSV** delle commesse
+  assegnate/accettate (commessa, fornitore, importo accettato, ore, consegna,
+  caposquadra) per l'emissione ordine nell'**ERP**. In produzione: endpoint di
+  export firmato o integrazione diretta con il gestionale.
+- **Email**: il client **compone** l'email (finestra dedicata: apri nel client /
+  copia). L'invio automatico (pubblicazione, assegnazione, richieste) è una
+  Edge Function transazionale (Fase 1) — vedi sez. 4.
 
 Esempio (visibilità lavoro lato fornitore):
 

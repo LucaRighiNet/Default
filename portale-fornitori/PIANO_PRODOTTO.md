@@ -73,10 +73,19 @@ Di conseguenza il prodotto è progettato attorno a due driver:
 - **Lato Fornitore**: **bacheca** dei lavori disponibili (con ricerca), **I miei
   lavori** con consegne e filtri, **richieste guidate** al caposquadra,
   **profilo** di accreditamento.
+- **Ruoli lato Righi**: *responsabile di produzione* (vede tutto) e *caposquadra*
+  (vede solo le commesse che segue). Dashboard, elenco e richieste sono filtrati
+  di conseguenza; il caposquadra non ha le funzioni di gestione (nuovo lavoro,
+  fornitori, export).
+- **Ore stimate di produzione**: campo riservato a Righi su ogni commessa, usato
+  per il **carico terzisti** (somma ore attive per fornitore × mese di consegna).
+- **Import massivo** delle commesse da Excel/CSV (template incluso) ed **export
+  CSV degli ordini accettati** per l'emissione ordine nell'ERP.
+- **Guida in app** contestuale per responsabile, caposquadra e fornitore.
 - **Pubblicazione, notifica mirata, accettazione, assegnazione** end-to-end.
-- **Notifiche in app + email**: ogni evento genera una notifica; dove serve
-  comunicare fuori dal portale è pronta l'**email precompilata** (mailto) verso
-  fornitori e caposquadra. L'invio server-side è la Fase 1 (`BACKEND.md`).
+- **Notifiche in app + email**: ogni evento genera una notifica; l'email si
+  compone in una finestra dedicata (apri nel client / copia testo), senza
+  interrompere l'app. L'invio server-side è la Fase 1 (`BACKEND.md`).
 - **Ritardi** evidenziati automaticamente (consegna superata su commessa attiva).
 - **Interfaccia professionale senza emoji**, icone SVG, identità Righi Solutions.
 - **Offline-first** (PWA + service worker); dati nello storage del dispositivo.

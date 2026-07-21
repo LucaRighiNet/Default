@@ -9,7 +9,8 @@ const { sandbox, runner } = require("./_harness");
 const START = "/* ============================ Utility";
 const END   = "/* ============================ Render";
 const EXPORTS = ["STATE","App","isLate","jobsForSupplier","filteredJobs","daysTo","relDays","fmtMoney","fmtDate",
-                 "dISO","supplier","capo","byId","mailto","TIPOLOGIE","STATI","SETTORI","CARPENTERIA","REQ_TYPES","esc","uid"];
+                 "dISO","supplier","capo","byId","mailto","isCapo","activeHours","supplierMonthlyLoad","monthKey",
+                 "toCSV","parseCSV","TIPOLOGIE","STATI","SETTORI","CARPENTERIA","REQ_TYPES","esc","uid"];
 const S = sandbox(START, END, EXPORTS, {});
 const r = runner("model_test");
 const resetFilters = () => { S.App.filters = {q:"",stato:"",tipologia:"",settore:"",capo:"",fornitore:"",late:false}; S.App.sort={key:"consegna",dir:1}; };
@@ -141,6 +142,61 @@ r.ok("cataloghi di dominio completi", () => {
   assert.deepStrictEqual(Object.keys(S.TIPOLOGIE).sort(), ["automazione","distribuzione","potenza"]);
   assert(S.SETTORI.length >= 6);
   assert(Object.keys(S.REQ_TYPES).includes("materiale") && Object.keys(S.REQ_TYPES).includes("dubbio"));
+});
+
+/* ---- Ruoli Righi ---- */
+r.ok("ruoli: un responsabile e almeno due caposquadra con capoId valido", () => {
+  const righi = S.STATE.users.filter(u => u.role === "righi");
+  assert(righi.some(u => u.righiRole === "responsabile"), "manca il responsabile");
+  const capi = righi.filter(u => u.righiRole === "caposquadra");
+  assert(capi.length >= 2, "servono >=2 caposquadra");
+  for (const c of capi) assert(S.byId(S.STATE.capi, c.capoId), "capoId non valido: " + c.capoId);
+});
+r.ok("isCapo: riconosce il caposquadra", () => {
+  assert.strictEqual(S.isCapo({ role: "righi", righiRole: "caposquadra", capoId: "cs1" }), true);
+  assert.strictEqual(S.isCapo({ role: "righi", righiRole: "responsabile" }), false);
+  assert.strictEqual(S.isCapo({ role: "fornitore" }), false);
+});
+
+/* ---- Ore stimate e carico terzisti (dati solo Righi) ---- */
+r.ok("ore: ogni commessa ha ore stimate numeriche > 0", () => {
+  assert(S.STATE.jobs.every(j => typeof j.oreStimate === "number" && j.oreStimate > 0), "commessa senza ore");
+});
+r.ok("carico: activeHours somma le ore delle commesse attive del terzista", () => {
+  for (const s of S.STATE.suppliers) {
+    const expected = S.STATE.jobs.filter(j => ["assegnato","in_corso"].includes(j.stato) && j.assegnatoA === s.id)
+      .reduce((a, j) => a + j.oreStimate, 0);
+    assert.strictEqual(S.activeHours(s.id), expected, "ore attive errate per " + s.id);
+  }
+});
+r.ok("carico: matrice mese × terzista coerente con activeHours", () => {
+  const load = S.supplierMonthlyLoad();
+  assert(Array.isArray(load.months) && load.months.every((m,i,a) => i===0 || a[i-1] <= m), "mesi non ordinati");
+  for (const s of S.STATE.suppliers) {
+    const row = load.map[s.id] || {};
+    const tot = Object.values(row).reduce((a,b) => a+b, 0);
+    assert.strictEqual(tot, S.activeHours(s.id), "somma mensile != totale attivo per " + s.id);
+  }
+});
+
+/* ---- Import/Export CSV ---- */
+r.ok("CSV: round-trip toCSV → parseCSV", () => {
+  const rows = [["titolo","budget","note"], ["Quadro A","8000","linea 3"], ["Quadro B","5000","reparto"]];
+  const back = S.parseCSV(S.toCSV(rows));
+  assert.deepStrictEqual(back, rows);
+});
+r.ok("CSV: gestisce delimitatore ';' e valori con virgola/virgolette", () => {
+  const rows = [["a","b"], ["x; y","testo, con virgola"]];
+  const back = S.parseCSV(S.toCSV(rows));
+  assert.deepStrictEqual(back, rows);
+});
+r.ok("CSV: import legge le intestazioni del template", () => {
+  const csv = "titolo;tipologia;settore;budget;ore;data_consegna;caposquadra;visibilita\r\n"
+            + "Quadro test;potenza;Vetro;9000;150;2026-09-01;Andrea Bianchi;tutti";
+  const rows = S.parseCSV(csv);
+  assert.strictEqual(rows.length, 2);
+  assert.strictEqual(rows[1][0], "Quadro test");
+  assert.strictEqual(rows[1][4], "150");
 });
 
 r.done();
