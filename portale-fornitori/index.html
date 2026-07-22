@@ -946,7 +946,13 @@ function viewRighiDashboard(){
   const risk=base.filter(j=>!isLate(j)&&["pubblicato","assegnato","in_corso"].includes(j.stato)&&["giallo","rosso"].includes(jobHealth(j).level));
   const openReq=scopedRequests().filter(r=>r.stato==="aperta");
   const daApprovare=base.filter(j=>j.stato==="da_approvare");
-  const candid=STATE.responses.filter(r=>r.tipo==="accettazione"&&!r.read&&STATE.jobs.some(j=>j.id===r.jobId&&j.stato==="pubblicato"&&scopedIds.has(j.id)));
+  // Da valutare: commesse pubblicate con almeno un'accettazione, RAGGRUPPATE per
+  // commessa (così più fornitori sulla stessa commessa si vedono insieme) e
+  // sempre presenti finché la commessa non è assegnata (non dipende dal "letto").
+  const daValutare=base.filter(j=>j.stato==="pubblicato")
+    .map(j=>({j, accs:jobResponses(j.id).filter(r=>r.tipo==="accettazione")}))
+    .filter(x=>x.accs.length>0)
+    .sort((a,b)=> ((b.accs.some(r=>!r.read)?1:0)-(a.accs.some(r=>!r.read)?1:0)) || (b.accs.length-a.accs.length));
   return `
   <div class="view-head"><div><h2>Ciao, ${esc(u.name.split(" ")[0])}</h2><p>${capo_?"Le commesse che segui":"Tutte le commesse"} · ${fmtDate(todayISO())}</p></div>
     <button class="btn accent" data-act="goNuovo">${icon("plus")} Nuovo lavoro</button></div>
@@ -967,13 +973,16 @@ function viewRighiDashboard(){
   <div class="grid k2">
     <div class="card">
       <div class="sect-t">Da valutare — hanno accettato</div>
-      ${candid.length?`<div class="rowlist">${candid.slice(0,6).map(r=>{const j=byId(STATE.jobs,r.jobId),s=supplier(r.supplierId);return `
-        <div class="lrow unread" data-job="${j.id}">
-          <span class="avatar sm" style="background:${colorFor(s.id)}">${initials(s.name)}</span>
-          <span class="gr"><b>${esc(s.name)}</b><span class="s">${esc(j.title)} · offerta ${fmtMoney(r.importo)}</span></span>
-          <button class="btn sm accent" data-act="assign" data-job="${j.id}" data-sup="${s.id}">Assegna</button></div>`;}).join("")}
-          ${candid.length>6?`<div class="col-more" data-act="goFilter" data-stato="da_assegnare">Vedi tutti i ${candid.length} ${icon("chev","sm")}</div>`:""}</div>`
-        :`<div class="empty">${icon("inbox")}<p>Nessuna nuova accettazione</p></div>`}
+      ${daValutare.length?`<div class="rowlist">${daValutare.slice(0,6).map(({j,accs})=>{
+        const unread=accs.some(r=>!r.read); const multi=accs.length>1;
+        const sub=multi?`<b style="color:var(--accent)">${accs.length} fornitori</b> hanno accettato — scegli il migliore`
+          :`${esc((supplier(accs[0].supplierId)||{}).name||'')} · offerta ${fmtMoney(accs[0].importo)}`;
+        return `<div class="lrow ${unread?'unread':''}" data-job="${j.id}">
+          <span class="ic ${multi?'accent':'ok'}">${icon(multi?'user':'check')}</span>
+          <span class="gr"><b>${esc(j.code)} — ${esc(j.title)}</b><span class="s">${sub}</span></span>
+          <button class="btn sm accent" data-act="assignPick" data-job="${j.id}">${icon("check","sm")} Assegna${multi?` (${accs.length})`:''}</button></div>`;}).join("")}
+          ${daValutare.length>6?`<div class="col-more" data-act="goFilter" data-stato="da_assegnare">Vedi tutte le ${daValutare.length} ${icon("chev","sm")}</div>`:""}</div>`
+        :`<div class="empty">${icon("inbox")}<p>Nessuna accettazione da valutare</p></div>`}
     </div>
     <div class="card">
       <div class="sect-t">Ultime richieste dei fornitori</div>
@@ -987,7 +996,7 @@ function viewRighiDashboard(){
     <div class="rowlist">${risk.slice(0,5).map(j=>{const s=supplier(j.assegnatoA);const h=jobHealth(j);return `
       <div class="lrow" data-job="${j.id}">
         <span class="hdot ${h.level}" style="width:12px;height:12px;margin:0 12px 0 6px"></span>
-        <span class="gr"><b>${esc(j.title)}</b><span class="s">${s?esc(s.name):'da assegnare'} · consegna ${fmtDate(j.dataConsegna)} (${relDays(j.dataConsegna)}) · ${h.label}</span></span>
+        <span class="gr"><b>${esc(j.code)} — ${esc(j.title)}</b><span class="s">${s?esc(s.name):'da assegnare'} · consegna ${fmtDate(j.dataConsegna)} (${relDays(j.dataConsegna)}) · ${h.label}</span></span>
         <span class="pill ${h.level==='rosso'?'danger':'warn'}">${h.label}</span></div>`;}).join("")}
       ${risk.length>5?`<div class="col-more" data-act="goFilter" data-stato="attivi">Vedi tutte ${icon("chev","sm")}</div>`:""}</div></div>`:""}
   ${late.length?`<div class="card leftbar late" style="margin-top:14px">
@@ -995,12 +1004,12 @@ function viewRighiDashboard(){
     <div class="rowlist">${late.slice(0,5).map(j=>{const s=supplier(j.assegnatoA);return `
       <div class="lrow" data-job="${j.id}">
         <span class="ic danger">${icon("clock")}</span>
-        <span class="gr"><b>${esc(j.title)}</b><span class="s">${s?esc(s.name):'—'} · consegna ${fmtDate(j.dataConsegna)} (${relDays(j.dataConsegna)})</span></span>
+        <span class="gr"><b>${esc(j.code)} — ${esc(j.title)}</b><span class="s">${s?esc(s.name):'—'} · consegna ${fmtDate(j.dataConsegna)} (${relDays(j.dataConsegna)})</span></span>
         <span class="pill danger">${Math.abs(daysTo(j.dataConsegna))} gg</span></div>`;}).join("")}
       ${late.length>5?`<div class="col-more" data-act="goFilter" data-stato="late">Vedi tutti i ${late.length} ritardi ${icon("chev","sm")}</div>`:""}</div></div>`:""}`;
 }
 function reqRow(r){ const j=byId(STATE.jobs,r.jobId),s=supplier(r.supplierId),t=REQ_TYPES[r.tipo],c=capo(r.capoId);
-  const sub=r.tipo==="slittamento"&&r.dataProposta ? `${esc(j?j.title:'')} · nuova data ${fmtDate(r.dataProposta)}` : `${esc(j?j.title:'')} · caposquadra ${esc(c?c.name:'—')}`;
+  const jref=j?esc(j.code)+' · ':''; const sub=r.tipo==="slittamento"&&r.dataProposta ? `${jref}${esc(j?j.title:'')} · nuova data ${fmtDate(r.dataProposta)}` : `${jref}${esc(j?j.title:'')} · caposquadra ${esc(c?c.name:'—')}`;
   return `<button class="lrow ${!r.read?'unread':''}" data-req="${r.id}" style="width:100%">
     <span class="ic ${t.pill==='danger'?'danger':t.pill==='warn'?'accent':'info'}">${icon(r.tipo==='materiale'?'inbox':r.tipo==='ritardo'?'clock':r.tipo==='slittamento'?'calendar':'mail')}</span>
     <span class="gr"><b>${t.label} — ${esc(s?s.name:'')}</b><span class="s">${sub} · ${fmtDate((r.at||'').slice(0,10))}</span></span>
@@ -1597,8 +1606,8 @@ function openNotifyPick(jid){ const j=byId(STATE.jobs,jid);
 function openAssignPick(jid){ const j=byId(STATE.jobs,jid);
   const sMap={}; suggestSuppliers(j).forEach(r=>sMap[r.sid]=r);
   const cand=jobResponses(j.id).filter(r=>r.tipo==="accettazione").sort((a,b)=>((sMap[b.supplierId]||{}).score||0)-((sMap[a.supplierId]||{}).score||0));
-  openModal(`${modalHead("Assegna la commessa")}
-    <p class="muted" style="font-size:13px;margin-top:0">${esc(j.title)} — ordinati per idoneità (specializzazione, capacità, puntualità).</p>
+  openModal(`${modalHead("Assegna — "+esc(j.code))}
+    <p class="muted" style="font-size:13px;margin-top:0"><b>${esc(j.code)}</b> — ${esc(j.title)}<br>${cand.length} ${cand.length===1?'fornitore ha':'fornitori hanno'} accettato, ordinati per idoneità (specializzazione, capacità, puntualità). Scegli chi assegnare.</p>
     <div class="rowlist">${cand.map(r=>{const s=supplier(r.supplierId); const sg=sMap[r.supplierId]||{};
       return `<div class="lrow"><span class="avatar sm" style="background:${colorFor(s.id)}">${initials(s.name)}</span>
       <span class="gr"><b>${esc(s.name)}${(sg.reasons&&sg.reasons.includes("puntuale"))?' <span class="pill ok">puntuale</span>':''}${r.firma?' <span class="pill ok">firmato</span>':''}</b><span class="s">offerta ${fmtMoney(r.importo)} · libere ${sg.free!=null?sg.free+'h':'—'}${sg.overload?' · <span style="color:var(--danger)">sovraccarico</span>':''}${sg.puntualita!=null?' · punt '+sg.puntualita+'%':''}</span></span>
