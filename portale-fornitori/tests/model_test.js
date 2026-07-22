@@ -8,7 +8,7 @@ const { sandbox, runner } = require("./_harness");
 
 const START = "/* ============================ Utility";
 const END   = "/* ============================ Render";
-const EXPORTS = ["STATE","App","isLate","jobsForSupplier","filteredJobs","daysTo","relDays","fmtMoney","fmtDate",
+const EXPORTS = ["STATE","App","isLate","isLateStart","isLateReturn","keyDate","lateDays","jobsForSupplier","filteredJobs","daysTo","relDays","fmtMoney","fmtDate",
                  "dISO","addDays","supplier","capo","byId","mailto","isCapo","activeHours","supplierMonthlyLoad","monthKey",
                  "toCSV","parseCSV","supplierMetrics","freeCapacity","monthLoad","daysBetween","jobHealth","suggestSuppliers",
                  "TIPOLOGIE","STATI","SETTORI","LAVORAZIONI","LAV_KEYS","parseLavorazioni","REQ_TYPES","AVANZAMENTO","CERT","QUICK_REPLIES","esc","uid",
@@ -95,14 +95,29 @@ r.ok("visibilità: un lavoro ASSEGNATO è visibile solo all'assegnatario", () =>
 });
 
 /* ---- Ritardi ---- */
-r.ok("isLate: consegna superata su commessa attiva = ritardo", () => {
-  const j = S.STATE.jobs.find(x => ["assegnato","in_corso"].includes(x.stato) && S.daysTo(x.dataConsegna) < 0);
-  assert(j, "atteso almeno un attivo con consegna passata");
+r.ok("isLate: rientro superato su commessa attiva = ritardo", () => {
+  const j = S.STATE.jobs.find(x => ["assegnato","in_corso"].includes(x.stato) && S.daysTo(x.dataRientro) < 0);
+  assert(j, "atteso almeno un attivo con rientro passato");
   assert.strictEqual(S.isLate(j), true);
 });
 r.ok("isLate: consegnato non è mai in ritardo", () => {
   for (const j of S.STATE.jobs.filter(x => x.stato === "consegnato"))
     assert.strictEqual(S.isLate(j), false);
+});
+r.ok("alert: isLate segue inizio/rientro, mai la consegna al cliente", () => {
+  // consegna al cliente nel passato ma rientro futuro e lavori avviati -> NON in ritardo
+  assert.strictEqual(S.isLate({ stato:"in_corso", dataConsegna:S.dISO(-5), dataRientro:S.dISO(10), dataInizioStimata:S.dISO(-20) }), false, "la consegna cliente non deve generare alert");
+  // rientro superato su commessa attiva -> in ritardo
+  assert.strictEqual(S.isLateReturn({ stato:"in_corso", dataRientro:S.dISO(-1) }), true);
+  assert.strictEqual(S.isLate({ stato:"in_corso", dataRientro:S.dISO(-1), dataInizioStimata:S.dISO(-20) }), true);
+  // assegnata oltre l'inizio stimato (non ancora avviata) -> ritardo di avvio
+  assert.strictEqual(S.isLateStart({ stato:"assegnato", dataInizioStimata:S.dISO(-2), dataRientro:S.dISO(10) }), true);
+  // in corso: la data di inizio non genera più alert di avvio
+  assert.strictEqual(S.isLateStart({ stato:"in_corso", dataInizioStimata:S.dISO(-2) }), false);
+});
+r.ok("seed: date coerenti inizio <= rientro <= consegna al cliente", () => {
+  const bad = S.STATE.jobs.filter(j => !(j.dataInizioStimata <= j.dataRientro && j.dataRientro <= j.dataConsegna));
+  assert.strictEqual(bad.length, 0, bad.length + " commesse con date fuori ordine");
 });
 
 /* ---- Vista massiva: filtro + ordinamento ---- */
@@ -130,10 +145,10 @@ r.ok("filteredJobs: ricerca testuale per codice", () => {
   S.App.filters.q = code.toLowerCase();
   assert(S.filteredJobs().some(j => j.code === code));
 });
-r.ok("filteredJobs: ordinamento per consegna crescente", () => {
-  resetFilters(); S.App.sort = { key: "consegna", dir: 1 };
+r.ok("filteredJobs: ordinamento per rientro crescente", () => {
+  resetFilters(); S.App.sort = { key: "rientro", dir: 1 };
   const a = S.filteredJobs();
-  for (let i = 1; i < a.length; i++) assert(a[i-1].dataConsegna <= a[i].dataConsegna, "ordine consegna rotto");
+  for (let i = 1; i < a.length; i++) assert(S.keyDate(a[i-1]) <= S.keyDate(a[i]), "ordine rientro rotto");
 });
 
 /* ---- Helper puri ---- */
@@ -184,28 +199,28 @@ r.ok("supplierMetrics: campi coerenti e puntualità 0..100", () => {
     assert(m.tassoAccett === null || (m.tassoAccett >= 0 && m.tassoAccett <= 100));
   }
 });
-r.ok("supplierMetrics: puntualità = consegne on-time / consegnate", () => {
-  const s = S.STATE.suppliers.find(x => S.STATE.jobs.some(j => j.assegnatoA === x.id && j.stato === "consegnato" && j.dataConsegnaEffettiva));
-  assert(s, "atteso un fornitore con consegne");
-  const del = S.STATE.jobs.filter(j => j.assegnatoA === s.id && j.stato === "consegnato" && j.dataConsegnaEffettiva);
-  const onTime = del.filter(j => j.dataConsegnaEffettiva <= j.dataConsegna).length;
+r.ok("supplierMetrics: puntualità = rientri on-time / consegnati (vs rientro richiesto)", () => {
+  const s = S.STATE.suppliers.find(x => S.STATE.jobs.some(j => j.assegnatoA === x.id && j.stato === "consegnato" && j.dataRientroEff));
+  assert(s, "atteso un fornitore con rientri effettivi");
+  const del = S.STATE.jobs.filter(j => j.assegnatoA === s.id && j.stato === "consegnato" && j.dataRientroEff);
+  const onTime = del.filter(j => j.dataRientroEff <= j.dataRientro).length;
   assert.strictEqual(S.supplierMetrics(s.id).puntualita, Math.round(onTime / del.length * 100));
 });
 
-/* ---- Fase C: cambio data consegna ---- */
-r.ok("applyDateChange: sovrascrive la data e registra lo storico", () => {
+/* ---- Fase C: cambio data di RIENTRO (slittamento/modifica) ---- */
+r.ok("applyDateChange: sovrascrive il rientro e registra lo storico", () => {
   const j = SA.STATE.jobs.find(x => ["assegnato","in_corso"].includes(x.stato) && x.assegnatoA);
-  const before = j.dataConsegna; const n0 = (j.storicoDate||[]).length;
+  const before = j.dataRientro; const n0 = (j.storicoDate||[]).length;
   const nd = SA.addDays(before, 12);
   assert.strictEqual(SA.applyDateChange(j, nd, "test", "fornitore", j.assegnatoA), true);
-  assert.strictEqual(j.dataConsegna, nd, "data non sovrascritta");
+  assert.strictEqual(j.dataRientro, nd, "rientro non sovrascritto");
   assert.strictEqual(j.storicoDate.length, n0 + 1, "storico non aggiornato");
   assert.strictEqual(j.storicoDate[j.storicoDate.length-1].from, before);
 });
-r.ok("applyDateChange: no-op se la data non cambia", () => {
+r.ok("applyDateChange: no-op se il rientro non cambia", () => {
   const j = SA.STATE.jobs.find(x => ["assegnato","in_corso"].includes(x.stato) && x.assegnatoA);
   const n0 = j.storicoDate.length;
-  assert.strictEqual(SA.applyDateChange(j, j.dataConsegna, "x", "fornitore", j.assegnatoA), false);
+  assert.strictEqual(SA.applyDateChange(j, j.dataRientro, "x", "fornitore", j.assegnatoA), false);
   assert.strictEqual(j.storicoDate.length, n0, "storico non deve cambiare");
 });
 
@@ -337,7 +352,7 @@ r.ok("analisi/salute: verde+giallo+rosso = commesse attive", () => {
 });
 r.ok("analisi/puntualità: solo consegne con data effettiva, % coerente", () => {
   const d = SA.puntualitaByMonth();
-  const deliv = SA.STATE.jobs.filter(j => ["consegnato","chiuso"].includes(j.stato) && j.dataConsegnaEffettiva);
+  const deliv = SA.STATE.jobs.filter(j => ["consegnato","chiuso"].includes(j.stato) && j.dataRientroEff);
   assert.strictEqual(d.tot, deliv.length, "conteggio consegne errato");
   assert(d.tot > 0, "il seed deve avere consegne registrate");
   d.months.forEach(m => { const v = d.map[m]; assert(v.ok + v.late > 0, "mese vuoto: " + m); });

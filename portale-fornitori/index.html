@@ -677,8 +677,14 @@ function seed(){
       oreStimate:Math.round((20+rng()*360)/5)*5,
       allegati:[{id:uid("a"),name:"Layout_"+slug(set)+"_"+codeN+".pdf",type:"application/pdf",layout:true,size:(300+Math.floor(rng()*500))+" KB"}],
       visibility:"tutti", invitati:[], stato, assegnatoA:null, publishedAt:null, createdAt:dISO(-Math.floor(rng()*60)),
-      storicoDate:[], dataConsegnaEffettiva:null, assegnatoAt:null, avanzamento:null };
-    codeN++; Object.assign(j,opts||{}); j.dataConsegnaBase=j.dataConsegna; return j;
+      storicoDate:[], dataRientroEff:null, assegnatoAt:null, avanzamento:null };
+    codeN++; Object.assign(j,opts||{});
+    // dataConsegna = consegna al cliente (interna Righi). Da questa deriviamo, se non fornite:
+    //   rientro in Righi = qualche giorno PRIMA della consegna al cliente (buffer spedizione/installazione)
+    //   inizio produzione stimato = alcuni giorni PRIMA del rientro
+    if(!j.dataRientro) j.dataRientro=addDays(j.dataConsegna,-(2+Math.floor(rng()*5)));
+    if(!j.dataInizioStimata) j.dataInizioStimata=addDays(j.dataRientro,-(6+Math.floor(rng()*16)));
+    j.dataRientroBase=j.dataRientro; return j;
   }
   // 40 da assegnare (pubblicati)
   for(let i=0;i<40;i++){ const sel=rng()<0.35; const inv=sel?activeSup.filter(()=>rng()<0.4).map(s=>s.id).slice(0,3):[];
@@ -690,11 +696,12 @@ function seed(){
       dataRichiesta:dISO(-(14+Math.floor(rng()*45))), dataConsegna:dISO(cons), publishedAt:dISO(-(12+Math.floor(rng()*40))),
       assegnatoAt:dISO(-(3+Math.floor(rng()*80))),
       avanzamento: st==="in_corso" ? pick(["materiale","cablaggio","cablaggio","collaudo","pronto"]) : (rng()<0.4?"materiale":null) })); }
-  // 22 consegnati (con data effettiva: mix puntuali/in ritardo -> puntualita)
+  // 22 consegnati (rientro effettivo: mix puntuali/in ritardo rispetto al rientro richiesto -> puntualita)
   for(let i=0;i<22;i++){ const sup=pick(activeSup); const co=-(6+Math.floor(rng()*34)); const onTime=rng()<0.72; const delta=onTime? -Math.floor(rng()*3) : (1+Math.floor(rng()*7));
-    jobs.push(mk("consegnato",{ assegnatoA:sup.id, invitati:[sup.id], avanzamento:"pronto",
+    const j=mk("consegnato",{ assegnatoA:sup.id, invitati:[sup.id], avanzamento:"pronto",
       dataRichiesta:dISO(co-30-Math.floor(rng()*20)), dataConsegna:dISO(co), publishedAt:dISO(co-28-Math.floor(rng()*10)),
-      assegnatoAt:dISO(co-(15+Math.floor(rng()*40))), dataConsegnaEffettiva:dISO(Math.min(co+delta,-1)) })); }
+      assegnatoAt:dISO(co-(15+Math.floor(rng()*40))) });
+    const eff=addDays(j.dataRientro,delta); j.dataRientroEff = eff<todayISO()?eff:dISO(-1); jobs.push(j); }
   // 6 bozze
   for(let i=0;i<6;i++){ jobs.push(mk("bozza",{ allegati:[], dataRichiesta:dISO(0), dataConsegna:dISO(20+Math.floor(rng()*20)) })); }
   // 4 da approvare (inviate dai capisquadra, in attesa del responsabile di produzione)
@@ -719,10 +726,10 @@ function seed(){
     requests.push({id:uid("q"),jobId:j.id,supplierId:j.assegnatoA,tipo:tp,testo:tp==="materiale"?"Mancano alcuni morsetti sezionabili.":tp==="dubbio"?"Siglatura morsetti non chiara sul foglio 4.":"",at:dISO(-Math.floor(rng()*3))+"T"+(8+i)+":30",stato:i<6?"aperta":"presa",capoId:j.capoId,from:"fornitore",read:i>=6}); }
   // richieste di slittamento aperte (da approvare)
   for(let i=0;i<3;i++){ const j=active[Math.floor(rng()*active.length)]; if(!j) continue;
-    requests.push({id:uid("q"),jobId:j.id,supplierId:j.assegnatoA,tipo:"slittamento",testo:"Ritardo nella fornitura del materiale dal nostro fornitore.",dataProposta:addDays(j.dataConsegna,7+Math.floor(rng()*7)),esito:null,at:dISO(-Math.floor(rng()*2))+"T10:1"+i,stato:"aperta",capoId:j.capoId,from:"fornitore",read:false}); }
-  // slittamenti già approvati in passato (storico su ~15% delle commesse attive)
-  active.filter(()=>rng()<0.15).forEach(j=>{ const orig=addDays(j.dataConsegna,-(5+Math.floor(rng()*8))); j.dataConsegnaBase=orig;
-    j.storicoDate.push({from:orig,to:j.dataConsegna,byRole:"caposquadra",by:j.capoId,at:dISO(-(3+Math.floor(rng()*20))),motivo:"Slittamento concordato",tipo:"slittamento"}); });
+    requests.push({id:uid("q"),jobId:j.id,supplierId:j.assegnatoA,tipo:"slittamento",testo:"Ritardo nella fornitura del materiale dal nostro fornitore.",dataProposta:addDays(j.dataRientro,7+Math.floor(rng()*7)),esito:null,at:dISO(-Math.floor(rng()*2))+"T10:1"+i,stato:"aperta",capoId:j.capoId,from:"fornitore",read:false}); }
+  // slittamenti già approvati in passato: storico sul RIENTRO (~15% delle commesse attive)
+  active.filter(()=>rng()<0.15).forEach(j=>{ const orig=addDays(j.dataRientro,-(5+Math.floor(rng()*8))); j.dataRientroBase=orig;
+    j.storicoDate.push({from:orig,to:j.dataRientro,byRole:"caposquadra",by:j.capoId,at:dISO(-(3+Math.floor(rng()*20))),motivo:"Slittamento concordato",tipo:"slittamento"}); });
 
   // demo: una richiesta con foto allegata + una con risposta rapida già data
   const rMat=requests.find(x=>x.tipo==="materiale"); if(rMat){ rMat.foto=DEMO_FOTO; }
@@ -734,7 +741,7 @@ function seed(){
 /* ============================ Stato ============================ */
 let STATE = Store.load() || seed();
 let Session = (function(){ try{ const r=Storage.get(SESSKEY); return r?JSON.parse(r):null; }catch(e){ return null; } })();
-let App = { tab:null, lavoriMode:"table", page:1, filters:{q:"",stato:"",tipologia:"",settore:"",capo:"",fornitore:"",late:false}, sort:{key:"consegna",dir:1}, fFilters:{q:"",stato:""} };
+let App = { tab:null, lavoriMode:"table", page:1, filters:{q:"",stato:"",tipologia:"",settore:"",capo:"",fornitore:"",late:false}, sort:{key:"rientro",dir:1}, fFilters:{q:"",stato:""} };
 const PAGE=40;
 function persist(){ Store.save(STATE); }
 function setSession(userId){ Session = userId?{userId}:null; try{ Storage.set(SESSKEY, JSON.stringify(Session)); }catch(e){} }
@@ -748,7 +755,15 @@ function jobsForSupplier(sid){ return STATE.jobs.filter(j=>{
   if(j.assegnatoA) return j.assegnatoA===sid;               // assegnato: solo l'assegnatario lo vede
   return j.visibility==="tutti" || (j.invitati||[]).includes(sid); // non ancora assegnato: per visibilità
 }); }
-function isLate(j){ const n=daysTo(j.dataConsegna); return n!=null && n<0 && !["consegnato","chiuso"].includes(j.stato); }
+// Alert basati sulle date operative del fornitore (mai sulla consegna al cliente):
+//  - inizio in ritardo: assegnata ma la produzione non è ancora partita oltre la data di inizio stimata
+//  - rientro in ritardo: commessa attiva non ancora rientrata oltre la data di rientro richiesta
+function isLateStart(j){ if(j.stato!=="assegnato") return false; const n=daysTo(j.dataInizioStimata); return n!=null && n<0; }
+function isLateReturn(j){ if(!["assegnato","in_corso"].includes(j.stato)) return false; const n=daysTo(j.dataRientro); return n!=null && n<0; }
+function isLate(j){ return isLateStart(j) || isLateReturn(j); }
+// data operativa di riferimento (scadenza fornitore) e giorni di ritardo sul vincolo attivo
+function keyDate(j){ return j.dataRientro||j.dataConsegna; }
+function lateDays(j){ if(isLateReturn(j)) return Math.abs(daysTo(j.dataRientro)); if(isLateStart(j)) return Math.abs(daysTo(j.dataInizioStimata)); return 0; }
 function jobResponses(jid){ return STATE.responses.filter(r=>r.jobId===jid); }
 function jobRequests(jid){ return STATE.requests.filter(r=>r.jobId===jid); }
 /* ruoli lato Righi: responsabile (vede tutto) vs caposquadra (solo le sue commesse) */
@@ -761,21 +776,21 @@ function monthKey(iso){ return (iso||"").slice(0,7); }
 function monthLabel(k){ if(!k) return "—"; const p=k.split("-"); return MESI[(+p[1])-1]+" '"+p[0].slice(2); }
 function activeHours(sid){ return STATE.jobs.filter(j=>["assegnato","in_corso"].includes(j.stato)&&j.assegnatoA===sid).reduce((s,j)=>s+(j.oreStimate||0),0); }
 function supplierMonthlyLoad(){ const map={}, months=new Set();
-  STATE.jobs.filter(j=>["assegnato","in_corso"].includes(j.stato)&&j.assegnatoA).forEach(j=>{ const k=monthKey(j.dataConsegna); map[j.assegnatoA]=map[j.assegnatoA]||{}; map[j.assegnatoA][k]=(map[j.assegnatoA][k]||0)+(j.oreStimate||0); months.add(k); });
+  STATE.jobs.filter(j=>["assegnato","in_corso"].includes(j.stato)&&j.assegnatoA).forEach(j=>{ const k=monthKey(j.dataRientro); map[j.assegnatoA]=map[j.assegnatoA]||{}; map[j.assegnatoA][k]=(map[j.assegnatoA][k]||0)+(j.oreStimate||0); months.add(k); });
   return {map, months:[...months].sort()}; }
-// carico e capacità per mese di consegna
-function monthLoad(sid, mk){ return STATE.jobs.filter(j=>["assegnato","in_corso"].includes(j.stato)&&j.assegnatoA===sid&&monthKey(j.dataConsegna)===mk).reduce((s,j)=>s+(j.oreStimate||0),0); }
+// carico e capacità per mese di RIENTRO (scadenza operativa del fornitore)
+function monthLoad(sid, mk){ return STATE.jobs.filter(j=>["assegnato","in_corso"].includes(j.stato)&&j.assegnatoA===sid&&monthKey(j.dataRientro)===mk).reduce((s,j)=>s+(j.oreStimate||0),0); }
 function freeCapacity(sid, mk){ const s=supplier(sid); if(!s) return 0; mk=mk||monthKey(todayISO()); return (s.capacitaMese||0) - monthLoad(sid, mk); }
 function loadRatio(sid, mk){ const s=supplier(sid); if(!s||!s.capacitaMese) return 1; mk=mk||monthKey(todayISO()); return monthLoad(sid, mk)/s.capacitaMese; }
 function daysBetween(a,b){ if(!a||!b) return null; return Math.round((new Date(b+"T12:00:00")-new Date(a+"T12:00:00"))/86400000); }
 // Metriche fornitore (calcolate, non memorizzate) — identiche lato Righi e lato fornitore
 function supplierMetrics(sid){
   const jobs=STATE.jobs.filter(j=>j.assegnatoA===sid);
-  const delivered=jobs.filter(j=>j.stato==="consegnato"&&j.dataConsegnaEffettiva);
-  const onTime=delivered.filter(j=> j.dataConsegnaEffettiva<=j.dataConsegna).length;
+  const delivered=jobs.filter(j=>j.stato==="consegnato"&&j.dataRientroEff);
+  const onTime=delivered.filter(j=> j.dataRientroEff<=j.dataRientro).length;
   const puntualita=delivered.length? Math.round(onTime/delivered.length*100) : null;
-  const lateDel=delivered.filter(j=> j.dataConsegnaEffettiva>j.dataConsegna);
-  const ritardoMedio=lateDel.length? Math.round(lateDel.reduce((s,j)=>s+(daysBetween(j.dataConsegna,j.dataConsegnaEffettiva)||0),0)/lateDel.length) : 0;
+  const lateDel=delivered.filter(j=> j.dataRientroEff>j.dataRientro);
+  const ritardoMedio=lateDel.length? Math.round(lateDel.reduce((s,j)=>s+(daysBetween(j.dataRientro,j.dataRientroEff)||0),0)/lateDel.length) : 0;
   const slittamenti=jobs.reduce((s,j)=>s+((j.storicoDate&&j.storicoDate.length)||0),0);
   const perMonth={}; jobs.filter(j=>j.assegnatoAt).forEach(j=>{ const k=monthKey(j.assegnatoAt); perMonth[k]=(perMonth[k]||0)+1; });
   const months=Object.keys(perMonth).sort(); const takenTotal=jobs.filter(j=>j.assegnatoAt).length;
@@ -838,7 +853,7 @@ function filteredJobs(){
     return (j.title+" "+j.code+" "+j.settore+" "+TIPOLOGIE[j.tipologia].short+" "+(s?s.name:"")+" "+(c?c.name:"")).toLowerCase().includes(q); }); }
   const k=App.sort.key, dir=App.sort.dir;
   a.sort((x,y)=>{ let vx,vy;
-    if(k==="consegna"){vx=x.dataConsegna;vy=y.dataConsegna;}
+    if(k==="rientro"){vx=keyDate(x);vy=keyDate(y);}
     else if(k==="budget"){vx=x.budget||0;vy=y.budget||0;}
     else if(k==="ore"){vx=x.oreStimate||0;vy=y.oreStimate||0;}
     else if(k==="code"){vx=x.code;vy=y.code;}
@@ -852,25 +867,28 @@ function filteredJobs(){
 function jobHealth(j){
   if(["consegnato","chiuso"].includes(j.stato)) return {level:"done",label:"Consegnato"};
   if(j.stato==="bozza") return {level:"draft",label:"Bozza"};
-  if(isLate(j)) return {level:"rosso",label:"In ritardo"};
-  const dleft=daysTo(j.dataConsegna);
-  if(j.stato==="pubblicato"){ const hasAcc=jobResponses(j.id).some(r=>r.tipo==="accettazione");
-    if(dleft!=null&&dleft<10&&!hasAcc) return {level:"rosso",label:"Urgente da assegnare"};
-    if(dleft!=null&&dleft<20&&!hasAcc) return {level:"giallo",label:"Da assegnare"};
+  if(isLate(j)) return {level:"rosso",label: isLateReturn(j)?"Rientro in ritardo":"Inizio in ritardo"};
+  // pubblicati/da_approvare: la scadenza per assegnare è governata dall'INIZIO stimato
+  if(["pubblicato","da_approvare"].includes(j.stato)){ const dstart=daysTo(j.dataInizioStimata); const hasAcc=jobResponses(j.id).some(r=>r.tipo==="accettazione");
+    if(dstart!=null&&dstart<7&&!hasAcc) return {level:"rosso",label:"Urgente da assegnare"};
+    if(dstart!=null&&dstart<15&&!hasAcc) return {level:"giallo",label:"Da assegnare"};
     return {level:"verde",label:"In tempo"}; }
+  // assegnati/in corso non in ritardo: monitoraggio verso il RIENTRO
+  const dret=daysTo(j.dataRientro);
   const stepIdx=j.avanzamento?AVZ_ORDER.indexOf(j.avanzamento)+1:0;
   const m=j.assegnatoA?supplierMetrics(j.assegnatoA):null; const punt=(m&&m.puntualita!=null)?m.puntualita:85;
-  if(dleft!=null){
-    if(dleft<7&&stepIdx<3) return {level:"rosso",label:"A rischio ritardo"};
-    if(dleft<14&&stepIdx<2) return {level:"giallo",label:"Da monitorare"};
-    if(dleft<21&&punt<75&&stepIdx<3) return {level:"giallo",label:"Fornitore poco puntuale"};
+  if(j.stato==="assegnato"){ const dstart=daysTo(j.dataInizioStimata); if(dstart!=null&&dstart<3) return {level:"giallo",label:"Inizio imminente"}; }
+  if(dret!=null){
+    if(dret<7&&stepIdx<3) return {level:"rosso",label:"A rischio ritardo"};
+    if(dret<14&&stepIdx<2) return {level:"giallo",label:"Da monitorare"};
+    if(dret<21&&punt<75&&stepIdx<3) return {level:"giallo",label:"Fornitore poco puntuale"};
   }
   return {level:"verde",label:"In tempo"};
 }
 function healthDot(j){ const h=jobHealth(j); if(["done","draft"].includes(h.level)) return ""; return `<span class="hdot ${h.level}" title="${h.label}"></span>`; }
 // Assegnazione intelligente: punteggio fornitori per una commessa
 function prefFor(sup, capoId){ return (sup && sup.preferenze && capoId && sup.preferenze[capoId]) || 0; }
-function suggestSuppliers(job){ const mk=monthKey(job.dataConsegna); const need=job.oreStimate||0;
+function suggestSuppliers(job){ const mk=monthKey(keyDate(job)); const need=job.oreStimate||0;
   const needHv=job.tipologia==="potenza"; const needFood=/food|farmaceutico/i.test(job.settore);
   // solo terzisti accreditati e ATTIVI concorrono all'assegnazione
   return STATE.suppliers.filter(s=>s.accredited&&s.attivo).map(s=>{ const m=supplierMetrics(s.id); let score=0; const reasons=[];
@@ -990,7 +1008,7 @@ function viewRighiDashboard(){
   <div class="grid k4" style="margin-bottom:14px">
     <div class="card kpi click" data-act="goFilter" data-stato="da_assegnare"><span class="v">${pub}</span><span class="l">Da assegnare</span><span class="foot">pubblicati ai fornitori</span></div>
     <div class="card kpi ok click" data-act="goFilter" data-stato="attivi"><span class="v">${ass}</span><span class="l">Assegnati / in corso</span></div>
-    <div class="card kpi danger click" data-act="goFilter" data-stato="late"><span class="v">${late.length}</span><span class="l">In ritardo</span><span class="foot">consegna superata</span></div>
+    <div class="card kpi danger click" data-act="goFilter" data-stato="late"><span class="v">${late.length}</span><span class="l">In ritardo</span><span class="foot">inizio o rientro superati</span></div>
     <div class="card kpi accent click" data-act="goTab" data-tab="richieste"><span class="v">${openReq.length}</span><span class="l">Richieste aperte</span><span class="foot">dai fornitori</span></div>
   </div>
   ${daApprovare.length?`<div class="card leftbar" style="margin-bottom:14px;border-left:4px solid var(--warn)">
@@ -998,7 +1016,7 @@ function viewRighiDashboard(){
     <div class="rowlist">${daApprovare.slice(0,6).map(j=>{const rq=byId(STATE.users,j.richiedente);return `
       <div class="lrow" data-job="${j.id}">
         <span class="ic accent">${icon("bolt")}</span>
-        <span class="gr"><b>${esc(j.title)}</b><span class="s">${esc(j.code)}${rq?' · da '+esc(rq.name):''} · consegna ${fmtDate(j.dataConsegna)}</span></span>
+        <span class="gr"><b>${esc(j.title)}</b><span class="s">${esc(j.code)}${rq?' · da '+esc(rq.name):''} · rientro ${fmtDate(j.dataRientro)}</span></span>
         ${capo_?`<span class="pill warn">In attesa</span>`:`<button class="btn sm accent" data-act="approveJob" data-job="${j.id}">Approva</button>`}</div>`;}).join("")}
       ${daApprovare.length>6?`<div class="col-more" data-act="goFilter" data-stato="da_approvare">Vedi tutte le ${daApprovare.length} ${icon("chev","sm")}</div>`:""}</div></div>`:""}
   <div class="grid k2">
@@ -1027,16 +1045,16 @@ function viewRighiDashboard(){
     <div class="rowlist">${risk.slice(0,5).map(j=>{const s=supplier(j.assegnatoA);const h=jobHealth(j);return `
       <div class="lrow" data-job="${j.id}">
         <span class="hdot ${h.level}" style="width:12px;height:12px;margin:0 12px 0 6px"></span>
-        <span class="gr"><b>${esc(j.code)} — ${esc(j.title)}</b><span class="s">${s?esc(s.name):'da assegnare'} · consegna ${fmtDate(j.dataConsegna)} (${relDays(j.dataConsegna)}) · ${h.label}</span></span>
+        <span class="gr"><b>${esc(j.code)} — ${esc(j.title)}</b><span class="s">${s?esc(s.name):'da assegnare'} · rientro ${fmtDate(j.dataRientro)} (${relDays(j.dataRientro)}) · ${h.label}</span></span>
         <span class="pill ${h.level==='rosso'?'danger':'warn'}">${h.label}</span></div>`;}).join("")}
       ${risk.length>5?`<div class="col-more" data-act="goFilter" data-stato="attivi">Vedi tutte ${icon("chev","sm")}</div>`:""}</div></div>`:""}
   ${late.length?`<div class="card leftbar late" style="margin-top:14px">
-    <div class="sect-t" style="color:var(--danger)">${icon("clock","sm")} Consegne in ritardo (${late.length})</div>
-    <div class="rowlist">${late.slice(0,5).map(j=>{const s=supplier(j.assegnatoA);return `
+    <div class="sect-t" style="color:var(--danger)">${icon("clock","sm")} Commesse in ritardo (${late.length})</div>
+    <div class="rowlist">${late.slice(0,5).map(j=>{const s=supplier(j.assegnatoA);const rit=isLateReturn(j);return `
       <div class="lrow" data-job="${j.id}">
         <span class="ic danger">${icon("clock")}</span>
-        <span class="gr"><b>${esc(j.code)} — ${esc(j.title)}</b><span class="s">${s?esc(s.name):'—'} · consegna ${fmtDate(j.dataConsegna)} (${relDays(j.dataConsegna)})</span></span>
-        <span class="pill danger">${Math.abs(daysTo(j.dataConsegna))} gg</span></div>`;}).join("")}
+        <span class="gr"><b>${esc(j.code)} — ${esc(j.title)}</b><span class="s">${s?esc(s.name):'—'} · ${rit?'rientro':'inizio'} ${fmtDate(rit?j.dataRientro:j.dataInizioStimata)} (${relDays(rit?j.dataRientro:j.dataInizioStimata)})</span></span>
+        <span class="pill danger">${lateDays(j)} gg</span></div>`;}).join("")}
       ${late.length>5?`<div class="col-more" data-act="goFilter" data-stato="late">Vedi tutti i ${late.length} ritardi ${icon("chev","sm")}</div>`:""}</div></div>`:""}`;
 }
 function reqRow(r){ const j=byId(STATE.jobs,r.jobId),s=supplier(r.supplierId),t=REQ_TYPES[r.tipo],c=capo(r.capoId);
@@ -1088,7 +1106,7 @@ function tableHtml(){
   if(isNarrow()) return `${rline}<div class="jlist">${shown.map(jobItem).join("")}</div>${more}`;
   const th=(k,l,extra)=>`<th class="sortable ${extra||''}" data-act="sortBy" data-k="${k}">${l} ${App.sort.key===k?icon("sort","sm"):""}</th>`;
   return `${rline}<div class="scroll-x"><table class="tbl"><thead><tr>
-    ${th("code","Commessa")}${th("title","Lavoro")}<th>Tipologia</th><th>Settore</th>${th("consegna","Consegna")}${th("budget","Budget","num")}${th("ore","Ore","num")}<th>Caposquadra</th>${th("stato","Stato / Fornitore")}
+    ${th("code","Commessa")}${th("title","Lavoro")}<th>Tipologia</th><th>Settore</th>${th("rientro","Rientro")}${th("budget","Budget","num")}${th("ore","Ore","num")}<th>Caposquadra</th>${th("stato","Stato / Fornitore")}
   </tr></thead><tbody>${shown.map(rowHtml).join("")}</tbody></table></div>${more}`;
 }
 function jobItem(j){ const t=TIPOLOGIE[j.tipologia], st=STATI[j.stato], late=isLate(j), s=supplier(j.assegnatoA);
@@ -1097,7 +1115,7 @@ function jobItem(j){ const t=TIPOLOGIE[j.tipologia], st=STATI[j.stato], late=isL
       <span class="code">${healthDot(j)} ${esc(j.code)}</span>
       <div class="t">${esc(j.title)}</div>
       <div class="meta"><span class="pill plain"><span class="dot ${t.dot}"></span>${t.short}</span><span class="pill plain">${esc(j.settore)}</span>${s?`<span class="pill ${late?'danger':st.pill}">${esc(s.name)}</span>`:`<span class="pill ${st.pill}">${st.label}</span>`}</div>
-      <div class="foot"><span>${icon("calendar","sm")} <span class="b">${fmtDate(j.dataConsegna)}</span> ${late?`<span class="pill danger">${Math.abs(daysTo(j.dataConsegna))}gg</span>`:`<span class="muted">(${relDays(j.dataConsegna)})</span>`}</span><span class="b">${fmtMoney(j.budget)}</span></div>
+      <div class="foot"><span>${icon("calendar","sm")} <span class="b">${fmtDate(keyDate(j))}</span> ${late?`<span class="pill danger">${lateDays(j)}gg</span>`:`<span class="muted">(${relDays(keyDate(j))})</span>`}</span><span class="b">${fmtMoney(j.budget)}</span></div>
     </span>
     <span class="arw">${icon("chev")}</span>
   </button>`;
@@ -1108,7 +1126,7 @@ function rowHtml(j){ const t=TIPOLOGIE[j.tipologia], st=STATI[j.stato], late=isL
     <td><div class="t-title">${esc(j.title)}</div></td>
     <td><span class="pill plain"><span class="dot ${t.dot}"></span>${t.short}</span></td>
     <td>${esc(j.settore)}</td>
-    <td>${fmtDate(j.dataConsegna)} ${late?`<span class="pill danger" style="margin-left:2px">${Math.abs(daysTo(j.dataConsegna))}gg</span>`:`<span class="muted" style="font-size:11.5px">${relDays(j.dataConsegna)}</span>`}</td>
+    <td>${fmtDate(keyDate(j))} ${late?`<span class="pill danger" style="margin-left:2px">${lateDays(j)}gg</span>`:`<span class="muted" style="font-size:11.5px">${relDays(keyDate(j))}</span>`}</td>
     <td class="num">${fmtMoney(j.budget)}</td>
     <td class="num">${j.oreStimate?j.oreStimate+" h":"—"}</td>
     <td>${c?esc(c.name):'—'}</td>
@@ -1131,7 +1149,7 @@ function miniCard(j){ const t=TIPOLOGIE[j.tipologia],late=isLate(j),s=supplier(j
     <div class="code">${esc(j.code)}</div>
     <div class="t">${esc(j.title)}</div>
     <div class="tags"><span class="pill plain"><span class="dot ${t.dot}"></span>${t.short}</span>${late?`<span class="pill danger">ritardo</span>`:""}</div>
-    <div class="r"><span>${fmtMoney(j.budget)}</span><span>${s?initials(s.name):fmtDateShort(j.dataConsegna)}</span></div></div>`; }
+    <div class="r"><span>${fmtMoney(j.budget)}</span><span>${s?initials(s.name):fmtDateShort(keyDate(j))}</span></div></div>`; }
 
 /* ==================== VIEW: Righi — Nuovo lavoro ==================== */
 // Duplica una commessa: riparte una nuova bozza con gli stessi dati, azzerando
@@ -1140,13 +1158,13 @@ function duplicateJob(jid){ const j=byId(STATE.jobs,jid); if(!j) return;
   App.draft={ title:j.title, tipologia:j.tipologia, settore:j.settore, lavorazioni:(j.lavorazioni||[]).slice(), ingombro:j.ingombro||"",
     budget:j.budget||"", ore:j.oreStimate||"", capoId:j.capoId, visibility:j.visibility||"tutti",
     invitati:(j.invitati||[]).slice(), descrizione:j.descrizione||"",
-    dataRichiesta:todayISO(), dataConsegna:dISO(21), allegati:[], emailNotify:true };
+    dataRichiesta:todayISO(), dataInizioStimata:dISO(7), dataRientro:dISO(18), dataConsegna:dISO(21), allegati:[], emailNotify:true };
   closeModal(); App.tab="nuovo"; render(); window.scrollTo(0,0);
   toast("Commessa duplicata — aggiorna layout e date","ok");
 }
 // Fornitori suggeriti per la bozza corrente (auto-matching in pubblicazione).
 function draftSuggeriti(d){ if(!d||!d.tipologia) return [];
-  const pseudo={ tipologia:d.tipologia, settore:d.settore, dataConsegna:d.dataConsegna, oreStimate:Number(d.ore)||0 };
+  const pseudo={ tipologia:d.tipologia, settore:d.settore, dataConsegna:d.dataConsegna, dataRientro:d.dataRientro, oreStimate:Number(d.ore)||0 };
   return suggestSuppliers(pseudo).filter(x=>x.score>0).slice(0,4);
 }
 function suggeritiHtml(d){ const sugg=draftSuggeriti(d); if(!sugg.length) return "";
@@ -1165,7 +1183,7 @@ function suggeritiHtml(d){ const sugg=draftSuggeriti(d); if(!sugg.length) return
 }
 function viewNuovoLavoro(){
   const u=currentUser(); const capo_=isCapo(u);
-  const d = App.draft || (App.draft={ tipologia:"automazione", settore:"Packaging", lavorazioni:[], visibility:"tutti", invitati:[], capoId:(capo_?u.capoId:STATE.capi[0].id), dataRichiesta:todayISO(), dataConsegna:dISO(21), allegati:[], emailNotify:true });
+  const d = App.draft || (App.draft={ tipologia:"automazione", settore:"Packaging", lavorazioni:[], visibility:"tutti", invitati:[], capoId:(capo_?u.capoId:STATE.capi[0].id), dataRichiesta:todayISO(), dataInizioStimata:dISO(7), dataRientro:dISO(18), dataConsegna:dISO(21), allegati:[], emailNotify:true });
   return `
   <div class="view-head"><div><h2>Nuovo lavoro</h2><p>${capo_?"Compila e invia al responsabile per l'approvazione":"Componi la proposta con pochi tocchi — input guidati, meno testo"}</p></div></div>
   ${capo_?`<div class="card leftbar" style="max-width:720px;margin-bottom:12px;border-left:4px solid var(--warn)"><div style="display:flex;gap:9px;align-items:flex-start"><span class="ic accent">${icon("bolt")}</span><div><b>Flusso di approvazione</b><p class="muted" style="font-size:12.5px;margin:2px 0 0">Come caposquadra prepari la commessa e la <b>invii per approvazione</b>: il responsabile di produzione la verifica e la pubblica ai fornitori. La ritrovi tra le tue commesse con stato <b>Da approvare</b>.</p></div></div></div>`:""}
@@ -1198,7 +1216,11 @@ function viewNuovoLavoro(){
       <select class="inp" id="nl-capo" ${capo_?"disabled":""}>${STATE.capi.map(c=>`<option value="${c.id}" ${d.capoId===c.id?'selected':''}>${esc(c.name)}</option>`).join("")}</select>${capo_?`<span class="hint">Sei tu il caposquadra di questa commessa</span>`:""}</div>
     <div class="row2">
       <div class="field"><label>Data richiesta</label><input class="inp" id="nl-req" type="date" value="${d.dataRichiesta}"></div>
-      <div class="field"><label>Consegna desiderata</label><input class="inp" id="nl-cons" type="date" value="${d.dataConsegna}"></div>
+      <div class="field"><label>Inizio lavori stimato</label><input class="inp" id="nl-inizio" type="date" value="${d.dataInizioStimata||''}"><span class="hint">Visibile al fornitore · guida gli alert di avvio</span></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>Rientro in Righi richiesto</label><input class="inp" id="nl-rientro" type="date" value="${d.dataRientro||''}"><span class="hint">Riconsegna del quadro finito · visibile al fornitore</span></div>
+      <div class="field"><label>Consegna al cliente</label><input class="inp" id="nl-cons" type="date" value="${d.dataConsegna}"><span class="hint">Riservato Righi · non visibile al fornitore</span></div>
     </div>
     <div class="field"><label>Note tecniche (facoltative)</label>
       <textarea class="inp" id="nl-desc" placeholder="Dettagli utili alla quotazione…">${esc(d.descrizione||'')}</textarea></div>
@@ -1258,14 +1280,14 @@ function mapHtml(){
 // mesi disponibili (dal corrente in avanti) con almeno una consegna, sempre includi corrente..+2
 function caricoMesi(){ const cur=monthKey(todayISO()); const set=new Set([cur]);
   const d=new Date(cur+"-01T12:00:00"); for(let i=1;i<=3;i++){ d.setMonth(d.getMonth()+1); set.add(d.toISOString().slice(0,7)); }
-  STATE.jobs.filter(j=>["assegnato","in_corso"].includes(j.stato)&&j.assegnatoA&&j.dataConsegna>=cur).forEach(j=>set.add(monthKey(j.dataConsegna)));
+  STATE.jobs.filter(j=>["assegnato","in_corso"].includes(j.stato)&&j.assegnatoA&&j.dataRientro>=cur).forEach(j=>set.add(monthKey(j.dataRientro)));
   return [...set].sort().slice(0,6);
 }
 function caricoChartHtml(mk){
   const stateWord={verde:"sotto capacità",giallo:"quasi saturo",rosso:"oltre capacità"};
   const attivi=STATE.suppliers.filter(s=>s.attivo);
   const rows=attivi.map(s=>{ const load=monthLoad(s.id,mk); const cap=s.capacitaMese||0; const ratio=cap?load/cap:0;
-    const commesse=STATE.jobs.filter(j=>["assegnato","in_corso"].includes(j.stato)&&j.assegnatoA===s.id&&monthKey(j.dataConsegna)===mk).length;
+    const commesse=STATE.jobs.filter(j=>["assegnato","in_corso"].includes(j.stato)&&j.assegnatoA===s.id&&monthKey(j.dataRientro)===mk).length;
     return {s, load, cap, ratio, commesse, state: ratio>1?"rosso":ratio>=0.85?"giallo":"verde"}; }).sort((a,b)=>b.load-a.load);
   const axisMax=Math.max(200, Math.ceil(Math.max(...attivi.map(s=>s.capacitaMese||0), ...rows.map(r=>r.load))/200)*200);
   const totLoad=rows.reduce((a,r)=>a+r.load,0), totCap=rows.reduce((a,r)=>a+r.cap,0);
@@ -1305,9 +1327,9 @@ function saluteCounts(){ const attive=scopedJobs().filter(j=>["pubblicato","asse
   const c={verde:0,giallo:0,rosso:0}; attive.forEach(j=>{ const l=jobHealth(j).level; c[l]=(c[l]||0)+1; });
   return { ...c, tot:attive.length, late:scopedJobs().filter(isLate).length };
 }
-function puntualitaByMonth(){ const deliv=scopedJobs().filter(j=>["consegnato","chiuso"].includes(j.stato)&&j.dataConsegnaEffettiva);
-  const map={}; deliv.forEach(j=>{ const m=monthKey(j.dataConsegnaEffettiva); (map[m]=map[m]||{ok:0,late:0});
-    if(j.dataConsegnaEffettiva<=j.dataConsegna) map[m].ok++; else map[m].late++; });
+function puntualitaByMonth(){ const deliv=scopedJobs().filter(j=>["consegnato","chiuso"].includes(j.stato)&&j.dataRientroEff);
+  const map={}; deliv.forEach(j=>{ const m=monthKey(j.dataRientroEff); (map[m]=map[m]||{ok:0,late:0});
+    if(j.dataRientroEff<=j.dataRientro) map[m].ok++; else map[m].late++; });
   const months=Object.keys(map).sort();
   return { months, map, tot:deliv.length, max:Math.max(1,...months.map(m=>map[m].ok+map[m].late)) };
 }
@@ -1363,8 +1385,8 @@ function chartCapo(){ const d=capoCarico(); if(!d.rows.length) return emptyChart
 function viewAnalisi(){ const u=currentUser(); const capo_=isCapo(u);
   return `<div class="view-head"><div><h2>Analisi</h2><p>${capo_?"Le commesse che segui":"Tutte le commesse"} · aggiornato ${fmtDate(todayISO())}</p></div></div>
   <div class="card" style="margin-bottom:14px">
-    <div class="sect-t">${icon("calendar","sm")} Consegne per mese</div>
-    <p class="chart-note">Carico di consegne pianificate per mese e stato di assegnazione: le colonne più alte sono i mesi di picco su cui anticipare l'assegnazione.</p>
+    <div class="sect-t">${icon("calendar","sm")} Consegne al cliente per mese</div>
+    <p class="chart-note">Consegne al cliente pianificate per mese e stato di assegnazione (data riservata a Righi): le colonne più alte sono i mesi di picco su cui anticipare l'assegnazione.</p>
     ${chartConsegne()}
   </div>
   <div class="chart-grid" style="margin-bottom:14px">
@@ -1372,7 +1394,7 @@ function viewAnalisi(){ const u=currentUser(); const capo_=isCapo(u);
     <div class="card"><div class="sect-t">${icon("bolt","sm")} Salute commesse attive</div>${chartSalute()}</div>
   </div>
   <div class="chart-grid" style="margin-bottom:14px">
-    <div class="card"><div class="sect-t">${icon("check","sm")} Andamento puntualità consegne</div>${chartPuntualita()}</div>
+    <div class="card"><div class="sect-t">${icon("check","sm")} Andamento puntualità rientri</div>${chartPuntualita()}</div>
     <div class="card"><div class="sect-t">${icon("clock2","sm")} Mix per tipologia</div>${chartMix()}</div>
   </div>
   <div class="card">
@@ -1435,7 +1457,7 @@ function supplierJobCard(j,u){
       <div class="top"><div><div class="code">${esc(j.code)}</div><h3>${esc(j.title)}</h3></div>
         ${targeted?`<span class="pill accent">Invitato</span>`:`<span class="pill info">Aperto</span>`}</div>
       <div class="meta">${tipPill(j.tipologia)}<span class="pill plain">${esc(j.settore)}</span>${lavPills(j.lavorazioni)}</div>
-      <div class="info"><span>${icon("calendar","sm")} consegna <b>${fmtDate(j.dataConsegna)}</b> <span class="soft">(${relDays(j.dataConsegna)})</span></span><span>Budget <b>${fmtMoney(j.budget)}</b></span></div>
+      <div class="info"><span>${icon("calendar","sm")} inizio <b>${fmtDate(j.dataInizioStimata)}</b> · rientro <b>${fmtDate(j.dataRientro)}</b></span><span>Budget <b>${fmtMoney(j.budget)}</b></span></div>
       ${layout?`<div class="attach layout"><span class="fi">${icon("layout")}</span><span class="gr"><b>${esc(layout.name)}</b><span>Layout per quotazione</span></span></div>`:""}
     </div>
     <div class="foot">
@@ -1470,7 +1492,7 @@ function supplierMineCard(j,u,pending){
       <div class="top"><div><div class="code">${esc(j.code)}</div><h3>${esc(j.title)}</h3></div>
         <span class="pill ${pending?'info':late?'danger':st.pill}">${pending?'In attesa':late?'In ritardo':st.label}</span></div>
       <div class="meta">${tipPill(j.tipologia)}<span class="pill plain">${esc(j.settore)}</span></div>
-      <div class="info"><span>${icon("calendar","sm")} <b>${fmtDate(j.dataConsegna)}</b> <span class="soft">(${relDays(j.dataConsegna)})</span></span><span>Budget <b>${fmtMoney(j.budget)}</b></span></div>
+      <div class="info"><span>${icon("calendar","sm")} rientro <b>${fmtDate(j.dataRientro)}</b> <span class="soft">(${relDays(j.dataRientro)})</span></span><span>Budget <b>${fmtMoney(j.budget)}</b></span></div>
     </div>
     <div class="foot"><span class="pill plain">${icon("user","sm")} ${c?esc(c.name):'—'}</span>
       <div class="btn-row">${pending?"":`<button class="btn sm accent" data-act="quickReq" data-job="${j.id}">${icon("send","sm")} Contatta caposquadra</button>`}</div></div></div>`;
@@ -1583,7 +1605,9 @@ function openJobModal(jid){
     ${(j.consegnaApprovata&&["assegnato","in_corso"].includes(j.stato))?`<div class="card leftbar" style="border-left:4px solid var(--ok);margin-bottom:10px;padding:9px 12px"><b style="color:var(--ok)">${icon("check","sm")} Consegna approvata</b><span class="muted" style="font-size:12.5px;margin-left:6px">dal caposquadra · ${esc((j.consegnaApprovata.at||'').replace('T',' '))}</span></div>`:""}
     <div class="row2">
       <div class="dl"><span class="k">Budget indicativo</span><span class="v">${fmtMoney(j.budget)}</span></div>
-      <div class="dl"><span class="k">Consegna</span><span class="v">${fmtDate(j.dataConsegna)} <span class="soft" style="font-weight:400">(${relDays(j.dataConsegna)})</span></span></div>
+      <div class="dl"><span class="k">Inizio lavori stimato</span><span class="v">${fmtDate(j.dataInizioStimata)}${(j.stato==="assegnato"&&isLateStart(j))?' <span class="pill danger" style="margin-left:2px">da avviare</span>':''}</span></div>
+      <div class="dl"><span class="k">Rientro in Righi</span><span class="v">${fmtDate(j.dataRientro)} <span class="soft" style="font-weight:400">(${relDays(j.dataRientro)})</span>${isLateReturn(j)?' <span class="pill danger" style="margin-left:2px">in ritardo</span>':''}</span></div>
+      ${isRighi?`<div class="dl"><span class="k">Consegna al cliente</span><span class="v">${fmtDate(j.dataConsegna)} <span class="soft" style="font-weight:400">· riservato Righi</span></span></div>`:""}
       <div class="dl"><span class="k">Data richiesta</span><span class="v">${fmtDate(j.dataRichiesta)}</span></div>
       <div class="dl"><span class="k">Caposquadra</span><span class="v">${c?esc(c.name):'—'}</span></div>
       ${isRighi?`<div class="dl"><span class="k">Ore stimate produzione</span><span class="v">${j.oreStimate?j.oreStimate+' h':'—'}</span></div>`:""}
@@ -1596,7 +1620,7 @@ function openJobModal(jid){
     ${others.map(a=>`<div class="attach" style="margin-bottom:6px" data-act="openAtt" data-att="${a.id}" data-job="${j.id}"><span class="fi">${icon("doc")}</span><span class="gr"><b>${esc(a.name)}</b><span>${esc(a.size||a.type||'')}</span></span><span class="btn sm ghost">Apri</span></div>`).join("")}
     ${isRighi&&s?`<div class="dl" style="margin-top:8px"><span class="k">Fornitore</span><span class="v">${esc(s.name)} · ${esc(s.citta)}</span></div>`:""}
     ${thread.length?`<div class="divide"></div><div class="sect-t">Conversazione</div><div class="thread">${thread.map(msgHtml).join("")}</div>`:""}
-    ${(j.storicoDate&&j.storicoDate.length)?`<div class="divide"></div><div class="sect-t">${icon("calendar","sm")} Storico consegna</div><div class="rowlist">${j.storicoDate.slice().reverse().map(h=>`<div class="lrow" style="padding:8px 4px"><span class="ic ${h.tipo==='slittamento'?'accent':'info'}">${icon("calendar")}</span><span class="gr"><b>${fmtDate(h.from)} ${icon("chev","sm")} ${fmtDate(h.to)}</b><span class="s">${h.tipo==='slittamento'?'Slittamento':'Modifica'}${h.byRole?' · '+esc(h.byRole):''}${h.motivo?' · '+esc(h.motivo):''}</span></span></div>`).join("")}</div>`:""}
+    ${(j.storicoDate&&j.storicoDate.length)?`<div class="divide"></div><div class="sect-t">${icon("calendar","sm")} Storico rientro</div><div class="rowlist">${j.storicoDate.slice().reverse().map(h=>`<div class="lrow" style="padding:8px 4px"><span class="ic ${h.tipo==='slittamento'?'accent':'info'}">${icon("calendar")}</span><span class="gr"><b>${fmtDate(h.from)} ${icon("chev","sm")} ${fmtDate(h.to)}</b><span class="s">${h.tipo==='slittamento'?'Slittamento':'Modifica'}${h.byRole?' · '+esc(h.byRole):''}${h.motivo?' · '+esc(h.motivo):''}</span></span></div>`).join("")}</div>`:""}
     ${avanzamentoBlock(j, !isRighi && j.assegnatoA===u.supplierId)}
     ${isRighi&&reqs.length?`<div class="divide"></div><div class="sect-t">Richieste sulla commessa</div><div class="rowlist">${reqs.map(reqRow).join("")}</div>`:""}
     ${footer?`<div class="divide"></div>${footer}`:""}`);
@@ -1629,7 +1653,7 @@ function openQuickReq(jid){ const j=byId(STATE.jobs,jid), c=capo(j.capoId); App.
     <div class="dl"><span class="k">Caposquadra</span><span class="v">${esc(c?c.name:'—')}${c?` · <a href="tel:${esc((c.tel||'').replace(/\s/g,''))}">${esc(c.tel)}</a>`:''}</span></div>
     <div class="sect-t" style="margin-top:12px">Tipo di richiesta</div>
     <div class="chips" id="qr-types">${Object.entries(REQ_TYPES).map(([k,v])=>`<button class="chip sm" data-qrtype="${k}">${v.label}</button>`).join("")}</div>
-    <div class="field hide" id="qr-slip" style="margin-top:12px"><label>Nuova data di consegna proposta</label><input class="inp" id="qr-date" type="date" value="${addDays(j.dataConsegna,10)}"><span class="hint">Consegna attuale: ${fmtDate(j.dataConsegna)} — lo slittamento va approvato da Righi.</span></div>
+    <div class="field hide" id="qr-slip" style="margin-top:12px"><label>Nuova data di rientro proposta</label><input class="inp" id="qr-date" type="date" value="${addDays(j.dataRientro,10)}"><span class="hint">Rientro attuale: ${fmtDate(j.dataRientro)} — lo slittamento va approvato da Righi.</span></div>
     <div class="field" style="margin-top:12px"><label>Dettaglio (facoltativo)</label><textarea class="inp" id="qr-note" placeholder="Poche parole bastano…"></textarea></div>
     <div class="field"><label>Foto (facoltativa) — meglio di mille parole</label>
       <div id="qr-foto-prev"></div>
@@ -1673,7 +1697,7 @@ function openReqDetail(rid){ const r=byId(STATE.requests,rid); if(!r) return;
     ${isRighi?`<div class="dl"><span class="k">Fornitore</span><span class="v">${esc(s?s.name:'')}</span></div>`:""}
     <div class="dl"><span class="k">Commessa</span><span class="v">${esc(j?j.title:'')} · ${esc(j?j.code:'')}</span></div>
     <div class="dl"><span class="k">Caposquadra</span><span class="v">${esc(c?c.name:'—')}</span></div>
-    ${isSlip&&j?`<div class="row2"><div class="dl"><span class="k">Consegna attuale</span><span class="v">${fmtDate(j.dataConsegna)}</span></div><div class="dl"><span class="k">Data proposta</span><span class="v" style="color:var(--accent-deep)">${fmtDate(r.dataProposta)} <span class="soft" style="font-weight:400">(+${daysBetween(j.dataConsegna,r.dataProposta)} gg)</span></span></div></div>`:""}
+    ${isSlip&&j?`<div class="row2"><div class="dl"><span class="k">Rientro attuale</span><span class="v">${fmtDate(j.dataRientro)}</span></div><div class="dl"><span class="k">Data proposta</span><span class="v" style="color:var(--accent-deep)">${fmtDate(r.dataProposta)} <span class="soft" style="font-weight:400">(+${daysBetween(j.dataRientro,r.dataProposta)} gg)</span></span></div></div>`:""}
     <div class="dl"><span class="k">Ricevuta</span><span class="v">${esc((r.at||'').replace('T',' '))}</span></div>
     ${r.testo?`<div class="msg them" style="max-width:100%;margin:6px 0"><div>${esc(r.testo)}</div></div>`:""}
     ${r.foto?`<div class="attach" style="margin:2px 0 8px;cursor:pointer" data-act="openReqFoto" data-id="${rid}"><span class="fi">${icon("doc")}</span><span class="gr"><b>Foto allegata</b><span>tocca per ingrandire</span></span><img src="${r.foto}" style="width:52px;height:52px;object-fit:cover;border-radius:8px"></div>`:""}
@@ -1701,11 +1725,13 @@ function openReqFoto(rid){ const r=byId(STATE.requests,rid); if(!r||!r.foto) ret
   openModal(`${modalHead("Foto allegata")}<img src="${r.foto}" style="width:100%;border-radius:10px;border:1px solid var(--line)" alt="foto della richiesta"><div class="btn-row" style="margin-top:12px"><button class="btn ghost block" data-act="reqDetail" data-id="${rid}">Torna alla richiesta</button></div>`);
 }
 function openEditDate(jid){ const j=byId(STATE.jobs,jid);
-  openModal(`${modalHead("Modifica data di consegna")}
+  openModal(`${modalHead("Modifica date")}
     <div class="dl"><span class="k">Commessa</span><span class="v">${esc(j.title)} · ${esc(j.code)}</span></div>
-    <div class="dl"><span class="k">Consegna attuale</span><span class="v">${fmtDate(j.dataConsegna)}${j.dataConsegnaBase&&j.dataConsegnaBase!==j.dataConsegna?` <span class="soft" style="font-weight:400">(base ${fmtDate(j.dataConsegnaBase)})</span>`:""}</span></div>
-    <div class="field"><label>Nuova data di consegna</label><input class="inp" id="ed-date" type="date" value="${j.dataConsegna}"></div>
-    <div class="field"><label>Motivo (facoltativo)</label><input class="inp" id="ed-note" placeholder="es. anticipo richiesto dal cliente"></div>
+    <div class="dl"><span class="k">Rientro attuale</span><span class="v">${fmtDate(j.dataRientro)}${j.dataRientroBase&&j.dataRientroBase!==j.dataRientro?` <span class="soft" style="font-weight:400">(base ${fmtDate(j.dataRientroBase)})</span>`:""}</span></div>
+    <div class="field"><label>Nuova data di rientro in Righi</label><input class="inp" id="ed-date" type="date" value="${j.dataRientro}"><span class="hint">Visibile al fornitore · aggiorna storico e notifica</span></div>
+    <div class="field"><label>Inizio lavori stimato</label><input class="inp" id="ed-inizio" type="date" value="${j.dataInizioStimata||''}"><span class="hint">Visibile al fornitore</span></div>
+    <div class="field"><label>Consegna al cliente</label><input class="inp" id="ed-cli" type="date" value="${j.dataConsegna}"><span class="hint">Riservato Righi · non notificato al fornitore</span></div>
+    <div class="field"><label>Motivo del cambio rientro (facoltativo)</label><input class="inp" id="ed-note" placeholder="es. anticipo richiesto dal cliente"></div>
     <button class="btn accent block" data-act="doEditDate" data-job="${jid}">${icon("calendar","sm")} Aggiorna e notifica il fornitore</button>`);
 }
 function openNotifCenter(){ const u=currentUser();
@@ -1916,7 +1942,7 @@ function emailJobToSuppliers(j, supplierIds){
   if(!emails.length) return;
   const body="Buongiorno,\n\nRighi Solutions propone un nuovo lavoro sul Portale Fornitori:\n\n"
     +"Commessa: "+j.code+" — "+j.title+"\nTipologia: "+TIPOLOGIE[j.tipologia].label+"\nSettore: "+j.settore
-    +"\nBudget indicativo: "+fmtMoney(j.budget)+"\nConsegna desiderata: "+fmtDate(j.dataConsegna)
+    +"\nBudget indicativo: "+fmtMoney(j.budget)+"\nInizio lavori stimato: "+fmtDate(j.dataInizioStimata)+"\nRientro in Righi richiesto: "+fmtDate(j.dataRientro)
     +"\n\nAccedete al portale per visualizzare il layout e accettare o porre domande.\n\nRighi Solutions — Ufficio Subappalti";
   openEmailModal(emails, "["+j.code+"] Nuovo lavoro: "+j.title, body);
 }
@@ -1936,20 +1962,27 @@ function createJob(mode){
   const d=App.draft;
   d.title=$("#nl-title").value.trim(); d.budget=$("#nl-budget").value; d.ore=$("#nl-ore").value; d.capoId=$("#nl-capo").value;
   d.dataRichiesta=$("#nl-req").value; d.dataConsegna=$("#nl-cons").value; d.descrizione=$("#nl-desc").value.trim();
+  d.dataInizioStimata=($("#nl-inizio")||{}).value||d.dataInizioStimata; d.dataRientro=($("#nl-rientro")||{}).value||d.dataRientro;
   d.ingombro=($("#nl-ingombro")||{}).value||"";
   if(!d.title){ toast("Inserisci un titolo","warn"); $("#nl-title").focus(); return; }
   if(d.visibility==="selezionati" && !(d.invitati||[]).length){ toast("Scegli almeno un fornitore","warn"); return; }
+  // coerenza date: inizio <= rientro <= consegna al cliente
+  if(!d.dataRientro && d.dataConsegna) d.dataRientro=addDays(d.dataConsegna,-3);
+  if(!d.dataInizioStimata && d.dataRientro) d.dataInizioStimata=addDays(d.dataRientro,-10);
+  if(d.dataRientro && d.dataConsegna && d.dataRientro>d.dataConsegna){ toast("Il rientro in Righi deve precedere la consegna al cliente","warn"); return; }
+  if(d.dataInizioStimata && d.dataRientro && d.dataInizioStimata>d.dataRientro){ toast("L'inizio lavori deve precedere il rientro","warn"); return; }
   const u=currentUser(); const capo_=isCapo(u);
   // il caposquadra non pubblica: al massimo invia per approvazione
   if(mode==="publish" && capo_) mode="approvazione";
   const stato = mode==="publish"?"pubblicato":(mode==="approvazione"?"da_approvare":"bozza");
   const n=STATE.jobs.reduce((m,j)=>Math.max(m,parseInt((j.code||"").split("-")[1])||0),2400);
   const job={ id:uid("j"), code:"RGH-"+(n+1), title:d.title, tipologia:d.tipologia, settore:d.settore, lavorazioni:d.lavorazioni||[], ingombro:d.ingombro||null,
-    budget:d.budget?Number(d.budget):null, oreStimate:d.ore?Number(d.ore):null, dataRichiesta:d.dataRichiesta, dataConsegna:d.dataConsegna, capoId:d.capoId,
+    budget:d.budget?Number(d.budget):null, oreStimate:d.ore?Number(d.ore):null, dataRichiesta:d.dataRichiesta,
+    dataInizioStimata:d.dataInizioStimata, dataRientro:d.dataRientro, dataConsegna:d.dataConsegna, capoId:d.capoId,
     descrizione:d.descrizione, allegati:d.allegati||[], visibility:d.visibility, invitati:d.invitati||[],
     stato, assegnatoA:null, publishedAt: mode==="publish"?todayISO():null, createdAt:todayISO(),
     creatoDa:u.id, richiedente:(mode==="approvazione")?u.id:null, emailNotify:!!d.emailNotify, approvazione:null,
-    dataConsegnaBase:d.dataConsegna, storicoDate:[], dataConsegnaEffettiva:null, assegnatoAt:null, avanzamento:null };
+    dataRientroBase:d.dataRientro, storicoDate:[], dataRientroEff:null, assegnatoAt:null, avanzamento:null };
   STATE.jobs.unshift(job);
   const targets=job.visibility==="selezionati"?job.invitati:STATE.suppliers.map(s=>s.id);
   if(mode==="publish"){ notifyJob(job, targets); if(d.emailNotify) emailJobToSuppliers(job, targets); }
@@ -1987,14 +2020,14 @@ function openRejectModal(jid){ const j=byId(STATE.jobs,jid); if(!j) return;
     <div class="field"><label>Motivo (facoltativo)</label><textarea class="inp" id="rej-note" placeholder="es. Rivedere il budget e allegare il layout aggiornato"></textarea></div>
     <button class="btn accent block" data-act="doReject" data-job="${jid}">${icon("send")} Rimanda con nota</button>`);
 }
-function dlTemplate(){ const rows=[["titolo","tipologia","settore","lavorazioni","budget","ore","data_richiesta","data_consegna","caposquadra","visibilita"],
-    ["Quadro automazione linea 3","automazione","Packaging","foratura|sbroglio","8000","120","2026-07-21","2026-08-20","Andrea Bianchi","tutti"],
-    ["Quadro potenza forno 2","potenza","Ceramica","piastra_barre|piastra_comp","15000","240","2026-07-21","2026-09-05","Luca Ferri","selezionati"]];
+function dlTemplate(){ const rows=[["titolo","tipologia","settore","lavorazioni","budget","ore","data_richiesta","data_inizio","data_rientro","data_consegna","caposquadra","visibilita"],
+    ["Quadro automazione linea 3","automazione","Packaging","foratura|sbroglio","8000","120","2026-07-21","2026-08-03","2026-08-17","2026-08-20","Davis Casadei","tutti"],
+    ["Quadro potenza forno 2","potenza","Ceramica","piastra_barre|piastra_comp","15000","240","2026-07-21","2026-08-18","2026-09-02","2026-09-05","Enea Matteucci","selezionati"]];
   downloadFile("template_commesse_righi.csv", toCSV(rows)); toast("Template scaricato","ok"); }
 function importJobsCSV(text){
   const rows=parseCSV(text); if(rows.length<2){ toast("File vuoto o senza righe dati","warn"); return; }
   const head=rows[0].map(h=>slug(h)); const idx=n=>head.indexOf(n);
-  const iTit=idx("titolo"),iTip=idx("tipologia"),iSet=idx("settore"),iLav=idx("lavorazioni"),iBud=idx("budget"),iOre=idx("ore"),iReq=idx("datarichiesta"),iCon=idx("dataconsegna"),iCap=idx("caposquadra"),iVis=idx("visibilita");
+  const iTit=idx("titolo"),iTip=idx("tipologia"),iSet=idx("settore"),iLav=idx("lavorazioni"),iBud=idx("budget"),iOre=idx("ore"),iReq=idx("datarichiesta"),iIni=idx("datainizio"),iRit=idx("datarientro"),iCon=idx("dataconsegna"),iCap=idx("caposquadra"),iVis=idx("visibilita");
   if(iTit<0){ toast("Manca la colonna 'titolo' — usa il template","warn"); return; }
   const num=v=>v?Number(String(v).replace(/[^\d]/g,"")):null; let n=STATE.jobs.reduce((m,j)=>Math.max(m,parseInt((j.code||"").split("-")[1])||0),2400), added=0;
   for(let r=1;r<rows.length;r++){ const row=rows[r]; const tit=(row[iTit]||"").trim(); if(!tit) continue;
@@ -2002,20 +2035,24 @@ function importJobsCSV(text){
     const lavs=parseLavorazioni(iLav>=0?row[iLav]:"");
     const cap=STATE.capi.find(c=>slug(c.name)===slug(iCap>=0?row[iCap]:""))||STATE.capi[0];
     const vis=(slug(row[iVis]||"")==="selezionati")?"selezionati":"tutti";
-    n++; added++; STATE.jobs.unshift({ id:uid("j"), code:"RGH-"+n, title:tit, tipologia:tip,
+    n++; added++;
+    const dCons=(iCon>=0&&row[iCon])?row[iCon].trim():dISO(21);
+    const dRit=(iRit>=0&&row[iRit])?row[iRit].trim():addDays(dCons,-3);
+    const dIni=(iIni>=0&&row[iIni])?row[iIni].trim():addDays(dRit,-10);
+    STATE.jobs.unshift({ id:uid("j"), code:"RGH-"+n, title:tit, tipologia:tip,
       settore:(iSet>=0&&row[iSet])?row[iSet].trim():SETTORI[0], lavorazioni:lavs, budget:num(row[iBud]), oreStimate:num(row[iOre]),
-      dataRichiesta:(iReq>=0&&row[iReq])?row[iReq].trim():todayISO(), dataConsegna:(iCon>=0&&row[iCon])?row[iCon].trim():dISO(21),
+      dataRichiesta:(iReq>=0&&row[iReq])?row[iReq].trim():todayISO(), dataInizioStimata:dIni, dataRientro:dRit, dataConsegna:dCons,
       capoId:cap.id, descrizione:"", allegati:[], visibility:vis, invitati:[], stato:"bozza", assegnatoA:null, publishedAt:null, createdAt:todayISO(),
-      dataConsegnaBase:(iCon>=0&&row[iCon])?row[iCon].trim():dISO(21), storicoDate:[], dataConsegnaEffettiva:null, assegnatoAt:null, avanzamento:null }); }
+      dataRientroBase:dRit, storicoDate:[], dataRientroEff:null, assegnatoAt:null, avanzamento:null }); }
   persist(); toast(added+" commesse importate in bozza","ok");
   App.tab="lavori"; App.lavoriMode="table"; App.filters={q:"",stato:"bozza",tipologia:"",settore:"",capo:"",fornitore:"",late:false}; App.page=1; render();
 }
 function exportOrders(){
   const jobs=scopedJobs().filter(j=>["assegnato","in_corso","consegnato"].includes(j.stato)&&j.assegnatoA);
   if(!jobs.length){ toast("Nessun ordine accettato da esportare","warn"); return; }
-  const rows=[["commessa","titolo","tipologia","settore","fornitore","referente","email_fornitore","importo_eur","ore","data_consegna","data_consegna_base","n_slittamenti","avanzamento","caposquadra","stato"]];
+  const rows=[["commessa","titolo","tipologia","settore","fornitore","referente","email_fornitore","importo_eur","ore","data_inizio_stimata","data_rientro","data_rientro_base","data_rientro_effettiva","data_consegna_cliente","n_slittamenti","avanzamento","caposquadra","stato"]];
   jobs.forEach(j=>{ const s=supplier(j.assegnatoA)||{}; const acc=jobResponses(j.id).find(r=>r.supplierId===j.assegnatoA&&r.tipo==="accettazione");
-    rows.push([j.code,j.title,TIPOLOGIE[j.tipologia].label,j.settore,s.name||"",s.referente||"",s.email||"",(acc&&acc.importo)?acc.importo:(j.budget||""),j.oreStimate||"",j.dataConsegna,j.dataConsegnaBase||j.dataConsegna,(j.storicoDate||[]).length,j.avanzamento?AVANZAMENTO[j.avanzamento].label:"",(capo(j.capoId)||{}).name||"",STATI[j.stato].label]); });
+    rows.push([j.code,j.title,TIPOLOGIE[j.tipologia].label,j.settore,s.name||"",s.referente||"",s.email||"",(acc&&acc.importo)?acc.importo:(j.budget||""),j.oreStimate||"",j.dataInizioStimata||"",j.dataRientro||"",j.dataRientroBase||j.dataRientro||"",j.dataRientroEff||"",j.dataConsegna||"",(j.storicoDate||[]).length,j.avanzamento?AVANZAMENTO[j.avanzamento].label:"",(capo(j.capoId)||{}).name||"",STATI[j.stato].label]); });
   downloadFile("ordini_accettati_righi.csv", toCSV(rows)); toast(jobs.length+" ordini esportati (CSV per ERP)","ok");
 }
 function doAccept(jid){ const u=currentUser(); const s=supplier(u.supplierId); const imp=$("#acc-imp").value; const note=$("#acc-note").value.trim();
@@ -2037,18 +2074,24 @@ function doQuickReq(jid){ const u=currentUser(); const j=byId(STATE.jobs,jid); i
   if(wantEmail && c && c.email){ const body="Buongiorno "+c.name+",\n\nsegnalazione dal Portale Fornitori:\n\nCommessa: "+j.code+" — "+j.title+"\nTipo: "+tp.label+(req.dataProposta?("\nNuova data proposta: "+fmtDate(req.dataProposta)):"")+(note?("\nDettaglio: "+note):"")+"\nFornitore: "+(supplier(u.supplierId)||{}).name+"\n\nGrazie.";
     openEmailModal(c.email, "["+j.code+"] "+tp.label, body); }
 }
-// Cambio data consegna: registra storico, sovrascrive, notifica il fornitore
+// Cambio data di RIENTRO: registra storico, sovrascrive, notifica il fornitore
 function applyDateChange(j, newDate, motivo, byRole, byUser){
-  if(!newDate || newDate===j.dataConsegna) return false;
-  j.storicoDate=j.storicoDate||[]; j.storicoDate.push({from:j.dataConsegna,to:newDate,by:byUser,byRole,at:new Date().toISOString().slice(0,16),motivo:motivo||"",tipo:byRole==="fornitore"?"slittamento":"modifica"});
-  j.dataConsegna=newDate;
+  if(!newDate || newDate===j.dataRientro) return false;
+  j.storicoDate=j.storicoDate||[]; j.storicoDate.push({from:j.dataRientro,to:newDate,by:byUser,byRole,at:new Date().toISOString().slice(0,16),motivo:motivo||"",tipo:byRole==="fornitore"?"slittamento":"modifica"});
+  j.dataRientro=newDate;
   const usr=STATE.users.find(u=>u.supplierId===j.assegnatoA);
-  if(usr) STATE.notifications.push({id:uid("n"),toUser:usr.id,ic:"calendar",txt:"Consegna aggiornata: "+fmtDate(newDate),sub:j.code+" — "+j.title,jobId:j.id,at:new Date().toISOString().slice(0,16),read:false});
+  if(usr) STATE.notifications.push({id:uid("n"),toUser:usr.id,ic:"calendar",txt:"Rientro aggiornato: "+fmtDate(newDate),sub:j.code+" — "+j.title,jobId:j.id,at:new Date().toISOString().slice(0,16),read:false});
   return true;
 }
+// Modifica date lato Righi: rientro (con storico+notifica) + inizio stimato e consegna cliente (diretti)
 function doEditDate(jid){ const j=byId(STATE.jobs,jid); const d=$("#ed-date")?$("#ed-date").value:""; const m=$("#ed-note")?$("#ed-note").value.trim():"";
-  if(!d){ toast("Indica la nuova data","warn"); return; } const u=currentUser();
-  if(applyDateChange(j, d, m||"Modifica da Righi", isCapo(u)?"caposquadra":"responsabile", u.id)){ persist(); closeModal(); toast("Data consegna aggiornata · fornitore notificato","ok"); render(); }
+  const ini=$("#ed-inizio")?$("#ed-inizio").value:""; const cli=$("#ed-cli")?$("#ed-cli").value:"";
+  if(!d){ toast("Indica la data di rientro","warn"); return; } const u=currentUser();
+  let changed=false;
+  if(ini && ini!==j.dataInizioStimata){ j.dataInizioStimata=ini; changed=true; }
+  if(cli && cli!==j.dataConsegna){ j.dataConsegna=cli; changed=true; }
+  const ret=applyDateChange(j, d, m||"Modifica da Righi", isCapo(u)?"caposquadra":"responsabile", u.id);
+  if(ret||changed){ persist(); closeModal(); toast(ret?"Rientro aggiornato · fornitore notificato":"Date aggiornate","ok"); render(); }
   else { toast("Nessuna modifica","warn"); }
 }
 function resolveSlip(rid, approve){ const r=byId(STATE.requests,rid); if(!r) return; const j=byId(STATE.jobs,r.jobId); const u=currentUser();
@@ -2077,7 +2120,7 @@ function reqConsegna(jid){ const u=currentUser(); const j=byId(STATE.jobs,jid); 
 // Fornitore: consegna (bloccata finché il caposquadra non approva)
 function deliverJob(jid){ const u=currentUser(); const j=byId(STATE.jobs,jid); if(!j||j.assegnatoA!==u.supplierId) return;
   if(!j.consegnaApprovata){ toast("Serve prima l'approvazione del caposquadra","warn"); return; }
-  j.stato="consegnato"; j.avanzamento="pronto"; if(!j.dataConsegnaEffettiva) j.dataConsegnaEffettiva=todayISO();
+  j.stato="consegnato"; j.avanzamento="pronto"; if(!j.dataRientroEff) j.dataRientroEff=todayISO();
   const capoUser=STATE.users.find(x=>x.righiRole==="caposquadra"&&x.capoId===j.capoId);
   if(capoUser) STATE.notifications.push({id:uid("n"),toUser:capoUser.id,ic:"check",txt:"Commessa consegnata: "+j.title,sub:j.code,jobId:jid,at:new Date().toISOString().slice(0,16),read:false});
   persist(); closeModal(); toast("Commessa consegnata","ok"); render();
@@ -2093,7 +2136,7 @@ function doAssign(jid,sid){ const j=byId(STATE.jobs,jid); const s=supplier(sid);
   STATE.responses.filter(r=>r.jobId===jid).forEach(r=>r.read=true);
   persist(); closeModal(); toast("Assegnato a "+s.name,"ok"); render();
 }
-function setStato(jid,st){ const j=byId(STATE.jobs,jid); j.stato=st; if(st==="consegnato"&&!j.dataConsegnaEffettiva) j.dataConsegnaEffettiva=todayISO(); persist(); closeModal(); toast("Stato aggiornato: "+STATI[st].label,"ok"); render(); }
+function setStato(jid,st){ const j=byId(STATE.jobs,jid); j.stato=st; if(st==="consegnato"&&!j.dataRientroEff) j.dataRientroEff=todayISO(); persist(); closeModal(); toast("Stato aggiornato: "+STATI[st].label,"ok"); render(); }
 function setAvanzamento(jid, step){ const u=currentUser(); const j=byId(STATE.jobs,jid); if(!j||!u.supplierId||j.assegnatoA!==u.supplierId) return;
   j.avanzamento=step; j.avanzamentoAt=new Date().toISOString().slice(0,16); j.avanzamentoBy=u.id;
   STATE.responses.push({id:uid("r"),jobId:jid,supplierId:u.supplierId,tipo:"avanzamento",testo:AVANZAMENTO[step].label,at:j.avanzamentoAt,from:"fornitore",read:false});
@@ -2227,7 +2270,7 @@ document.addEventListener("input",e=>{
   if(e.target && e.target.id==="forn-search"){ App.fFilters.q=e.target.value; updateResults(); }
   // Sync dei campi "Nuovo lavoro" nella bozza: così un re-render (visibilità,
   // fornitori suggeriti) non perde ciò che è stato digitato.
-  const NLF={"nl-title":"title","nl-budget":"budget","nl-ore":"ore","nl-desc":"descrizione","nl-req":"dataRichiesta","nl-cons":"dataConsegna"};
+  const NLF={"nl-title":"title","nl-budget":"budget","nl-ore":"ore","nl-desc":"descrizione","nl-req":"dataRichiesta","nl-inizio":"dataInizioStimata","nl-rientro":"dataRientro","nl-cons":"dataConsegna"};
   if(e.target && NLF[e.target.id]){ App.draft=App.draft||{}; App.draft[NLF[e.target.id]]=e.target.value; }
 });
 // select filtri avanzati

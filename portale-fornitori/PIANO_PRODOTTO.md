@@ -106,9 +106,16 @@ Di conseguenza il prodotto è progettato attorno a due driver:
 - **Metriche fornitore** (visibili a Righi e al fornitore): puntualità, lavori/mese,
   carico ore, richieste sollevate, tasso di accettazione, tempo di risposta,
   ritardo medio, con mini-trend mensile.
-- **Ciclo di vita consegna**: richiesta di **slittamento** dal fornitore con
-  approvazione del caposquadra (sovrascrive la data + storico + notifica) e
-  **modifica diretta** della data da Righi; storico completo dei cambi.
+- **Tre date per commessa**: **inizio lavori stimato** e **rientro in Righi**
+  (riconsegna del quadro finito) — entrambe **visibili al fornitore** — più la
+  **consegna al cliente**, dato **riservato a Righi** e mai esposto al fornitore.
+  Gli **alert di ritardo** si basano sulle date operative (*inizio in ritardo*,
+  *rientro in ritardo*), **mai** sulla consegna al cliente; carico, puntualità e
+  ordinamento seguono il **rientro**. In creazione la coerenza è validata
+  (inizio ≤ rientro ≤ consegna).
+- **Ciclo di vita rientro**: richiesta di **slittamento** dal fornitore (nuova
+  data di **rientro**) con approvazione del caposquadra (sovrascrive + storico +
+  notifica) e **modifica diretta** delle date da Righi; storico completo dei cambi.
 - **Consegna con approvazione (gate)**: il fornitore non chiude da solo — quando
   è pronto invia **Richiedi approvazione consegna** (richiesta al caposquadra);
   solo dopo l'ok compare **Segna consegnato**. Senza approvazione la consegna è

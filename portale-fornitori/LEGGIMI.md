@@ -105,10 +105,21 @@ fornitore) e nella *Scheda & metriche* (lato Righi) trovi **puntualità**,
 **lavori/mese**, **carico ore**, **richieste sollevate**, **tasso di
 accettazione**, **tempo di risposta** e **ritardo medio**, con mini-trend.
 
-**Slittamenti e modifica consegna**: dal dettaglio commessa il fornitore può
-chiedere uno **slittamento** (nuova data + motivo) che il caposquadra
-**approva/rifiuta** (se approvato sovrascrive la consegna e notifica); Righi può
-anche **modificare direttamente** la data. Ogni cambio resta nello **storico**.
+**Tre date per commessa (e chi le vede)**: ogni commessa distingue
+**inizio lavori stimato** (quando si prevede di avviare la produzione),
+**rientro in Righi richiesto** (riconsegna del quadro finito) e **consegna al
+cliente**. Le prime due sono **visibili anche al fornitore**; la **consegna al
+cliente è riservata a Righi** e non compare mai lato fornitore. Gli **alert di
+ritardo** si basano sulle date operative del fornitore — *inizio in ritardo*
+(assegnata ma non avviata oltre l'inizio stimato) e *rientro in ritardo* (oltre
+la data di rientro) — **mai** sulla consegna al cliente. Carico terzisti,
+puntualità e ordinamento seguono la data di **rientro**.
+
+**Slittamenti e modifica date**: dal dettaglio commessa il fornitore può
+chiedere uno **slittamento** (nuova data di **rientro** + motivo) che il
+caposquadra **approva/rifiuta** (se approvato sovrascrive il rientro e notifica);
+Righi può **modificare direttamente** rientro, inizio stimato e consegna al
+cliente. Ogni cambio di rientro resta nello **storico**.
 
 **Dati reali dei terzisti**: l'anagrafica è popolata dalla *Mappatura terzisti
 2026* — **54 terzisti** (di cui **28 attivi**, flag `attivo`), con **capacità

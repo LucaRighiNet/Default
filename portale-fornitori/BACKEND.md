@@ -60,13 +60,16 @@ jobs(id uuid pk, code text unique, title text, tipologia text, settore text,
      lavorazioni text[],                                  -- lavorazioni industrializzate (multi): carp_esterna|foratura|piastra_barre|sbroglio|piastra_comp
      ingombro text null check in ('s','m','l'),           -- ingombro previsto del quadro → confronto con dimensione_max del fornitore in assegnazione
      budget numeric, ore_stimate int,                     -- ore_stimate: SOLO Righi (mai esposto ai fornitori)
-     data_richiesta date, data_consegna date,
-     data_consegna_base date,                             -- data originale (per contare gli slittamenti)
-     data_consegna_effettiva date,                        -- consegna reale → puntualità
+     data_richiesta date,
+     data_inizio_stimata date,                            -- inizio produzione stimato — VISIBILE al fornitore; guida l'alert "inizio in ritardo"
+     data_rientro date,                                   -- rientro del quadro finito in Righi — VISIBILE al fornitore; scadenza operativa, guida l'alert "rientro in ritardo"
+     data_rientro_base date,                              -- rientro originale (per contare gli slittamenti)
+     data_rientro_effettiva date,                         -- rientro reale → puntualità (vs data_rientro)
+     data_consegna date,                                  -- consegna al cliente: SOLO Righi (mai esposto ai fornitori). NON usato per gli alert
      assegnato_at date,                                   -- per metriche (lavori/mese, tempo risposta)
      avanzamento text,                                    -- materiale|cablaggio|collaudo|pronto|null (aggiornato dal fornitore)
      consegna_approvata jsonb null,                       -- {da, at} — se null il fornitore NON può consegnare (gate: serve ok del caposquadra)
-     storico_date jsonb,                                  -- [{from,to,by,byRole,at,motivo,tipo}]
+     storico_date jsonb,                                  -- storico dei cambi di data_rientro (slittamenti/modifiche): [{from,to,by,byRole,at,motivo,tipo}]
      capo_id uuid fk users, descrizione text, visibility text check in ('tutti','selezionati'),
      stato text check in ('bozza','da_approvare','pubblicato','assegnato','in_corso','consegnato','chiuso'),
      assegnato_a uuid null fk suppliers,
@@ -88,7 +91,7 @@ richieste(id uuid pk, job_id uuid fk jobs, supplier_id uuid fk suppliers,
           tipo text check in ('dubbio','materiale','slittamento','ritardo','sopralluogo','collaudo','altro'),
           -- tipo='collaudo' = richiesta di approvazione consegna: approvandola il caposquadra scrive jobs.consegna_approvata (sblocca "Segna consegnato")
           testo text, stato text check in ('aperta','presa','chiusa'),
-          data_proposta date, esito text check in ('approvato','rifiutato'),  -- solo per 'slittamento'
+          data_proposta date, esito text check in ('approvato','rifiutato'),  -- solo per 'slittamento': nuova data_rientro proposta dal fornitore
           capo_id uuid fk users, read bool default false, at timestamptz)
 
 notifiche(id uuid pk, to_user uuid fk users, icon text, txt text, sub text,
