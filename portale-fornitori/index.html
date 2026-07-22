@@ -144,6 +144,22 @@ main{max-width:1180px;margin:0 auto;padding:16px calc(var(--sar) + 14px) calc(va
 .map-svg .pin:hover circle{stroke:var(--ink)}
 .map-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--ink-soft);padding:10px 2px 0}
 .map-legend i{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:5px;vertical-align:middle}
+/* istogramma carico terzisti (barre di capacità) */
+.loadchart{display:flex;flex-direction:column;gap:11px;margin-top:8px}
+.loadrow-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:12.5px;margin-bottom:3px}
+.loadrow-h b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.loadrow-h .ln{color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+.loadrow-h .st{font-weight:600}
+.loadrow-h .st.verde{color:var(--ok)} .loadrow-h .st.giallo{color:var(--warn)} .loadrow-h .st.rosso{color:var(--danger)}
+.loadbar{position:relative;height:20px;background:var(--surface-3);border-radius:6px;overflow:hidden;cursor:pointer}
+.loadbar .cap{position:absolute;left:0;top:0;bottom:0;background:var(--surface-2)}
+.loadbar .fill{position:absolute;left:0;top:0;bottom:0;border-radius:6px}
+.loadbar .fill.verde{background:var(--ok)} .loadbar .fill.giallo{background:var(--warn)} .loadbar .fill.rosso{background:var(--danger);background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.28) 0 3px,transparent 3px 7px)}
+.loadbar .capline{position:absolute;top:-1px;bottom:-1px;width:2px;margin-left:-1px;background:var(--ink-soft);z-index:2}
+.loadbar:hover .fill{filter:brightness(1.05)}
+.load-axis{display:flex;justify-content:space-between;font-size:10.5px;color:var(--muted);margin-top:4px;font-variant-numeric:tabular-nums}
+.map-legend i.lg{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:middle}
+.map-legend i.lg.verde{background:var(--ok)} .map-legend i.lg.giallo{background:var(--warn)} .map-legend i.lg.rosso{background:var(--danger);background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.4) 0 2px,transparent 2px 5px)}
 
 /* ---- Pills / badges ---- */
 .pill{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;padding:3px 9px;border-radius:999px;border:1px solid var(--line);background:var(--surface-2);color:var(--ink-soft);white-space:nowrap;font-weight:500}
@@ -1074,20 +1090,50 @@ function mapHtml(){
   ${(capoZone&&Object.keys(myZones).length)?`<div class="card" style="margin-top:12px"><div class="sect-t">Le tue zone attive — ottimizza i trasporti</div><div class="tags">${Object.entries(myZones).map(([z,n])=>`<span class="pill brand">${esc(z)}: ${n} commesse</span>`).join("")}</div><p class="muted" style="font-size:12px;margin:8px 0 0">Accorpa i nuovi lavori dove hai già squadre attive per ridurre le trasferte.</p></div>`:""}
   <p class="muted" style="font-size:12px;margin-top:10px">Tocca un pin per scheda, metriche e capacità libera del fornitore. Il colore indica il carico del mese corrente.</p>`;
 }
+// mesi disponibili (dal corrente in avanti) con almeno una consegna, sempre includi corrente..+2
+function caricoMesi(){ const cur=monthKey(todayISO()); const set=new Set([cur]);
+  const d=new Date(cur+"-01T12:00:00"); for(let i=1;i<=3;i++){ d.setMonth(d.getMonth()+1); set.add(d.toISOString().slice(0,7)); }
+  STATE.jobs.filter(j=>["assegnato","in_corso"].includes(j.stato)&&j.assegnatoA&&j.dataConsegna>=cur).forEach(j=>set.add(monthKey(j.dataConsegna)));
+  return [...set].sort().slice(0,6);
+}
+function caricoChartHtml(mk){
+  const stateWord={verde:"sotto capacità",giallo:"quasi saturo",rosso:"oltre capacità"};
+  const rows=STATE.suppliers.map(s=>{ const load=monthLoad(s.id,mk); const cap=s.capacitaMese||0; const ratio=cap?load/cap:0;
+    const commesse=STATE.jobs.filter(j=>["assegnato","in_corso"].includes(j.stato)&&j.assegnatoA===s.id&&monthKey(j.dataConsegna)===mk).length;
+    return {s, load, cap, ratio, commesse, state: ratio>1?"rosso":ratio>=0.85?"giallo":"verde"}; }).sort((a,b)=>b.load-a.load);
+  const axisMax=Math.max(200, Math.ceil(Math.max(...STATE.suppliers.map(s=>s.capacitaMese||0), ...rows.map(r=>r.load))/200)*200);
+  const totLoad=rows.reduce((a,r)=>a+r.load,0), totCap=rows.reduce((a,r)=>a+r.cap,0);
+  return `<div class="loadchart">${rows.map(r=>{ const free=r.cap-r.load;
+    return `<div class="loadrow">
+      <div class="loadrow-h"><b>${esc(r.s.name)}</b><span class="ln">${r.load}/${r.cap} h · ${Math.round(r.ratio*100)}% · <span class="st ${r.state}">${stateWord[r.state]}</span></span></div>
+      <div class="loadbar" data-act="supDetail" data-sup="${r.s.id}" title="${esc(r.s.name)} — ${r.load}/${r.cap} h (${Math.round(r.ratio*100)}%) · ${free>=0?free+' h liberi':Math.abs(free)+' h oltre capacità'} · ${r.commesse} commesse nel mese">
+        <div class="cap" style="width:${(r.cap/axisMax*100).toFixed(1)}%"></div>
+        <div class="fill ${r.state}" style="width:${Math.min(r.load/axisMax*100,100).toFixed(1)}%"></div>
+        <div class="capline" style="left:${(r.cap/axisMax*100).toFixed(1)}%"></div></div>
+    </div>`;}).join("")}</div>
+  <div class="load-axis"><span>0</span><span>${Math.round(axisMax/2)} h</span><span>${axisMax} h</span></div>
+  <div class="map-legend"><span><i class="lg verde"></i>sotto capacità</span><span><i class="lg giallo"></i>quasi saturo (≥85%)</span><span><i class="lg rosso"></i>oltre capacità</span><span><span style="display:inline-block;width:2px;height:12px;background:var(--ink-soft);margin-right:5px;vertical-align:middle"></span>capacità mensile</span></div>
+  <p class="muted" style="font-size:12px;margin-top:8px">Totale mese: <b>${totLoad} h</b> su ${totCap} h di capacità · tocca una barra per la scheda del fornitore.</p>`;
+}
+function caricoMatrixHtml(){ const load=supplierMonthlyLoad(); const months=caricoMesi();
+  return `<div class="scroll-x"><table class="tbl" style="min-width:560px"><thead><tr><th>Fornitore</th><th class="num">Cap./mese</th>${months.map(m=>`<th class="num">${monthLabel(m)}</th>`).join("")}<th class="num">Totale attivo</th></tr></thead>
+    <tbody>${STATE.suppliers.map(s=>{ const row=load.map[s.id]||{}; const tot=activeHours(s.id);
+      return `<tr data-act="supDetail" data-sup="${s.id}"><td class="t-title">${esc(s.name)}</td><td class="num">${s.capacitaMese} h</td>${months.map(m=>`<td class="num">${row[m]?row[m]+' h':'·'}</td>`).join("")}<td class="num"><b>${tot?tot+' h':'—'}</b></td></tr>`;
+    }).join("")}</tbody></table></div>`;
+}
 function viewFornitori(){
   const mode=App.fornMode||"lista";
-  const load=supplierMonthlyLoad(); const months=load.months.filter(m=>m>=monthKey(todayISO())).slice(0,6);
   const head=`<div class="view-head"><div><h2>Fornitori accreditati</h2><p>${STATE.suppliers.length} terzisti · carico, specializzazioni e mappa</p></div>
     <div class="seg"><button class="${mode==='lista'?'on':''}" data-act="fornMode" data-m="lista">${icon("list","sm")} Elenco</button><button class="${mode==='mappa'?'on':''}" data-act="fornMode" data-m="mappa">${icon("building","sm")} Mappa</button></div></div>`;
   if(mode==="mappa") return head+mapHtml();
+  const cview=App.caricoView||"grafico"; const mesi=caricoMesi(); let cmk=App.caricoMonth; if(!cmk||!mesi.includes(cmk)) cmk=mesi[0];
   return head+`
   <div class="card" style="margin-bottom:14px">
-    <div class="sect-t">${icon("clock2","sm")} Carico terzisti — ore assegnate attive per mese di consegna</div>
-    <div class="scroll-x"><table class="tbl" style="min-width:560px"><thead><tr><th>Fornitore</th>${months.map(m=>`<th class="num">${monthLabel(m)}</th>`).join("")}<th class="num">Totale attivo</th></tr></thead>
-    <tbody>${STATE.suppliers.map(s=>{ const row=load.map[s.id]||{}; const tot=activeHours(s.id);
-      return `<tr data-act="supJobs" data-sup="${s.id}"><td class="t-title">${esc(s.name)}</td>${months.map(m=>`<td class="num">${row[m]?row[m]+' h':'·'}</td>`).join("")}<td class="num"><b>${tot?tot+' h':'—'}</b></td></tr>`;
-    }).join("")}</tbody></table></div>
-    <p class="muted" style="font-size:12px;margin-top:8px">Somma delle ore stimate delle commesse assegnate/in corso, raggruppate per mese di consegna. Tocca una riga per aprire le commesse del fornitore.</p>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px">
+      <div class="sect-t" style="margin:0">${icon("clock2","sm")} Carico terzisti — ore attive vs capacità</div>
+      <div class="seg"><button class="${cview==='grafico'?'on':''}" data-act="caricoView" data-m="grafico">Grafico</button><button class="${cview==='tabella'?'on':''}" data-act="caricoView" data-m="tabella">Tabella</button></div>
+    </div>
+    ${cview==='grafico'?`<div class="filt-row" style="margin-bottom:6px">${mesi.map(m=>`<button class="chip sm ${cmk===m?'on':''}" data-act="caricoMonth" data-mk="${m}">${monthLabel(m)}</button>`).join("")}</div>${caricoChartHtml(cmk)}`:caricoMatrixHtml()}
   </div>
   <div class="grid auto">${STATE.suppliers.map(s=>{
     const active=STATE.jobs.filter(j=>j.assegnatoA===s.id&&!["consegnato","chiuso"].includes(j.stato)).length; const ore=activeHours(s.id);
@@ -1619,6 +1665,8 @@ document.addEventListener("click",e=>{
       App.filters={q:"",stato:el.dataset.stato==="late"?"":el.dataset.stato,tipologia:"",settore:"",capo:"",fornitore:"",late:el.dataset.stato==="late"}; render(); window.scrollTo(0,0); break;
     case "lavoriMode": App.lavoriMode=el.dataset.m; App.page=1; render(); break;
     case "fornMode": App.fornMode=el.dataset.m; render(); break;
+    case "caricoView": App.caricoView=el.dataset.m; render(); break;
+    case "caricoMonth": App.caricoMonth=el.dataset.mk; render(); break;
     case "setStatoFilter": App.filters.stato=el.dataset.v; App.page=1; updateResults(); if($("#lav-search"))reflectFilterChips(); render(); break;
     case "toggleLate": App.filters.late=!App.filters.late; App.page=1; render(); break;
     case "clearFilter": App.filters[el.dataset.k]= el.dataset.k==="late"?false:""; App.page=1; render(); break;
