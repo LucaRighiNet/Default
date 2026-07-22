@@ -1560,6 +1560,19 @@ function viewProfilo(u){
 function openModal(html){ $("#modal-host").innerHTML=`<div class="modal-bg" data-close-bg><div class="modal" role="dialog" aria-modal="true">${html}</div></div>`; }
 function closeModal(){ $("#modal-host").innerHTML=""; }
 function modalHead(title){ return `<div class="modal-h"><h3>${title}</h3><button class="x" data-act="closeModal" aria-label="Chiudi">${icon("x")}</button></div>`; }
+// Conferma riutilizzabile per azioni critiche (mitiga i click accidentali).
+// o = {title, body, confirmLabel, confirmAct, data:{k:v}, kind, backAct, backData}
+// Sul "Conferma" scatta confirmAct con i data-*; su "Annulla" si torna a backAct (o si chiude).
+function confirmAttrs(obj){ return Object.entries(obj||{}).map(([k,v])=>`data-${k}="${esc(String(v))}"`).join(" "); }
+function openConfirm(o){
+  const back = o.backAct ? `data-act="${o.backAct}" ${confirmAttrs(o.backData)}` : `data-act="closeModal"`;
+  openModal(`${modalHead(o.title||"Confermi?")}
+    <p style="font-size:14px;line-height:1.5;margin:2px 0 16px">${o.body||"Vuoi procedere?"}</p>
+    <div class="btn-row">
+      <button class="btn ghost" ${back}>Annulla</button>
+      <button class="btn ${o.kind||'accent'}" data-act="${o.confirmAct}" ${confirmAttrs(o.data)}>${o.confirmLabel||"Conferma"}</button>
+    </div>`);
+}
 
 function avanzamentoBlock(j, editable){
   if(!["assegnato","in_corso"].includes(j.stato)) return "";
@@ -1701,7 +1714,7 @@ function openAssignPick(jid){ const j=byId(STATE.jobs,jid);
     <div class="rowlist">${cand.map(r=>{const s=supplier(r.supplierId); const sg=sMap[r.supplierId]||{}; const noFit=j.ingombro&&sg.spazioOk===false;
       return `<div class="lrow ${noFit?'row-warn':''}"><span class="avatar sm" style="background:${colorFor(s.id)}">${initials(s.name)}</span>
       <span class="gr"><b>${esc(s.name)}${sg.pref>0?` <span class="pill brand">pref. OTL ${sg.pref}%</span>`:''}${(sg.reasons&&sg.reasons.includes("puntuale"))?' <span class="pill ok">puntuale</span>':''}${r.firma?' <span class="pill ok">firmato</span>':''}${noFit?' <span class="pill danger">spazio insufficiente</span>':''}</b><span class="s">offerta ${fmtMoney(r.importo)}${s.costoOrario?' · '+s.costoOrario+' €/h':''} · libere ${sg.free!=null?sg.free+'h':'—'}${sg.overload?' · <span style="color:var(--danger)">sovraccarico</span>':''}${sg.puntualita!=null?' · punt '+sg.puntualita+'%':''}</span><span class="s">${icon("building","sm")} ${s.dimensioneMax?esc(DIMENSIONI[s.dimensioneMax].short):'—'}${(s.attrezzature&&s.attrezzature.length)?' · '+attrLabels(s.attrezzature).map(esc).join(', '):''}</span></span>
-      <button class="btn sm accent" data-act="assign" data-job="${jid}" data-sup="${s.id}">Assegna</button></div>`;}).join("")}</div>
+      <button class="btn sm accent" data-act="confirmAssign" data-job="${jid}" data-sup="${s.id}">Assegna</button></div>`;}).join("")}</div>
     <p class="muted" style="font-size:12px;margin-top:8px">L'ordine considera la <b>preferenza dell'OTL</b>, specializzazione, settore, certificazioni, <b>spazio/ingombro</b>, dotazioni, capacità libera nel mese, costo e puntualità.</p>`);
 }
 function openReqDetail(rid){ const r=byId(STATE.requests,rid); if(!r) return;
@@ -2259,6 +2272,12 @@ document.addEventListener("click",e=>{
     case "toggleNotifyEmail": App.notifyEmail=!App.notifyEmail; el.classList.toggle("on"); break;
     case "doNotify": doNotify(el.dataset.job); break;
     case "assignPick": openAssignPick(el.dataset.job); break;
+    case "confirmAssign": { const j=byId(STATE.jobs,el.dataset.job); const s=supplier(el.dataset.sup); if(!j||!s) break;
+      openConfirm({ title:"Conferma assegnazione",
+        body:`Assegnare la commessa <b>${esc(j.code)}</b> — ${esc(j.title)} a <b>${esc(s.name)}</b>?<br><span class="muted" style="font-size:12.5px">Il fornitore riceve la notifica e la commessa passa in stato <b>Assegnato</b>. Gli altri fornitori non la vedranno più.</span>`,
+        confirmLabel:`${icon("check","sm")} Sì, assegna`, confirmAct:"assign", data:{job:el.dataset.job, sup:el.dataset.sup},
+        backAct:"assignPick", backData:{job:el.dataset.job} });
+      break; }
     case "assign": doAssign(el.dataset.job, el.dataset.sup); break;
     case "setStato": setStato(el.dataset.job, el.dataset.s); break;
     case "setAvz": setAvanzamento(el.dataset.job, el.dataset.step); break;

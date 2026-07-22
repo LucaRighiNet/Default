@@ -143,8 +143,10 @@ settore, certificazioni, **limite di spazio** (con avviso "**spazio
 insufficiente**" se la commessa indica l'ingombro previsto), **attrezzature**,
 **capacità libera** nel mese, **costo** e **puntualità**. Concorrono **solo i
 terzisti attivi**; i sovraccarichi sono segnalati e il **semaforo**
-verde/giallo/rosso anticipa i ritardi. Il fornitore aggiorna l'**avanzamento con
-un tocco** (materiale, cablaggio, collaudo, pronto).
+verde/giallo/rosso anticipa i ritardi. Per evitare click accidentali, l'azione
+**Assegna** chiede sempre una **conferma** ("Assegnare la commessa X a Y?")
+prima di procedere. Il fornitore aggiorna l'**avanzamento con un tocco**
+(materiale, cablaggio, collaudo, pronto).
 
 **Mappa fornitori** (in *Fornitori → Mappa*): pin colorati per carico del mese
 su tutto il **Nord-Centro Italia** (i terzisti sono accreditabili in oltre 35
