@@ -11,7 +11,7 @@ const END   = "/* ============================ Render";
 const EXPORTS = ["STATE","App","isLate","jobsForSupplier","filteredJobs","daysTo","relDays","fmtMoney","fmtDate",
                  "dISO","addDays","supplier","capo","byId","mailto","isCapo","activeHours","supplierMonthlyLoad","monthKey",
                  "toCSV","parseCSV","supplierMetrics","freeCapacity","monthLoad","daysBetween","jobHealth","suggestSuppliers",
-                 "TIPOLOGIE","STATI","SETTORI","CARPENTERIA","REQ_TYPES","AVANZAMENTO","CERT","QUICK_REPLIES","esc","uid"];
+                 "TIPOLOGIE","STATI","SETTORI","LAVORAZIONI","LAV_KEYS","parseLavorazioni","REQ_TYPES","AVANZAMENTO","CERT","QUICK_REPLIES","esc","uid"];
 const S = sandbox(START, END, EXPORTS, {});
 // secondo sandbox fino a "Eventi" per le funzioni-azione pure (senza DOM)
 const SA = sandbox(START, "/* ============================ Eventi", ["STATE","applyDateChange","addDays",
@@ -42,7 +42,8 @@ r.ok("seed: integrità referenziale + tipologie/carpenteria valide", () => {
     assert(S.byId(S.STATE.capi, j.capoId), "capo mancante per " + j.code);
     if (j.assegnatoA) assert(S.supplier(j.assegnatoA), "fornitore mancante per " + j.code);
     assert(S.TIPOLOGIE[j.tipologia], "tipologia non valida: " + j.tipologia);
-    assert(["inclusa","righi","no"].includes(j.carpenteria));
+    assert(Array.isArray(j.lavorazioni) && j.lavorazioni.length >= 1, "lavorazioni mancanti: " + j.code);
+    assert(j.lavorazioni.every(k => S.LAVORAZIONI[k]), "lavorazione non valida in " + j.code);
   }
 });
 
@@ -348,6 +349,43 @@ r.ok("analisi/capisquadra: somma attive = commesse assegnate/in corso, ordinate 
   const attive = SA.STATE.jobs.filter(j => ["assegnato","in_corso"].includes(j.stato)).length;
   assert.strictEqual(d.rows.reduce((a, r) => a + r.n, 0), attive, "carico capi != attive");
   for (let i = 1; i < d.rows.length; i++) assert(d.rows[i].n <= d.rows[i-1].n, "non ordinate desc");
+});
+
+/* ---- Lavorazioni industrializzate (multi-selezione) ---- */
+r.ok("lavorazioni: cinque opzioni previste", () => {
+  assert.strictEqual(S.LAV_KEYS.length, 5);
+  ["carp_esterna","foratura","piastra_barre","sbroglio","piastra_comp"].forEach(k =>
+    assert(S.LAVORAZIONI[k] && S.LAVORAZIONI[k].label, "manca lavorazione: " + k));
+});
+r.ok("lavorazioni: le commesse possono averne più d'una", () => {
+  assert(S.STATE.jobs.some(j => j.lavorazioni.length >= 2), "nessuna commessa multi-lavorazione");
+});
+r.ok("parseLavorazioni: accetta chiavi, etichette e separatori misti", () => {
+  assert.deepStrictEqual(S.parseLavorazioni("foratura|sbroglio"), ["foratura","sbroglio"]);
+  assert.deepStrictEqual(S.parseLavorazioni("Foratura piastre, Sbroglio fili"), ["foratura","sbroglio"]);
+  assert.deepStrictEqual(S.parseLavorazioni("piastra_barre / piastra_comp"), ["piastra_barre","piastra_comp"]);
+});
+r.ok("parseLavorazioni: ignora valori sconosciuti e duplicati, vuoto -> []", () => {
+  assert.deepStrictEqual(S.parseLavorazioni(""), []);
+  assert.deepStrictEqual(S.parseLavorazioni("foratura|foratura|xyz"), ["foratura"]);
+});
+r.ok("import CSV: la colonna 'lavorazioni' entra come array valido", () => {
+  const csv = "titolo;tipologia;settore;lavorazioni;budget;ore;data_consegna;caposquadra;visibilita\r\n"
+            + "Quadro test;potenza;Vetro;foratura|piastra_comp;9000;150;2026-09-01;Andrea Bianchi;tutti";
+  const rows = S.parseCSV(csv);
+  assert.strictEqual(rows[1][3], "foratura|piastra_comp");
+  assert.deepStrictEqual(S.parseLavorazioni(rows[1][3]), ["foratura","piastra_comp"]);
+});
+
+/* ---- Firma leggera dell'accettazione ---- */
+r.ok("firma: ogni accettazione del seed è firmata (nome + timestamp)", () => {
+  const accs = S.STATE.responses.filter(r => r.tipo === "accettazione");
+  assert(accs.length > 0, "nessuna accettazione nel seed");
+  assert(accs.every(r => r.firma && r.firma.nome && r.firma.ts), "accettazione senza firma");
+});
+r.ok("firma: il nominativo firmato corrisponde al fornitore", () => {
+  const one = S.STATE.responses.find(r => r.tipo === "accettazione");
+  assert.strictEqual(one.firma.nome, S.supplier(one.supplierId).name);
 });
 
 r.done();

@@ -43,7 +43,9 @@ Righi e il lato fornitore per vedere entrambe le prospettive.
   ogni terzista rispetto alla sua **capacità** (barre ordinate per carico, linea
   di capacità, semaforo *sotto capacità / quasi saturo / oltre capacità*); il
   toggle **Tabella** dà la vista multi-mese e la somma per fornitore.
-- **Nuovo lavoro**: form a input guidati (tipologia, settore, carpenteria, budget,
+- **Nuovo lavoro**: form a input guidati (tipologia, settore, **lavorazioni
+  industrializzate** a selezione multipla — carpenteria esterna, foratura piastre,
+  piastra con barre e canale, sbroglio fili, piastra con componenti —, budget,
   **ore**, date, caposquadra, layout; visibilità *tutti / selezionati*; notifica
   anche via **email**). In alternativa **import massivo da Excel/CSV** (con
   template scaricabile): le commesse entrano come bozze.
@@ -106,8 +108,10 @@ filtrato. Colori validati per la leggibilità (anche in caso di daltonismo o
 stampa: etichette, trama sulle barre critiche e gap tra i segmenti).
 
 **Lato Fornitore**
-- **Bacheca**: i lavori proposti da Righi; **Accetta** o **fai una domanda** con
-  un tocco; il **layout** per la quotazione è in evidenza.
+- **Bacheca**: i lavori proposti da Righi con le **lavorazioni** previste; **fai
+  una domanda** con un tocco oppure **Accetta**, confermando con una **firma
+  leggera** a tuo nome (Righi vede il timbro *firmato* con data e ora); il
+  **layout** per la quotazione è in evidenza.
 - **I miei lavori**: commesse acquisite e consegne.
 - **Richieste guidate**: contatta il **caposquadra** seguendo la prassi Righi
   (dubbio tecnico, mancanza materiale, ritardo, chiarimento layout, pronto per

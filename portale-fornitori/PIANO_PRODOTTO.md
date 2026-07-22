@@ -44,7 +44,9 @@ Di conseguenza il prodotto è progettato attorno a due driver:
 
 - **Tipologia di lavorazione**: quadro di *automazione* · *distribuzione* · *potenza*
 - **Settore**: packaging, legno, vetro, food & beverage, ceramica, logistica, automotive…
-- **Carpenteria**: inclusa nel lavoro · eseguita da Righi · non prevista
+- **Lavorazioni industrializzate** (multi-selezione, visibili al fornitore):
+  carpenteria esterna · foratura piastre · impostazione piastra con barre e canale
+  · sbroglio fili · impostazione piastra con componenti
 - **Budget** indicativo, **data di richiesta**, **consegna desiderata**
 - **Caposquadra** di riferimento
 - **Allegati**, con il **layout per la quotazione** in evidenza
@@ -85,9 +87,14 @@ Di conseguenza il prodotto è progettato attorno a due driver:
   CSV degli ordini accettati** per l'emissione ordine nell'ERP.
 - **Guida in app** contestuale per responsabile, caposquadra e fornitore.
 - **Pubblicazione, notifica mirata, accettazione, assegnazione** end-to-end.
+- **Firma leggera dell'accettazione**: il fornitore conferma con una spunta di
+  firma a proprio nome; l'accettazione registra nominativo, data e ora e Righi
+  vede il timbro *firmato* nella conversazione e nella scelta dell'assegnatario.
+  L'irrobustimento server-side (user/ip/hash, PDF ordine) è in `BACKEND.md`.
 - **Notifiche in app + email**: ogni evento genera una notifica; l'email si
   compone in una finestra dedicata (apri nel client / copia testo), senza
-  interrompere l'app. L'invio server-side è la Fase 1 (`BACKEND.md`).
+  interrompere l'app. Il **backend multicanale** (email transazionale
+  automatica, Web Push, WhatsApp con opt-in) è dettagliato in `BACKEND.md` (Fase 1).
 - **Ritardi** evidenziati automaticamente (consegna superata su commessa attiva).
 - **Metriche fornitore** (visibili a Righi e al fornitore): puntualità, lavori/mese,
   carico ore, richieste sollevate, tasso di accettazione, tempo di risposta,

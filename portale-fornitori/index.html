@@ -165,6 +165,11 @@ main{max-width:1180px;margin:0 auto;padding:16px calc(var(--sar) + 14px) calc(va
 @media(max-width:820px){.chart-grid{grid-template-columns:1fr}}
 .chart-note{color:var(--muted);font-size:12.5px;margin:-2px 0 8px}
 .lnk{color:var(--brand);font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+/* firma leggera dell'accettazione */
+.firma-box{display:flex;gap:10px;align-items:flex-start;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:11px 12px;margin:2px 0 12px;font-size:12.5px;line-height:1.45;color:var(--ink-soft);cursor:pointer}
+.firma-box input{margin-top:1px;width:18px;height:18px;flex:none;accent-color:var(--brand);cursor:pointer}
+.firma-sign{display:inline-flex;align-items:center;gap:5px;margin-top:5px;font-size:11.5px;font-weight:600;color:var(--ok)}
+.firma-sign .svg-ic{width:14px;height:14px}
 /* token di riempimento (status + brand/info + tipologia); trama su danger per daltonismo/stampa */
 .cf-ok{background:var(--ok)} .cf-warn{background:var(--warn)} .cf-info{background:var(--info)} .cf-brand{background:var(--brand)} .cf-muted{background:var(--surface-3)}
 .cf-danger{background:var(--danger);background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.28) 0 3px,transparent 3px 7px)}
@@ -528,11 +533,25 @@ const TIPOLOGIE = {
   potenza:      {label:"Quadro di potenza", short:"Potenza", dot:"pot"},
 };
 const SETTORI = ["Packaging","Legno","Vetro","Food & Beverage","Ceramica","Logistica","Automotive","Farmaceutico"];
-const CARPENTERIA = {
-  inclusa:{label:"Inclusa nel lavoro", pill:"Carpenteria inclusa"},
-  righi:  {label:"Eseguita da Righi", pill:"Carpenteria: Righi"},
-  no:     {label:"Non prevista", pill:"Senza carpenteria"},
+// Lavorazioni industrializzate previste sulla commessa (multi-selezione).
+// Visibili anche al fornitore (bacheca + dettaglio commessa).
+const LAVORAZIONI = {
+  carp_esterna:  {label:"Lavorazione carpenteria esterna", short:"Carpenteria esterna"},
+  foratura:      {label:"Foratura piastre", short:"Foratura piastre"},
+  piastra_barre: {label:"Impostazione piastra con barre e canale", short:"Piastra barre e canale"},
+  sbroglio:      {label:"Sbroglio fili", short:"Sbroglio fili"},
+  piastra_comp:  {label:"Impostazione piastra con componenti", short:"Piastra con componenti"},
 };
+const LAV_KEYS = Object.keys(LAVORAZIONI);
+function lavLabels(lavs, short){ return (lavs||[]).map(k=>LAVORAZIONI[k]?(short?LAVORAZIONI[k].short:LAVORAZIONI[k].label):k); }
+function lavPills(lavs, max){ if(!lavs||!lavs.length) return ""; const m=max||2;
+  const show=lavs.slice(0,m).map(k=>`<span class="pill">${esc(LAVORAZIONI[k]?LAVORAZIONI[k].short:k)}</span>`).join("");
+  return show+(lavs.length>m?`<span class="pill plain">+${lavs.length-m}</span>`:""); }
+function parseLavorazioni(s){ if(!s) return []; const out=[];
+  String(s).split(/[|,\/]/).forEach(tok=>{ const t=slug(tok); if(!t) return;
+    let key=LAVORAZIONI[t]?t:(LAV_KEYS.find(k=>slug(LAVORAZIONI[k].label)===t||slug(LAVORAZIONI[k].short)===t||k===t)||null);
+    if(key && !out.includes(key)) out.push(key); });
+  return out; }
 const STATI = {
   bozza:     {label:"Bozza", pill:"", cls:"draft"},
   pubblicato:{label:"Da assegnare", pill:"info", cls:"pub"},
@@ -603,11 +622,12 @@ function seed(){
   const lineTokens=["linea 1","linea 2","linea 3","reparto A","reparto B","impianto Nord","impianto Sud","cella 4","macchina 12","forno 2","banco prova","stazione 7","area confezionamento","gruppo pompe","nastro 5"];
   let codeN=2400; const jobs=[];
   function mk(stato,opts){
-    const tip=pick(Object.keys(TIPOLOGIE)); const set=pick(SETTORI); const carp=pick(["inclusa","inclusa","righi","no"]);
+    const tip=pick(Object.keys(TIPOLOGIE)); const set=pick(SETTORI);
+    const lavs=LAV_KEYS.filter(()=>rng()<0.4); if(!lavs.length) lavs.push(pick(LAV_KEYS));
     const budget=Math.round((3000+rng()*17000)/500)*500;
     const capoId=pick(capi).id;
     const j={ id:"j"+(codeN), code:"RGH-"+(codeN), title:TIPOLOGIE[tip].short+" "+set+" — "+pick(lineTokens),
-      tipologia:tip, settore:set, carpenteria:carp, budget, capoId,
+      tipologia:tip, settore:set, lavorazioni:lavs, budget, capoId,
       descrizione:"Cablaggio e cablatura secondo schemi e distinta forniti. Collaudo funzionale prima della consegna.",
       oreStimate:Math.round((20+rng()*360)/5)*5,
       allegati:[{id:uid("a"),name:"Layout_"+slug(set)+"_"+codeN+".pdf",type:"application/pdf",layout:true,size:(300+Math.floor(rng()*500))+" KB"}],
@@ -639,7 +659,8 @@ function seed(){
   pubs.forEach(j=>{ const nAcc=Math.floor(rng()*3); const pool=suppliers.filter(s=> j.visibility==="tutti"||j.invitati.includes(s.id));
     for(let k=0;k<nAcc && k<pool.length;k++){ const s=pool[Math.floor(rng()*pool.length)];
       if(responses.some(r=>r.jobId===j.id&&r.supplierId===s.id)) continue;
-      responses.push({id:uid("r"),jobId:j.id,supplierId:s.id,tipo:"accettazione",testo:"Confermiamo disponibilità.",importo:Math.round(j.budget*(0.92+rng()*0.12)/100)*100,at:dISO(-Math.floor(rng()*4))+"T09:"+(10+k)+"0",from:"fornitore",read:false}); }
+      const at=dISO(-Math.floor(rng()*4))+"T09:"+String(15+k*10).padStart(2,"0");
+      responses.push({id:uid("r"),jobId:j.id,supplierId:s.id,tipo:"accettazione",testo:"Confermiamo disponibilità.",importo:Math.round(j.budget*(0.92+rng()*0.12)/100)*100,at,from:"fornitore",read:false,firma:{nome:s.name,ts:at}}); }
     if(rng()<0.25){ const s=pool[Math.floor(rng()*pool.length)]; if(s) responses.push({id:uid("r"),jobId:j.id,supplierId:s.id,tipo:"domanda",testo:"La distinta materiali è completa?",at:dISO(-1)+"T11:20",from:"fornitore",read:false}); }
   });
   // richieste guidate su alcune commesse attive
@@ -1042,7 +1063,7 @@ function miniCard(j){ const t=TIPOLOGIE[j.tipologia],late=isLate(j),s=supplier(j
 
 /* ==================== VIEW: Righi — Nuovo lavoro ==================== */
 function viewNuovoLavoro(){
-  const d = App.draft || (App.draft={ tipologia:"automazione", settore:"Packaging", carpenteria:"inclusa", visibility:"tutti", invitati:[], capoId:STATE.capi[0].id, dataRichiesta:todayISO(), dataConsegna:dISO(21), allegati:[], emailNotify:true });
+  const d = App.draft || (App.draft={ tipologia:"automazione", settore:"Packaging", lavorazioni:[], visibility:"tutti", invitati:[], capoId:STATE.capi[0].id, dataRichiesta:todayISO(), dataConsegna:dISO(21), allegati:[], emailNotify:true });
   return `
   <div class="view-head"><div><h2>Nuovo lavoro</h2><p>Componi la proposta con pochi tocchi — input guidati, meno testo</p></div></div>
   <div class="card" style="max-width:720px;margin-bottom:12px">
@@ -1060,8 +1081,9 @@ function viewNuovoLavoro(){
       <div class="chips">${Object.entries(TIPOLOGIE).map(([k,v])=>`<button class="chip ${d.tipologia===k?'on':''}" data-set="tipologia" data-v="${k}"><span class="dot ${v.dot}"></span>${v.short}</button>`).join("")}</div></div>
     <div class="field"><label>Settore</label>
       <div class="chips">${SETTORI.map(s=>`<button class="chip sm ${d.settore===s?'on':''}" data-set="settore" data-v="${esc(s)}">${esc(s)}</button>`).join("")}</div></div>
-    <div class="field"><label>Carpenteria</label>
-      <div class="chips">${Object.entries(CARPENTERIA).map(([k,v])=>`<button class="chip ${d.carpenteria===k?'on':''}" data-set="carpenteria" data-v="${k}">${v.label}</button>`).join("")}</div></div>
+    <div class="field"><label>Lavorazioni industrializzate</label>
+      <span class="hint" style="display:block;margin:-2px 0 6px">Seleziona una o più lavorazioni previste — le vede anche il fornitore.</span>
+      <div class="chips">${Object.entries(LAVORAZIONI).map(([k,v])=>`<button type="button" class="chip ${(d.lavorazioni||[]).includes(k)?'on':''}" data-act="toggleLav" data-v="${k}">${v.label}</button>`).join("")}</div></div>
     <div class="row2">
       <div class="field"><label>Budget indicativo (€)</label><input class="inp" id="nl-budget" type="number" inputmode="numeric" placeholder="es. 8000" value="${d.budget||''}"></div>
       <div class="field"><label>Ore stimate di produzione</label><input class="inp" id="nl-ore" type="number" inputmode="numeric" placeholder="es. 120" value="${d.ore||''}"><span class="hint">Riservato Righi · alimenta il carico dei terzisti</span></div>
@@ -1296,7 +1318,7 @@ function supplierJobCard(j,u){
     <div class="body">
       <div class="top"><div><div class="code">${esc(j.code)}</div><h3>${esc(j.title)}</h3></div>
         ${targeted?`<span class="pill accent">Invitato</span>`:`<span class="pill info">Aperto</span>`}</div>
-      <div class="meta">${tipPill(j.tipologia)}<span class="pill plain">${esc(j.settore)}</span>${j.carpenteria!=='no'?`<span class="pill">${CARPENTERIA[j.carpenteria].pill}</span>`:""}</div>
+      <div class="meta">${tipPill(j.tipologia)}<span class="pill plain">${esc(j.settore)}</span>${lavPills(j.lavorazioni)}</div>
       <div class="info"><span>${icon("calendar","sm")} consegna <b>${fmtDate(j.dataConsegna)}</b> <span class="soft">(${relDays(j.dataConsegna)})</span></span><span>Budget <b>${fmtMoney(j.budget)}</b></span></div>
       ${layout?`<div class="attach layout"><span class="fi">${icon("layout")}</span><span class="gr"><b>${esc(layout.name)}</b><span>Layout per quotazione</span></span></div>`:""}
     </div>
@@ -1429,7 +1451,7 @@ function openJobModal(jid){
       <div class="dl"><span class="k">Data richiesta</span><span class="v">${fmtDate(j.dataRichiesta)}</span></div>
       <div class="dl"><span class="k">Caposquadra</span><span class="v">${c?esc(c.name):'—'}</span></div>
       ${isRighi?`<div class="dl"><span class="k">Ore stimate produzione</span><span class="v">${j.oreStimate?j.oreStimate+' h':'—'}</span></div>`:""}
-      <div class="dl"><span class="k">Carpenteria</span><span class="v">${CARPENTERIA[j.carpenteria].label}</span></div>
+      <div class="dl"><span class="k">Lavorazioni industrializzate</span><span class="v">${(j.lavorazioni&&j.lavorazioni.length)?lavLabels(j.lavorazioni).map(esc).join(" · "):'—'}</span></div>
       <div class="dl"><span class="k">${isRighi?'Visibilità':'Assegnato a'}</span><span class="v">${isRighi?(j.visibility==='tutti'?'Tutti i fornitori':(j.invitati||[]).length+' selezionati'):(s?esc(s.name):'—')}</span></div>
     </div>
     ${j.descrizione?`<div class="dl"><span class="k">Note tecniche</span><span class="v" style="font-weight:400;line-height:1.5">${esc(j.descrizione)}</span></div>`:""}
@@ -1446,15 +1468,17 @@ function openJobModal(jid){
 function msgHtml(r){ const s=supplier(r.supplierId); const mineSide=(currentUser().role==="fornitore"); const us=(r.from==="fornitore")===mineSide;
   const who=r.from==="fornitore"?(s?s.name:"Fornitore"):"Righi";
   const label=r.tipo==="accettazione"?("Ha accettato"+(r.importo?" — "+fmtMoney(r.importo):"")):r.tipo==="domanda"?"Domanda":"";
-  return `<div class="msg ${us?'us':'them'}"><div class="who">${esc(who)}${label?" · "+label:""}</div><div>${esc(r.testo)}</div><div class="t">${esc((r.at||'').replace('T',' '))}</div></div>`;
+  const firma=r.firma?`<div class="firma-sign">${icon("check","sm")} Firmato da ${esc(r.firma.nome)} · ${esc((r.firma.ts||'').slice(0,10).split('-').reverse().join('/'))}</div>`:"";
+  return `<div class="msg ${us?'us':'them'}"><div class="who">${esc(who)}${label?" · "+label:""}</div><div>${esc(r.testo)}</div>${firma}<div class="t">${esc((r.at||'').replace('T',' '))}</div></div>`;
 }
 
-function openAcceptModal(jid){ const j=byId(STATE.jobs,jid);
+function openAcceptModal(jid){ const j=byId(STATE.jobs,jid); const u=currentUser(); const s=supplier(u.supplierId);
   openModal(`${modalHead("Accetta proposta")}
     <p class="muted" style="font-size:13px;margin-top:0">${esc(j.title)} — conferma al budget indicato o proponi il tuo importo.</p>
     <div class="field"><label>Importo proposto (€)</label><input class="inp" id="acc-imp" type="number" inputmode="numeric" value="${j.budget||''}"></div>
     <div class="field"><label>Nota (facoltativa)</label><input class="inp" id="acc-note" placeholder="es. consegna in 15 giorni"></div>
-    <button class="btn accent block" data-act="doAccept" data-job="${jid}">${icon("check")} Invia accettazione</button>`);
+    <label class="firma-box"><input type="checkbox" id="acc-firma"><span>Accetto e <b>firmo</b> la proposta a nome di <b>${esc(s?s.name:'')}</b>. Vale come firma leggera dell'ordine: nominativo, data e ora vengono registrati.</span></label>
+    <button class="btn accent block" data-act="doAccept" data-job="${jid}">${icon("check")} Firma e invia accettazione</button>`);
 }
 function openAskModal(jid){ const j=byId(STATE.jobs,jid);
   openModal(`${modalHead("Fai una domanda")}
@@ -1497,7 +1521,7 @@ function openAssignPick(jid){ const j=byId(STATE.jobs,jid);
     <p class="muted" style="font-size:13px;margin-top:0">${esc(j.title)} — ordinati per idoneità (specializzazione, capacità, puntualità).</p>
     <div class="rowlist">${cand.map(r=>{const s=supplier(r.supplierId); const sg=sMap[r.supplierId]||{};
       return `<div class="lrow"><span class="avatar sm" style="background:${colorFor(s.id)}">${initials(s.name)}</span>
-      <span class="gr"><b>${esc(s.name)}${(sg.reasons&&sg.reasons.includes("puntuale"))?' <span class="pill ok">puntuale</span>':''}</b><span class="s">offerta ${fmtMoney(r.importo)} · libere ${sg.free!=null?sg.free+'h':'—'}${sg.overload?' · <span style="color:var(--danger)">sovraccarico</span>':''}${sg.puntualita!=null?' · punt '+sg.puntualita+'%':''}</span></span>
+      <span class="gr"><b>${esc(s.name)}${(sg.reasons&&sg.reasons.includes("puntuale"))?' <span class="pill ok">puntuale</span>':''}${r.firma?' <span class="pill ok">firmato</span>':''}</b><span class="s">offerta ${fmtMoney(r.importo)} · libere ${sg.free!=null?sg.free+'h':'—'}${sg.overload?' · <span style="color:var(--danger)">sovraccarico</span>':''}${sg.puntualita!=null?' · punt '+sg.puntualita+'%':''}</span></span>
       <button class="btn sm accent" data-act="assign" data-job="${jid}" data-sup="${s.id}">Assegna</button></div>`;}).join("")}</div>
     <p class="muted" style="font-size:12px;margin-top:8px">L'ordine considera specializzazione, settore, certificazioni, capacità libera nel mese di consegna e puntualità.</p>`);
 }
@@ -1651,7 +1675,7 @@ function createJob(mode){
   if(!d.title){ toast("Inserisci un titolo","warn"); $("#nl-title").focus(); return; }
   if(d.visibility==="selezionati" && !(d.invitati||[]).length){ toast("Scegli almeno un fornitore","warn"); return; }
   const n=STATE.jobs.reduce((m,j)=>Math.max(m,parseInt((j.code||"").split("-")[1])||0),2400);
-  const job={ id:uid("j"), code:"RGH-"+(n+1), title:d.title, tipologia:d.tipologia, settore:d.settore, carpenteria:d.carpenteria,
+  const job={ id:uid("j"), code:"RGH-"+(n+1), title:d.title, tipologia:d.tipologia, settore:d.settore, lavorazioni:d.lavorazioni||[],
     budget:d.budget?Number(d.budget):null, oreStimate:d.ore?Number(d.ore):null, dataRichiesta:d.dataRichiesta, dataConsegna:d.dataConsegna, capoId:d.capoId,
     descrizione:d.descrizione, allegati:d.allegati||[], visibility:d.visibility, invitati:d.invitati||[],
     stato: mode==="publish"?"pubblicato":"bozza", assegnatoA:null, publishedAt: mode==="publish"?todayISO():null, createdAt:todayISO(),
@@ -1663,23 +1687,23 @@ function createJob(mode){
   toast(mode==="publish"?"Lavoro pubblicato":"Bozza salvata","ok");
   App.tab="lavori"; App.filters.stato=mode==="publish"?"da_assegnare":"bozza"; App.page=1; render();
 }
-function dlTemplate(){ const rows=[["titolo","tipologia","settore","carpenteria","budget","ore","data_richiesta","data_consegna","caposquadra","visibilita"],
-    ["Quadro automazione linea 3","automazione","Packaging","inclusa","8000","120","2026-07-21","2026-08-20","Andrea Bianchi","tutti"],
-    ["Quadro potenza forno 2","potenza","Ceramica","righi","15000","240","2026-07-21","2026-09-05","Luca Ferri","selezionati"]];
+function dlTemplate(){ const rows=[["titolo","tipologia","settore","lavorazioni","budget","ore","data_richiesta","data_consegna","caposquadra","visibilita"],
+    ["Quadro automazione linea 3","automazione","Packaging","foratura|sbroglio","8000","120","2026-07-21","2026-08-20","Andrea Bianchi","tutti"],
+    ["Quadro potenza forno 2","potenza","Ceramica","piastra_barre|piastra_comp","15000","240","2026-07-21","2026-09-05","Luca Ferri","selezionati"]];
   downloadFile("template_commesse_righi.csv", toCSV(rows)); toast("Template scaricato","ok"); }
 function importJobsCSV(text){
   const rows=parseCSV(text); if(rows.length<2){ toast("File vuoto o senza righe dati","warn"); return; }
   const head=rows[0].map(h=>slug(h)); const idx=n=>head.indexOf(n);
-  const iTit=idx("titolo"),iTip=idx("tipologia"),iSet=idx("settore"),iCar=idx("carpenteria"),iBud=idx("budget"),iOre=idx("ore"),iReq=idx("datarichiesta"),iCon=idx("dataconsegna"),iCap=idx("caposquadra"),iVis=idx("visibilita");
+  const iTit=idx("titolo"),iTip=idx("tipologia"),iSet=idx("settore"),iLav=idx("lavorazioni"),iBud=idx("budget"),iOre=idx("ore"),iReq=idx("datarichiesta"),iCon=idx("dataconsegna"),iCap=idx("caposquadra"),iVis=idx("visibilita");
   if(iTit<0){ toast("Manca la colonna 'titolo' — usa il template","warn"); return; }
   const num=v=>v?Number(String(v).replace(/[^\d]/g,"")):null; let n=STATE.jobs.reduce((m,j)=>Math.max(m,parseInt((j.code||"").split("-")[1])||0),2400), added=0;
   for(let r=1;r<rows.length;r++){ const row=rows[r]; const tit=(row[iTit]||"").trim(); if(!tit) continue;
     const tip=["automazione","distribuzione","potenza"].includes(slug(row[iTip]||""))?slug(row[iTip]):"automazione";
-    const car=["inclusa","righi","no"].includes((row[iCar]||"").trim())?(row[iCar]||"").trim():"inclusa";
+    const lavs=parseLavorazioni(iLav>=0?row[iLav]:"");
     const cap=STATE.capi.find(c=>slug(c.name)===slug(iCap>=0?row[iCap]:""))||STATE.capi[0];
     const vis=(slug(row[iVis]||"")==="selezionati")?"selezionati":"tutti";
     n++; added++; STATE.jobs.unshift({ id:uid("j"), code:"RGH-"+n, title:tit, tipologia:tip,
-      settore:(iSet>=0&&row[iSet])?row[iSet].trim():SETTORI[0], carpenteria:car, budget:num(row[iBud]), oreStimate:num(row[iOre]),
+      settore:(iSet>=0&&row[iSet])?row[iSet].trim():SETTORI[0], lavorazioni:lavs, budget:num(row[iBud]), oreStimate:num(row[iOre]),
       dataRichiesta:(iReq>=0&&row[iReq])?row[iReq].trim():todayISO(), dataConsegna:(iCon>=0&&row[iCon])?row[iCon].trim():dISO(21),
       capoId:cap.id, descrizione:"", allegati:[], visibility:vis, invitati:[], stato:"bozza", assegnatoA:null, publishedAt:null, createdAt:todayISO(),
       dataConsegnaBase:(iCon>=0&&row[iCon])?row[iCon].trim():dISO(21), storicoDate:[], dataConsegnaEffettiva:null, assegnatoAt:null, avanzamento:null }); }
@@ -1694,9 +1718,10 @@ function exportOrders(){
     rows.push([j.code,j.title,TIPOLOGIE[j.tipologia].label,j.settore,s.name||"",s.referente||"",s.email||"",(acc&&acc.importo)?acc.importo:(j.budget||""),j.oreStimate||"",j.dataConsegna,j.dataConsegnaBase||j.dataConsegna,(j.storicoDate||[]).length,j.avanzamento?AVANZAMENTO[j.avanzamento].label:"",(capo(j.capoId)||{}).name||"",STATI[j.stato].label]); });
   downloadFile("ordini_accettati_righi.csv", toCSV(rows)); toast(jobs.length+" ordini esportati (CSV per ERP)","ok");
 }
-function doAccept(jid){ const u=currentUser(); const imp=$("#acc-imp").value; const note=$("#acc-note").value.trim();
-  STATE.responses.push({id:uid("r"),jobId:jid,supplierId:u.supplierId,tipo:"accettazione",testo:note||"Proposta accettata.",importo:imp?Number(imp):null,at:new Date().toISOString().slice(0,16),from:"fornitore",read:false});
-  persist(); closeModal(); toast("Proposta inviata a Righi","ok"); render();
+function doAccept(jid){ const u=currentUser(); const s=supplier(u.supplierId); const imp=$("#acc-imp").value; const note=$("#acc-note").value.trim();
+  if(!$("#acc-firma") || !$("#acc-firma").checked){ toast("Spunta la firma per confermare l'accettazione","warn"); return; }
+  STATE.responses.push({id:uid("r"),jobId:jid,supplierId:u.supplierId,tipo:"accettazione",testo:note||"Proposta accettata.",importo:imp?Number(imp):null,at:new Date().toISOString().slice(0,16),from:"fornitore",read:false,firma:{nome:s?s.name:"",ts:new Date().toISOString()}});
+  persist(); closeModal(); toast("Accettazione firmata e inviata a Righi","ok"); render();
 }
 function doAsk(jid){ const u=currentUser(); const t=$("#ask-t").value.trim(); if(!t){ toast("Scrivi la domanda","warn"); return; }
   STATE.responses.push({id:uid("r"),jobId:jid,supplierId:u.supplierId,tipo:"domanda",testo:t,at:new Date().toISOString().slice(0,16),from:"fornitore",read:false});
@@ -1798,6 +1823,8 @@ document.addEventListener("click",e=>{
       App.filters={q:"",stato:"",tipologia:"",settore:"",capo:"",fornitore:"",late:false};
       if(el.dataset.k==="late") App.filters.late=true; else App.filters[el.dataset.k]=el.dataset.v;
       render(); window.scrollTo(0,0); break;
+    case "toggleLav": { App.draft=App.draft||{}; const a=App.draft.lavorazioni=App.draft.lavorazioni||[];
+      const v=el.dataset.v, i=a.indexOf(v); if(i<0) a.push(v); else a.splice(i,1); el.classList.toggle("on"); break; }
     case "setStatoFilter": App.filters.stato=el.dataset.v; App.page=1; updateResults(); if($("#lav-search"))reflectFilterChips(); render(); break;
     case "toggleLate": App.filters.late=!App.filters.late; App.page=1; render(); break;
     case "clearFilter": App.filters[el.dataset.k]= el.dataset.k==="late"?false:""; App.page=1; render(); break;
