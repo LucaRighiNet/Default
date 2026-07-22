@@ -513,7 +513,6 @@ function mailto(to, subject, body, cc){
   const q=[]; if(subject) q.push("subject="+encodeURIComponent(subject)); if(body) q.push("body="+encodeURIComponent(body)); if(cc) q.push("cc="+encodeURIComponent(cc));
   return "mailto:"+encodeURIComponent(Array.isArray(to)?to.join(","):to).replace(/%2C/g,",")+(q.length?"?"+q.join("&"):"");
 }
-function openMail(to,subject,body,cc){ const a=document.createElement("a"); a.href=mailto(to,subject,body,cc); a.style.display="none"; document.body.appendChild(a); a.click(); setTimeout(()=>a.remove(),0); }
 
 /* ============================ Storage ============================ */
 const KEY="righi_portale_v4", SESSKEY="righi_portale_sess_v4";
@@ -2157,7 +2156,7 @@ document.addEventListener("click",e=>{
       const id=el.dataset.v, i=inv.indexOf(id); if(i<0) inv.push(id); else inv.splice(i,1); render(); break; }
     case "inviteTop": { App.draft=App.draft||{}; const inv=App.draft.invitati=App.draft.invitati||[];
       (el.dataset.ids||"").split(",").filter(Boolean).forEach(id=>{ if(!inv.includes(id)) inv.push(id); }); render(); break; }
-    case "setStatoFilter": App.filters.stato=el.dataset.v; App.page=1; updateResults(); if($("#lav-search"))reflectFilterChips(); render(); break;
+    case "setStatoFilter": App.filters.stato=el.dataset.v; App.page=1; updateResults(); render(); break;
     case "toggleLate": App.filters.late=!App.filters.late; App.page=1; render(); break;
     case "clearFilter": App.filters[el.dataset.k]= el.dataset.k==="late"?false:""; App.page=1; render(); break;
     case "clearAll": App.filters={q:"",stato:"",tipologia:"",settore:"",capo:"",fornitore:"",late:false}; App.page=1; render(); break;
@@ -2221,7 +2220,6 @@ document.addEventListener("click",e=>{
     case "dlTemplate": dlTemplate(); break;
   }
 });
-function reflectFilterChips(){ /* no-op: la ricerca aggiorna via updateResults, i chip via render */ }
 
 // ricerca istantanea (senza perdere il focus)
 document.addEventListener("input",e=>{
