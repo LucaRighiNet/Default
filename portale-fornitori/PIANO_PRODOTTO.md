@@ -117,9 +117,10 @@ Di conseguenza il prodotto è progettato attorno a due driver:
   commessa indica l'ingombro previsto) e il **semaforo salute commessa** (predittivo).
 - **Avanzamento a un tocco** lato fornitore (materiale → cablaggio → collaudo →
   pronto), notificato a Righi.
-- **Mappa fornitori** (SVG offline): pin colorati per carico, click per scheda e
-  capacità libera; per il caposquadra evidenzia le zone già presidiate
-  (ottimizzazione trasporti).
+- **Mappa fornitori** (SVG offline) su **Nord-Centro Italia** (terzisti
+  accreditabili in oltre 35 città, dal Piemonte alle Marche): pin colorati per
+  carico, click per scheda e capacità libera; per il caposquadra evidenzia le
+  zone già presidiate (ottimizzazione trasporti).
 - **Analisi (cruscotto)**: scheda dedicata, scopata per ruolo, con grafici su
   **consegne per mese** (con quota da assegnare), **pipeline per stato**,
   **salute commesse** (semaforo aggregato), **andamento puntualità**, **mix per

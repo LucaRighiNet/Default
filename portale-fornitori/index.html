@@ -619,9 +619,25 @@ const QUICK_REPLIES = ["Procedi pure","Ti richiamo a breve","OK, usa l'alternati
 const DEMO_FOTO = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='120'><rect width='160' height='120' fill='%23dbe3e8'/><rect x='34' y='30' width='92' height='58' fill='none' stroke='%237a5a2b' stroke-width='3'/><circle cx='80' cy='55' r='10' fill='%23aab6bd'/><path d='M50 78 L72 60 L92 74 L110 58' stroke='%23708' stroke-opacity='0.4' stroke-width='2' fill='none'/><text x='80' y='106' font-size='11' text-anchor='middle' fill='%23556'>foto dal cantiere</text></svg>";
 // Città (lat, lng, zona) per mappa e ottimizzazione trasporti
 const CITY = {
-  "Cesena":[44.14,12.24,"Romagna"], "Bologna":[44.49,11.34,"Bologna"], "Parma":[44.80,10.33,"Parma"],
-  "Forlì":[44.22,12.04,"Romagna"], "Rimini":[44.06,12.57,"Romagna"], "Modena":[44.65,10.93,"Modena"],
-  "Ravenna":[44.42,12.20,"Romagna"], "Imola":[44.35,11.71,"Bologna"]
+  // Emilia-Romagna
+  "Cesena":[44.14,12.24,"Romagna"], "Forlì":[44.22,12.04,"Romagna"], "Ravenna":[44.42,12.20,"Romagna"],
+  "Rimini":[44.06,12.57,"Romagna"], "Riccione":[43.99,12.66,"Romagna"], "Faenza":[44.29,11.88,"Romagna"],
+  "Lugo":[44.42,11.91,"Romagna"], "Cesenatico":[44.20,12.40,"Romagna"], "Bologna":[44.49,11.34,"Bologna"],
+  "Imola":[44.35,11.71,"Bologna"], "Ferrara":[44.84,11.62,"Ferrara"], "Cento":[44.73,11.29,"Ferrara"],
+  "Modena":[44.65,10.93,"Modena"], "Carpi":[44.78,10.88,"Modena"], "Sassuolo":[44.54,10.78,"Modena"],
+  "Reggio Emilia":[44.70,10.63,"Emilia Ovest"], "Parma":[44.80,10.33,"Parma"], "Piacenza":[45.05,9.69,"Emilia Ovest"],
+  // Lombardia
+  "Milano":[45.46,9.19,"Lombardia"], "Brescia":[45.54,10.22,"Lombardia"], "Bergamo":[45.70,9.67,"Lombardia"],
+  "Cremona":[45.13,10.02,"Lombardia"], "Mantova":[45.16,10.79,"Lombardia"], "Pavia":[45.19,9.16,"Lombardia"],
+  // Veneto
+  "Verona":[45.44,10.99,"Veneto"], "Vicenza":[45.55,11.55,"Veneto"], "Padova":[45.41,11.88,"Veneto"],
+  "Venezia":[45.44,12.33,"Veneto"], "Rovigo":[45.07,11.79,"Veneto"],
+  // Marche
+  "Pesaro":[43.91,12.90,"Marche"], "Fano":[43.84,13.02,"Marche"], "Ancona":[43.62,13.51,"Marche"],
+  // Toscana
+  "Firenze":[43.77,11.25,"Toscana"], "Prato":[43.88,11.10,"Toscana"], "Arezzo":[43.46,11.88,"Toscana"],
+  // Piemonte
+  "Torino":[45.07,7.69,"Piemonte"]
 };
 const RIGHI_HQ = {name:"Righi Solutions", citta:"Cesena", lat:44.14, lng:12.24};
 
@@ -641,13 +657,17 @@ function seed(){
   const supDefs=[
     // name, città, specialties, settori, rating, referente, capacitaMese (ore), certificazioni, dimensioneMax, attrezzature
     ["Elettro Cablaggi Snc","Cesena",["automazione","distribuzione"],["Packaging","Legno"],4.6,"Giuseppe Marani",900,["food"],"m",["piega_barre","siglatrice","muletto"]],
-    ["QuadriPro Srl","Bologna",["potenza","distribuzione"],["Food & Beverage","Vetro"],4.4,"Paolo Testi",1300,["hv","food"],"l",["piega_barre","carroponte","siglatrice","muletto","banco_prova"]],
+    ["QuadriPro Srl","Verona",["potenza","distribuzione"],["Food & Beverage","Vetro"],4.4,"Paolo Testi",1300,["hv","food"],"l",["piega_barre","carroponte","siglatrice","muletto","banco_prova"]],
     ["Cablaggi Rapidi","Forlì",["automazione"],["Packaging","Logistica"],4.1,"Anna Riva",700,[],"s",["siglatrice","muletto"]],
-    ["TecnoQuadri","Parma",["automazione","potenza"],["Ceramica","Automotive"],4.7,"Marco Delli",1100,["hv","atex"],"l",["piega_barre","carroponte","siglatrice","muletto","foratura_cn","banco_prova"]],
-    ["Impianti Adriatica","Rimini",["distribuzione","potenza"],["Logistica","Food & Beverage"],4.2,"Elena Fabbri",800,["hv"],"m",["piega_barre","carroponte","muletto"]],
+    ["TecnoQuadri","Brescia",["automazione","potenza"],["Ceramica","Automotive"],4.7,"Marco Delli",1100,["hv","atex"],"l",["piega_barre","carroponte","siglatrice","muletto","foratura_cn","banco_prova"]],
+    ["Impianti Adriatica","Ancona",["distribuzione","potenza"],["Logistica","Food & Beverage"],4.2,"Elena Fabbri",800,["hv"],"m",["piega_barre","carroponte","muletto"]],
     ["EMC Wiring","Modena",["automazione","distribuzione"],["Automotive","Farmaceutico"],4.5,"Roberto Sala",1200,["atex","food"],"m",["piega_barre","siglatrice","muletto","banco_prova"]],
     ["Quadristica 2000","Ravenna",["potenza"],["Vetro","Ceramica"],3.9,"Chiara Monti",650,["hv"],"s",["muletto"]],
-    ["Nuova Elettromeccanica","Imola",["automazione","potenza","distribuzione"],["Packaging","Farmaceutico"],4.3,"Franco Belli",1400,["hv","atex","food"],"l",["piega_barre","carroponte","siglatrice","muletto","foratura_cn","banco_prova"]],
+    ["Nuova Elettromeccanica","Piacenza",["automazione","potenza","distribuzione"],["Packaging","Farmaceutico"],4.3,"Franco Belli",1400,["hv","atex","food"],"l",["piega_barre","carroponte","siglatrice","muletto","foratura_cn","banco_prova"]],
+    ["Cablaggi Padani Srl","Milano",["automazione","distribuzione"],["Automotive","Packaging"],4.4,"Luca Bernardi",1500,["hv"],"l",["piega_barre","carroponte","siglatrice","muletto","banco_prova","foratura_cn"]],
+    ["Veneta Quadri Snc","Padova",["distribuzione","potenza"],["Food & Beverage","Farmaceutico"],4.2,"Giovanni Rossi",1000,["food","atex"],"m",["piega_barre","siglatrice","muletto","banco_prova"]],
+    ["Toscana Impianti Srl","Firenze",["automazione"],["Ceramica","Vetro"],4.0,"Sara Vinci",850,[],"m",["piega_barre","siglatrice","muletto"]],
+    ["Piemonte Cablaggi","Torino",["automazione","potenza"],["Logistica","Automotive"],4.3,"Marco Ferrero",1200,["hv","atex"],"l",["piega_barre","carroponte","siglatrice","muletto","foratura_cn"]],
   ];
   const suppliers=supDefs.map((d,i)=>{ const c=CITY[d[1]]||[44.3,12.0,"—"]; return {id:"f"+(i+1),name:d[0],citta:d[1],lat:c[0],lng:c[1],zona:c[2],accredited:true,specialties:d[2],settori:d[3],rating:d[4],referente:d[5],capacitaMese:d[6],certificazioni:d[7],dimensioneMax:d[8],attrezzature:d[9],email:"preventivi@"+slug(d[0])+".it"}; });
   const users=[
@@ -879,7 +899,7 @@ function suggestSuppliers(job){ const mk=monthKey(job.dataConsegna); const need=
   }).sort((a,b)=>b.score-a.score);
 }
 // Proiezione geografica (lat/lng -> x/y su viewBox 100×50) per la mappa SVG offline
-function projGeo(lat,lng){ const LAT=[43.95,44.90], LNG=[10.10,12.75];
+function projGeo(lat,lng){ const LAT=[43.2,45.95], LNG=[7.4,13.9];   // Nord-Centro Italia
   const x=7+((lng-LNG[0])/(LNG[1]-LNG[0]))*86; const y=7+(1-(lat-LAT[0])/(LAT[1]-LAT[0]))*36; return {x, y}; }
 
 /* ============================ Render ============================ */

@@ -121,9 +121,11 @@ gestirla; il **semaforo** verde/giallo/rosso su ogni commessa anticipa i ritardi
 Il fornitore aggiorna l'**avanzamento con un tocco** (materiale, cablaggio,
 collaudo, pronto).
 
-**Mappa fornitori** (in *Fornitori → Mappa*): pin colorati per carico del mese;
-tocca un pin per scheda e capacità libera. Da caposquadra evidenzia le **zone
-già presidiate** per accorpare i lavori e ridurre le trasferte.
+**Mappa fornitori** (in *Fornitori → Mappa*): pin colorati per carico del mese
+su tutto il **Nord-Centro Italia** (i terzisti sono accreditabili in oltre 35
+città, dal Piemonte alle Marche); tocca un pin per scheda e capacità libera. Da
+caposquadra evidenzia le **zone già presidiate** per accorpare i lavori e ridurre
+le trasferte.
 
 **Analisi** (scheda dedicata, scopata per ruolo): un **cruscotto** con sei
 grafici sulle commesse — **consegne per mese** (carico pianificato e quota ancora
