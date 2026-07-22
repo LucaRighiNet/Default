@@ -78,7 +78,9 @@ Di conseguenza il prodotto è progettato attorno a due driver:
   di conseguenza; il caposquadra non ha le funzioni di gestione (nuovo lavoro,
   fornitori, export).
 - **Ore stimate di produzione**: campo riservato a Righi su ogni commessa, usato
-  per il **carico terzisti** (somma ore attive per fornitore × mese di consegna).
+  per il **carico terzisti** — **istogramma** delle ore attive vs capacità per
+  fornitore (mese selezionabile, semaforo sotto/quasi/oltre capacità, linea di
+  capacità) con toggle **Tabella** multi-mese.
 - **Import massivo** delle commesse da Excel/CSV (template incluso) ed **export
   CSV degli ordini accettati** per l'emissione ordine nell'ERP.
 - **Guida in app** contestuale per responsabile, caposquadra e fornitore.

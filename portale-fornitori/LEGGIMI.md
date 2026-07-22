@@ -39,7 +39,10 @@ Righi e il lato fornitore per vedere entrambe le prospettive.
   **bacheca Kanban**. Apri una scheda per pubblicare, **notificare**, **assegnare**.
 - **Ore stimate di produzione**: campo **riservato a Righi** (mai visibile al
   fornitore) su ogni commessa; alimenta il **carico terzisti** — nella scheda
-  **Fornitori** vedi la somma delle ore attive per fornitore e **mese di consegna**.
+  **Fornitori** un **istogramma** mostra, per il mese scelto, le ore attive di
+  ogni terzista rispetto alla sua **capacità** (barre ordinate per carico, linea
+  di capacità, semaforo *sotto capacità / quasi saturo / oltre capacità*); il
+  toggle **Tabella** dà la vista multi-mese e la somma per fornitore.
 - **Nuovo lavoro**: form a input guidati (tipologia, settore, carpenteria, budget,
   **ore**, date, caposquadra, layout; visibilità *tutti / selezionati*; notifica
   anche via **email**). In alternativa **import massivo da Excel/CSV** (con
