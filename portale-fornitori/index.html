@@ -508,6 +508,9 @@ const AVANZAMENTO = { materiale:{label:"Materiale ricevuto"}, cablaggio:{label:"
 const AVZ_ORDER = ["materiale","cablaggio","collaudo","pronto"];
 // Certificazioni/qualifiche fornitore
 const CERT = { hv:"Quadri >250A", food:"Igienico/food", atex:"ATEX" };
+// Risposte rapide del caposquadra (un tocco, zero testo)
+const QUICK_REPLIES = ["Procedi pure","Ti richiamo a breve","OK, usa l'alternativa","Serve un sopralluogo","Verifico e ti aggiorno"];
+const DEMO_FOTO = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='120'><rect width='160' height='120' fill='%23dbe3e8'/><rect x='34' y='30' width='92' height='58' fill='none' stroke='%237a5a2b' stroke-width='3'/><circle cx='80' cy='55' r='10' fill='%23aab6bd'/><path d='M50 78 L72 60 L92 74 L110 58' stroke='%23708' stroke-opacity='0.4' stroke-width='2' fill='none'/><text x='80' y='106' font-size='11' text-anchor='middle' fill='%23556'>foto dal cantiere</text></svg>";
 // Città (lat, lng, zona) per mappa e ottimizzazione trasporti
 const CITY = {
   "Cesena":[44.14,12.24,"Romagna"], "Bologna":[44.49,11.34,"Bologna"], "Parma":[44.80,10.33,"Parma"],
@@ -602,6 +605,10 @@ function seed(){
   // slittamenti già approvati in passato (storico su ~15% delle commesse attive)
   active.filter(()=>rng()<0.15).forEach(j=>{ const orig=addDays(j.dataConsegna,-(5+Math.floor(rng()*8))); j.dataConsegnaBase=orig;
     j.storicoDate.push({from:orig,to:j.dataConsegna,byRole:"caposquadra",by:j.capoId,at:dISO(-(3+Math.floor(rng()*20))),motivo:"Slittamento concordato",tipo:"slittamento"}); });
+
+  // demo: una richiesta con foto allegata + una con risposta rapida già data
+  const rMat=requests.find(x=>x.tipo==="materiale"); if(rMat){ rMat.foto=DEMO_FOTO; }
+  const rPresa=requests.find(x=>x.stato==="presa"&&x.tipo!=="materiale"); if(rPresa){ rPresa.risposte=[{da:"righi",testo:"Ti richiamo a breve",at:dISO(-1)+"T16:30",byUser:"seed"}]; }
 
   return {v:4, capi, suppliers, users, jobs, responses, requests, notifications};
 }
@@ -1170,10 +1177,10 @@ function viewRichiesteGuidate(u){
         <span class="ic">${icon("bolt")}</span><span class="gr"><b>${esc(j.title)}</b><span class="s">${esc(j.code)} · caposquadra ${esc(c?c.name:'—')}</span></span><span class="arw">${icon("chev")}</span></button>`;}).join("")}</div>`
     : `<div class="empty">${icon("bolt")}<p>Nessuna commessa attiva</p><p class="muted" style="font-size:13px">Le richieste guidate si attivano sulle commesse assegnate.</p></div>`}
   </div>
-  ${mine.length?`<div class="sect-t">Le mie richieste</div><div class="card"><div class="rowlist">${mine.map(r=>{const j=byId(STATE.jobs,r.jobId),tp=REQ_TYPES[r.tipo],c=capo(r.capoId);return `
-    <div class="lrow"><span class="ic ${tp.pill==='danger'?'danger':tp.pill==='warn'?'accent':'info'}">${icon(r.tipo==='materiale'?'inbox':r.tipo==='ritardo'?'clock':'mail')}</span>
-    <span class="gr"><b>${tp.label}</b><span class="s">${esc(j?j.title:'')} · a ${esc(c?c.name:'—')} · ${fmtDate((r.at||'').slice(0,10))}</span></span>
-    <span class="pill ${r.stato==='aperta'?'warn':r.stato==='presa'?'info':'ok'}">${r.stato==='aperta'?'Inviata':r.stato==='presa'?'In carico':'Chiusa'}</span></div>`;}).join("")}</div></div>`:""}`;
+  ${mine.length?`<div class="sect-t">Le mie richieste</div><div class="card"><div class="rowlist">${mine.map(r=>{const j=byId(STATE.jobs,r.jobId),tp=REQ_TYPES[r.tipo],c=capo(r.capoId);const nr=(r.risposte||[]).length;return `
+    <button class="lrow" data-req="${r.id}" style="width:100%"><span class="ic ${tp.pill==='danger'?'danger':tp.pill==='warn'?'accent':'info'}">${icon(r.tipo==='materiale'?'inbox':r.tipo==='ritardo'?'clock':r.tipo==='slittamento'?'calendar':'mail')}</span>
+    <span class="gr"><b>${tp.label}${r.foto?' · foto':''}${nr?' · '+nr+' risposte':''}</b><span class="s">${esc(j?j.title:'')} · a ${esc(c?c.name:'—')} · ${fmtDate((r.at||'').slice(0,10))}</span></span>
+    <span class="pill ${r.esito==='approvato'?'ok':r.esito==='rifiutato'?'danger':r.stato==='aperta'?'warn':r.stato==='presa'?'info':'ok'}">${r.esito?(r.esito==='approvato'?'Approvato':'Rifiutato'):r.stato==='aperta'?'Inviata':r.stato==='presa'?'In carico':'Chiusa'}</span></button>`;}).join("")}</div></div>`:""}`;
 }
 
 /* ==================== VIEW: Fornitore — Profilo ==================== */
@@ -1290,6 +1297,9 @@ function openQuickReq(jid){ const j=byId(STATE.jobs,jid), c=capo(j.capoId); App.
     <div class="chips" id="qr-types">${Object.entries(REQ_TYPES).map(([k,v])=>`<button class="chip sm" data-qrtype="${k}">${v.label}</button>`).join("")}</div>
     <div class="field hide" id="qr-slip" style="margin-top:12px"><label>Nuova data di consegna proposta</label><input class="inp" id="qr-date" type="date" value="${addDays(j.dataConsegna,10)}"><span class="hint">Consegna attuale: ${fmtDate(j.dataConsegna)} — lo slittamento va approvato da Righi.</span></div>
     <div class="field" style="margin-top:12px"><label>Dettaglio (facoltativo)</label><textarea class="inp" id="qr-note" placeholder="Poche parole bastano…"></textarea></div>
+    <div class="field"><label>Foto (facoltativa) — meglio di mille parole</label>
+      <div id="qr-foto-prev"></div>
+      <label class="btn ghost sm" style="cursor:pointer">${icon("doc","sm")} Allega/scatta foto<input type="file" id="qr-foto" accept="image/*" capture="environment" class="hide"></label></div>
     <div class="toggle-row"><button class="switch on" data-act="toggleQrEmail" aria-label="email"></button><div class="gr"><b>Invia anche via email</b><span>Apre l'email precompilata a ${esc(c?c.name:'—')}</span></div></div>
     <button class="btn accent block" data-act="doQuickReq" data-job="${jid}" id="qr-send" disabled>${icon("send")} Invia al caposquadra</button>`);
 }
@@ -1318,24 +1328,40 @@ function openAssignPick(jid){ const j=byId(STATE.jobs,jid);
       <button class="btn sm accent" data-act="assign" data-job="${jid}" data-sup="${s.id}">Assegna</button></div>`;}).join("")}</div>
     <p class="muted" style="font-size:12px;margin-top:8px">L'ordine considera specializzazione, settore, certificazioni, capacità libera nel mese di consegna e puntualità.</p>`);
 }
-function openReqDetail(rid){ const r=byId(STATE.requests,rid); if(!r) return; r.read=true; persist();
+function openReqDetail(rid){ const r=byId(STATE.requests,rid); if(!r) return;
+  const u=currentUser(); const isRighi=u&&u.role==="righi"; if(isRighi){ r.read=true; persist(); }
   const j=byId(STATE.jobs,r.jobId), s=supplier(r.supplierId), c=capo(r.capoId), t=REQ_TYPES[r.tipo];
-  const isSlip=r.tipo==="slittamento";
+  const isSlip=r.tipo==="slittamento"; const thread=r.risposte||[];
+  const stateLabel = r.esito?(r.esito==='approvato'?'Approvato':'Rifiutato'):r.stato==='aperta'?'Inviata':r.stato==='presa'?'In carico':'Chiusa';
+  const statePill = r.esito==='approvato'?'ok':r.esito==='rifiutato'?'danger':r.stato==='aperta'?'warn':r.stato==='presa'?'info':'ok';
   openModal(`${modalHead(t.label)}
-    <div class="dl"><span class="k">Fornitore</span><span class="v">${esc(s?s.name:'')}</span></div>
+    ${isRighi?`<div class="dl"><span class="k">Fornitore</span><span class="v">${esc(s?s.name:'')}</span></div>`:""}
     <div class="dl"><span class="k">Commessa</span><span class="v">${esc(j?j.title:'')} · ${esc(j?j.code:'')}</span></div>
     <div class="dl"><span class="k">Caposquadra</span><span class="v">${esc(c?c.name:'—')}</span></div>
     ${isSlip&&j?`<div class="row2"><div class="dl"><span class="k">Consegna attuale</span><span class="v">${fmtDate(j.dataConsegna)}</span></div><div class="dl"><span class="k">Data proposta</span><span class="v" style="color:var(--accent-deep)">${fmtDate(r.dataProposta)} <span class="soft" style="font-weight:400">(+${daysBetween(j.dataConsegna,r.dataProposta)} gg)</span></span></div></div>`:""}
     <div class="dl"><span class="k">Ricevuta</span><span class="v">${esc((r.at||'').replace('T',' '))}</span></div>
     ${r.testo?`<div class="msg them" style="max-width:100%;margin:6px 0"><div>${esc(r.testo)}</div></div>`:""}
-    ${r.esito?`<div><span class="pill ${r.esito==='approvato'?'ok':'danger'} lg">${r.esito==='approvato'?'Approvato — consegna aggiornata':'Rifiutato'}</span></div>`:""}
-    <div class="divide"></div>
-    <div class="btn-row">
-      ${s?`<button class="btn ghost" data-act="emailReq" data-id="${rid}">${icon("mail","sm")} Rispondi via email</button>`:""}
-      ${isSlip
-        ? (r.stato!=="chiusa"?`<button class="btn danger" data-act="rejectSlip" data-id="${rid}">Rifiuta</button><button class="btn accent" data-act="approveSlip" data-id="${rid}">${icon("check")} Approva e sposta</button>`:"")
-        : `${r.stato==="aperta"?`<button class="btn" data-act="reqStato" data-id="${rid}" data-s="presa">Prendi in carico</button>`:""}${r.stato!=="chiusa"?`<button class="btn accent" data-act="reqStato" data-id="${rid}" data-s="chiusa">${icon("check")} Segna risolta</button>`:`<span class="pill ok lg">Chiusa</span>`}`}
-    </div>`);
+    ${r.foto?`<div class="attach" style="margin:2px 0 8px;cursor:pointer" data-act="openReqFoto" data-id="${rid}"><span class="fi">${icon("doc")}</span><span class="gr"><b>Foto allegata</b><span>tocca per ingrandire</span></span><img src="${r.foto}" style="width:52px;height:52px;object-fit:cover;border-radius:8px"></div>`:""}
+    ${(!isRighi)?`<div><span class="pill ${statePill} lg">${stateLabel}</span></div>`:(r.esito?`<div><span class="pill ${statePill} lg">${r.esito==='approvato'?'Approvato — consegna aggiornata':'Rifiutato'}</span></div>`:"")}
+    ${thread.length?`<div class="divide"></div><div class="sect-t">Conversazione col caposquadra</div><div class="thread">${thread.map(m=>{const mine=(m.da==='righi')===isRighi; return `<div class="msg ${mine?'us':'them'}"><div class="who">${m.da==='righi'?'Caposquadra':'Fornitore'}</div><div>${esc(m.testo)}</div><div class="t">${esc((m.at||'').replace('T',' '))}</div></div>`;}).join("")}</div>`:""}
+    ${isRighi?`
+      <div class="divide"></div><div class="sect-t">${icon("send","sm")} Risposta rapida</div>
+      <div class="chips">${QUICK_REPLIES.map(q=>`<button class="chip sm" data-act="quickReply" data-id="${rid}" data-txt="${esc(q)}">${esc(q)}</button>`).join("")}</div>
+      <div class="btn-row" style="margin-top:12px">
+        ${s?`<button class="btn ghost" data-act="emailReq" data-id="${rid}">${icon("mail","sm")} Email</button>`:""}
+        ${isSlip
+          ? (r.stato!=="chiusa"?`<button class="btn danger" data-act="rejectSlip" data-id="${rid}">Rifiuta</button><button class="btn accent" data-act="approveSlip" data-id="${rid}">${icon("check")} Approva e sposta</button>`:"")
+          : `${r.stato==="aperta"?`<button class="btn" data-act="reqStato" data-id="${rid}" data-s="presa">Prendi in carico</button>`:""}${r.stato!=="chiusa"?`<button class="btn accent" data-act="reqStato" data-id="${rid}" data-s="chiusa">${icon("check")} Segna risolta</button>`:`<span class="pill ok lg">Chiusa</span>`}`}
+      </div>`:""}`);
+}
+function sendQuickReply(rid, testo){ const r=byId(STATE.requests,rid); if(!r||!testo) return; const u=currentUser();
+  r.risposte=r.risposte||[]; r.risposte.push({da:"righi", testo, at:new Date().toISOString().slice(0,16), byUser:u.id});
+  if(r.stato==="aperta") r.stato="presa"; r.read=true;
+  const usr=STATE.users.find(x=>x.supplierId===r.supplierId); if(usr) STATE.notifications.push({id:uid("n"),toUser:usr.id,ic:"mail",txt:"Risposta dal caposquadra: "+testo,sub:(byId(STATE.jobs,r.jobId)||{}).code,jobId:r.jobId,at:new Date().toISOString().slice(0,16),read:false});
+  persist(); toast("Risposta inviata","ok"); openReqDetail(rid);
+}
+function openReqFoto(rid){ const r=byId(STATE.requests,rid); if(!r||!r.foto) return;
+  openModal(`${modalHead("Foto allegata")}<img src="${r.foto}" style="width:100%;border-radius:10px;border:1px solid var(--line)" alt="foto della richiesta"><div class="btn-row" style="margin-top:12px"><button class="btn ghost block" data-act="reqDetail" data-id="${rid}">Torna alla richiesta</button></div>`);
 }
 function openEditDate(jid){ const j=byId(STATE.jobs,jid);
   openModal(`${modalHead("Modifica data di consegna")}
@@ -1507,6 +1533,7 @@ function doQuickReq(jid){ const u=currentUser(); const j=byId(STATE.jobs,jid); i
   const note=$("#qr-note").value.trim(); const c=capo(j.capoId); const tp=REQ_TYPES[App.qr.tipo];
   const req={id:uid("q"),jobId:jid,supplierId:u.supplierId,tipo:App.qr.tipo,testo:note,at:new Date().toISOString().slice(0,16),stato:"aperta",capoId:j.capoId,from:"fornitore",read:false};
   if(App.qr.tipo==="slittamento"){ const d=$("#qr-date")?$("#qr-date").value:""; if(!d){ toast("Indica la nuova data proposta","warn"); return; } req.dataProposta=d; req.esito=null; }
+  if(App.qr.foto) req.foto=App.qr.foto;
   STATE.requests.push(req);
   const wantEmail=App.qr.email; persist(); closeModal(); toast(App.qr.tipo==="slittamento"?"Richiesta di slittamento inviata":"Richiesta inviata al caposquadra","ok"); render();
   if(wantEmail && c && c.email){ const body="Buongiorno "+c.name+",\n\nsegnalazione dal Portale Fornitori:\n\nCommessa: "+j.code+" — "+j.title+"\nTipo: "+tp.label+(req.dataProposta?("\nNuova data proposta: "+fmtDate(req.dataProposta)):"")+(note?("\nDettaglio: "+note):"")+"\nFornitore: "+(supplier(u.supplierId)||{}).name+"\n\nGrazie.";
@@ -1620,6 +1647,9 @@ document.addEventListener("click",e=>{
     case "setStato": setStato(el.dataset.job, el.dataset.s); break;
     case "setAvz": setAvanzamento(el.dataset.job, el.dataset.step); break;
     case "reqStato": reqStato(el.dataset.id, el.dataset.s); break;
+    case "quickReply": sendQuickReply(el.dataset.id, el.dataset.txt); break;
+    case "openReqFoto": openReqFoto(el.dataset.id); break;
+    case "reqDetail": openReqDetail(el.dataset.id); break;
     case "approveSlip": resolveSlip(el.dataset.id, true); break;
     case "rejectSlip": resolveSlip(el.dataset.id, false); break;
     case "editDate": openEditDate(el.dataset.job); break;
@@ -1649,6 +1679,8 @@ document.addEventListener("change",e=>{
   if(e.target && e.target.id==="nl-import"){ const f=e.target.files[0]; if(!f) return;
     if(/\.(xlsx|xls)$/i.test(f.name)){ toast("Salva il file Excel come CSV, poi ricaricalo","warn"); e.target.value=""; return; }
     const rd=new FileReader(); rd.onload=()=>importJobsCSV(String(rd.result)); rd.onerror=()=>toast("Lettura file non riuscita","warn"); rd.readAsText(f); e.target.value=""; return; }
+  if(e.target && e.target.id==="qr-foto"){ const f=e.target.files[0]; if(!f) return; App.qr=App.qr||{};
+    const rd=new FileReader(); rd.onload=()=>{ App.qr.foto=rd.result; const p=$("#qr-foto-prev"); if(p) p.innerHTML=`<div class="attach"><span class="fi">${icon("doc")}</span><span class="gr"><b>Foto allegata</b><span>tocca "Invia" per inoltrarla</span></span><img src="${rd.result}" style="width:46px;height:46px;object-fit:cover;border-radius:8px"></div>`; }; rd.readAsDataURL(f); e.target.value=""; return; }
   if(e.target && e.target.id==="nl-file"){
     App.draft=App.draft||{allegati:[]}; App.draft.allegati=App.draft.allegati||[];
     const files=[...e.target.files]; let pend=files.length;
