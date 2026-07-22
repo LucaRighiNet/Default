@@ -110,16 +110,24 @@ chiedere uno **slittamento** (nuova data + motivo) che il caposquadra
 **approva/rifiuta** (se approvato sovrascrive la consegna e notifica); Righi può
 anche **modificare direttamente** la data. Ogni cambio resta nello **storico**.
 
-**Assegnazione intelligente**: l'anagrafica fornitore è categorizzata (zona,
-capacità mensile, certificazioni, **limite di spazio** — l'ingombro massimo del
-quadro lavorabile — e **attrezzature di officina** — piega barre, carroponte,
-stampante siglature, muletto, banco prova, foratura CN — oltre a specializzazioni
-e settori). In pubblicazione/assegnazione il portale **consiglia i fornitori**
-migliori, segnala i **sovraccarichi** e — se la commessa indica un **ingombro
-previsto** — evidenzia con "**spazio insufficiente**" i terzisti che non possono
-gestirla; il **semaforo** verde/giallo/rosso su ogni commessa anticipa i ritardi.
-Il fornitore aggiorna l'**avanzamento con un tocco** (materiale, cablaggio,
-collaudo, pronto).
+**Dati reali dei terzisti**: l'anagrafica è popolata dalla *Mappatura terzisti
+2026* — **54 terzisti** (di cui **28 attivi**, flag `attivo`), con **capacità
+ore/mese**, **cablatori**, **risorse dedicate a Righi**, **costo orario**,
+**contatti**, note e — dato chiave — la **percentuale di utilizzo preferenziale
+per ciascun OTL/caposquadra** (Casadei, Matteucci, Gregori, Smeraldi, Foschi,
+Chiaruttini). I dati mancanti nel file (tipologie, ingombro, attrezzature, sede
+per alcuni) sono "non specificati" e completabili in app; dove le note lo
+permettono sono dedotti.
+
+**Assegnazione intelligente**: in assegnazione il portale ordina i terzisti per
+idoneità combinando la **preferenza dell'OTL della commessa** (la % del file:
+chi ha % più alta per quel caposquadra sale in classifica), specializzazione,
+settore, certificazioni, **limite di spazio** (con avviso "**spazio
+insufficiente**" se la commessa indica l'ingombro previsto), **attrezzature**,
+**capacità libera** nel mese, **costo** e **puntualità**. Concorrono **solo i
+terzisti attivi**; i sovraccarichi sono segnalati e il **semaforo**
+verde/giallo/rosso anticipa i ritardi. Il fornitore aggiorna l'**avanzamento con
+un tocco** (materiale, cablaggio, collaudo, pronto).
 
 **Mappa fornitori** (in *Fornitori → Mappa*): pin colorati per carico del mese
 su tutto il **Nord-Centro Italia** (i terzisti sono accreditabili in oltre 35

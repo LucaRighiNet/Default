@@ -42,7 +42,12 @@ suppliers(id uuid pk, name text, citta text, accredited bool, specialties text[]
           lat numeric, lng numeric, zona text,          -- mappa + ottimizzazione trasporti
           capacita_mese int, certificazioni text[],      -- carico libero + match requisiti
           dimensione_max text check in ('s','m','l'),    -- limite di spazio: ingombro max del quadro lavorabile
-          attrezzature text[])                           -- dotazioni officina: piega_barre|carroponte|siglatrice|muletto|banco_prova|foratura_cn
+          attrezzature text[],                           -- dotazioni officina: piega_barre|carroponte|siglatrice|muletto|banco_prova|foratura_cn
+          attivo bool default true,                      -- fornitore attualmente attivo (dal file Mappatura)
+          costo_orario numeric, cablatori numeric, risorse_dedicate text,  -- €/h, cablatori totali, risorse dedicate a Righi
+          note text)
+-- Preferenza di utilizzo per OTL (caposquadra): % con cui ciascun OTL usa il terzista.
+supplier_pref(supplier_id uuid fk suppliers, capo_id uuid fk users, perc int, primary key(supplier_id,capo_id))
 ```
 
 ## 2. Modello dati (Postgres)

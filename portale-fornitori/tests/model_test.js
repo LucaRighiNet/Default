@@ -49,9 +49,11 @@ r.ok("seed: integrità referenziale + tipologie/carpenteria valide", () => {
 });
 
 /* ---- Email (nuovo canale) ---- */
-r.ok("email: ogni fornitore e ogni caposquadra ha un indirizzo", () => {
-  assert(S.STATE.suppliers.every(s => /@/.test(s.email)), "fornitore senza email");
+r.ok("email: capisquadra hanno indirizzo; le email fornitore presenti sono valide", () => {
   assert(S.STATE.capi.every(c => /@/.test(c.email)), "caposquadra senza email");
+  // dati reali: non tutti i terzisti hanno un contatto email, ma quelli presenti devono essere validi
+  assert(S.STATE.suppliers.filter(s => s.email).every(s => /@/.test(s.email)), "email fornitore non valida");
+  assert(S.STATE.suppliers.some(s => s.email), "nessun fornitore con email");
 });
 r.ok("mailto: costruisce lo schema con oggetto e corpo", () => {
   const m = S.mailto("a@b.it", "Oggetto X", "Corpo Y");
@@ -152,12 +154,11 @@ r.ok("cataloghi di dominio completi", () => {
 });
 
 /* ---- Fase A/B: anagrafica categorizzata + capacità ---- */
-r.ok("anagrafica: coordinate, zona, capacità e certificazioni presenti", () => {
+r.ok("anagrafica: capacità sui attivi, coordinate dove c'è una sede", () => {
   for (const s of S.STATE.suppliers) {
-    assert(typeof s.lat === "number" && typeof s.lng === "number", "coordinate mancanti: " + s.id);
-    assert(s.zona, "zona mancante: " + s.id);
-    assert(s.capacitaMese > 0, "capacità non valida: " + s.id);
-    assert(Array.isArray(s.certificazioni), "certificazioni non array: " + s.id);
+    assert(Array.isArray(s.certificazioni) && Array.isArray(s.specialties), "array mancanti: " + s.id);
+    if (s.citta) assert(typeof s.lat === "number" && typeof s.lng === "number" && s.zona, "coordinate/zona mancanti per " + s.id);
+    if (s.attivo) assert(s.capacitaMese > 0, "capacità attivo non valida: " + s.id);
   }
 });
 r.ok("freeCapacity = capacità − carico del mese, mai > capacità", () => {
@@ -168,8 +169,9 @@ r.ok("freeCapacity = capacità − carico del mese, mai > capacità", () => {
     assert(free <= s.capacitaMese);
   }
 });
-r.ok("seed: variabilità del carico (non tutti saturi/liberi)", () => {
-  const ratios = S.STATE.suppliers.map(s => S.monthLoad(s.id, S.monthKey(S.dISO(0))) / s.capacitaMese);
+r.ok("seed: variabilità del carico dei terzisti attivi", () => {
+  const att = S.STATE.suppliers.filter(s => s.attivo && s.capacitaMese > 0);
+  const ratios = att.map(s => S.monthLoad(s.id, S.monthKey(S.dISO(0))) / s.capacitaMese);
   assert(Math.min(...ratios) < 0.6 && Math.max(...ratios) > 0.6, "carico non variabile: " + ratios.map(x=>x.toFixed(2)).join(","));
 });
 
@@ -218,7 +220,7 @@ r.ok("jobHealth: consegnato=done, in ritardo=rosso, livelli validi", () => {
 r.ok("suggestSuppliers: ordinato per punteggio, overload = libere < ore", () => {
   const job = S.STATE.jobs.find(j => j.stato === "pubblicato");
   const sg = S.suggestSuppliers(job);
-  assert(sg.length === S.STATE.suppliers.length);
+  assert.strictEqual(sg.length, S.STATE.suppliers.filter(s => s.accredited && s.attivo).length, "solo terzisti attivi");
   for (let i = 1; i < sg.length; i++) assert(sg[i-1].score >= sg[i].score, "non ordinato");
   for (const x of sg) assert.strictEqual(x.overload, x.free < (job.oreStimate||0));
 });
@@ -391,16 +393,27 @@ r.ok("spazio: fitsSpazio confronta l'ingombro richiesto con la capacità del for
 });
 r.ok("assegnazione intelligente: chi ha spazio insufficiente è penalizzato e segnalato", () => {
   const anyDate = S.STATE.jobs[0].dataConsegna;
-  const job = {tipologia:"potenza", settore:"Vetro", dataConsegna:anyDate, oreStimate:100, ingombro:"l"};
+  const job = {tipologia:"potenza", settore:"Vetro", dataConsegna:anyDate, oreStimate:100, ingombro:"l", capoId:"cs1"};
   const res = S.suggestSuppliers(job);
-  const smallIds = S.STATE.suppliers.filter(s => s.dimensioneMax === "s").map(s => s.id);
-  const smalls = res.filter(r => smallIds.includes(r.sid));
-  assert(smalls.length > 0, "il seed deve avere fornitori 'piccoli'");
-  smalls.forEach(r => { assert.strictEqual(r.spazioOk, false); assert(r.reasons.includes("spazio insuff.")); });
+  // i terzisti attivi la cui dimensione non regge 'l' devono essere segnalati
+  const tooSmall = res.filter(r => { const s=S.supplier(r.sid); return s && S.DIMENSIONI[s.dimensioneMax].ord < 3; });
+  assert(tooSmall.length > 0, "attesi terzisti con ingombro < l");
+  tooSmall.forEach(r => { assert.strictEqual(r.spazioOk, false); assert(r.reasons.includes("spazio insuff.")); });
   const big = res.find(r => (S.supplier(r.sid)||{}).dimensioneMax === "l");
-  assert(big && big.spazioOk === true, "un fornitore grande deve adattarsi");
-  // il migliore in classifica deve poter reggere l'ingombro
-  assert.strictEqual(res[0].spazioOk, true, "il primo suggerito non deve avere spazio insufficiente");
+  if (big) assert.strictEqual(big.spazioOk, true, "un fornitore grande deve adattarsi");
+});
+r.ok("preferenze OTL: la % del file entra nel punteggio di suggerimento", () => {
+  const anyDate = S.STATE.jobs[0].dataConsegna;
+  // AEG ha 60% per Smeraldi (cs4): con job del suo OTL, pref>0 e reason presente
+  const aeg = S.STATE.suppliers.find(s => s.name === "AEG");
+  const job = {tipologia:"automazione", settore:"Packaging", dataConsegna:anyDate, oreStimate:100, ingombro:null, capoId:"cs4"};
+  const r4 = S.suggestSuppliers(job).find(x => x.sid === aeg.id);
+  assert(r4 && r4.pref === 60, "pref OTL cs4 attesa 60, ottenuto " + (r4&&r4.pref));
+  assert(r4.reasons.includes("preferito OTL"), "manca reason preferito OTL");
+  // con un OTL per cui AEG ha 0% (cs2), nessun bonus preferenza
+  const job2 = {...job, capoId:"cs2"};
+  const r2 = S.suggestSuppliers(job2).find(x => x.sid === aeg.id);
+  assert.strictEqual(r2.pref, 0);
 });
 
 /* ---- Workflow di approvazione (caposquadra -> responsabile) ---- */

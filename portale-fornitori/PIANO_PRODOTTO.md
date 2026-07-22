@@ -109,12 +109,15 @@ Di conseguenza il prodotto è progettato attorno a due driver:
 - **Ciclo di vita consegna**: richiesta di **slittamento** dal fornitore con
   approvazione del caposquadra (sovrascrive la data + storico + notifica) e
   **modifica diretta** della data da Righi; storico completo dei cambi.
+- **Dati reali (Mappatura terzisti 2026)**: 54 terzisti (28 attivi, flag
+  `attivo`) con capacità ore/mese, cablatori, risorse dedicate, costo orario,
+  contatti, note e **% di utilizzo preferenziale per OTL/caposquadra**.
 - **Assegnazione intelligente**: anagrafica categorizzata (specializzazioni,
   settori, **zona/coordinate**, **capacità mensile**, **certificazioni**,
-  **limite di spazio** — ingombro max lavorabile — e **attrezzature di officina**)
-  che alimenta il **suggerimento fornitori** in pubblicazione/assegnazione,
-  l'**avviso di sovraccarico**, la segnalazione **"spazio insufficiente"** (se la
-  commessa indica l'ingombro previsto) e il **semaforo salute commessa** (predittivo).
+  **limite di spazio**, **attrezzature**, **costo**, **stato attivo**) e la
+  **preferenza dell'OTL** (% dal file) alimentano il **suggerimento fornitori**
+  (solo attivi) in pubblicazione/assegnazione, l'**avviso di sovraccarico**, la
+  segnalazione **"spazio insufficiente"** e il **semaforo salute commessa**.
 - **Avanzamento a un tocco** lato fornitore (materiale → cablaggio → collaudo →
   pronto), notificato a Righi.
 - **Mappa fornitori** (SVG offline) su **Nord-Centro Italia** (terzisti
