@@ -60,7 +60,6 @@ jobs(id uuid pk, code text unique, title text, tipologia text, settore text,
      lavorazioni text[],                                  -- lavorazioni industrializzate (multi): carp_esterna|foratura|piastra_barre|sbroglio|piastra_comp
      ingombro text null check in ('s','m','l'),           -- ingombro previsto del quadro → confronto con dimensione_max del fornitore in assegnazione
      budget numeric, ore_stimate int,                     -- ore_stimate: SOLO Righi (mai esposto ai fornitori)
-     data_richiesta date,
      data_inizio_stimata date,                            -- inizio produzione stimato — VISIBILE al fornitore; guida l'alert "inizio in ritardo"
      data_rientro date,                                   -- rientro del quadro finito in Righi — VISIBILE al fornitore; scadenza operativa, guida l'alert "rientro in ritardo"
      data_rientro_base date,                              -- rientro originale (per contare gli slittamenti)
@@ -75,7 +74,9 @@ jobs(id uuid pk, code text unique, title text, tipologia text, settore text,
      assegnato_a uuid null fk suppliers,
      richiedente uuid null fk users,                      -- caposquadra che ha proposto la commessa (workflow di approvazione)
      approvazione jsonb null,                             -- {esito:'approvata'|'rifiutata', da, at, motivo}
-     created_by uuid fk users, published_at timestamptz, created_at timestamptz)
+     created_by uuid fk users,
+     published_at timestamptz,                            -- "data pubblicazione": impostata all'atto della pubblicazione ai fornitori; mostrata SOLO a Righi (sostituisce la vecchia data_richiesta)
+     created_at timestamptz)
 
 job_inviti(job_id uuid fk jobs, supplier_id uuid fk suppliers, primary key(job_id,supplier_id))
 

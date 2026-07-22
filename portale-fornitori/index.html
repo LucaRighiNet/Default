@@ -1175,7 +1175,7 @@ function duplicateJob(jid){ const j=byId(STATE.jobs,jid); if(!j) return;
   App.draft={ title:j.title, tipologia:j.tipologia, settore:j.settore, lavorazioni:(j.lavorazioni||[]).slice(), ingombro:j.ingombro||"",
     budget:j.budget||"", ore:j.oreStimate||"", capoId:j.capoId, visibility:j.visibility||"tutti",
     invitati:(j.invitati||[]).slice(), descrizione:j.descrizione||"",
-    dataRichiesta:todayISO(), dataInizioStimata:dISO(7), dataRientro:dISO(18), dataConsegna:dISO(21), allegati:[], emailNotify:true };
+    dataInizioStimata:dISO(7), dataRientro:dISO(18), dataConsegna:dISO(21), allegati:[], emailNotify:true };
   closeModal(); App.tab="nuovo"; render(); window.scrollTo(0,0);
   toast("Commessa duplicata — aggiorna layout e date","ok");
 }
@@ -1200,7 +1200,7 @@ function suggeritiHtml(d){ const sugg=draftSuggeriti(d); if(!sugg.length) return
 }
 function viewNuovoLavoro(){
   const u=currentUser(); const capo_=isCapo(u);
-  const d = App.draft || (App.draft={ tipologia:"automazione", settore:"Packaging", lavorazioni:[], visibility:"tutti", invitati:[], capoId:(capo_?u.capoId:STATE.capi[0].id), dataRichiesta:todayISO(), dataInizioStimata:dISO(7), dataRientro:dISO(18), dataConsegna:dISO(21), allegati:[], emailNotify:true });
+  const d = App.draft || (App.draft={ tipologia:"automazione", settore:"Packaging", lavorazioni:[], visibility:"tutti", invitati:[], capoId:(capo_?u.capoId:STATE.capi[0].id), dataInizioStimata:dISO(7), dataRientro:dISO(18), dataConsegna:dISO(21), allegati:[], emailNotify:true });
   return `
   <div class="view-head"><div><h2>Nuovo lavoro</h2><p>${capo_?"Compila e invia al responsabile per l'approvazione":"Componi la proposta con pochi tocchi — input guidati, meno testo"}</p></div></div>
   ${capo_?`<div class="card leftbar" style="max-width:720px;margin-bottom:12px;border-left:4px solid var(--warn)"><div style="display:flex;gap:9px;align-items:flex-start"><span class="ic accent">${icon("bolt")}</span><div><b>Flusso di approvazione</b><p class="muted" style="font-size:12.5px;margin:2px 0 0">Come caposquadra prepari la commessa e la <b>invii per approvazione</b>: il responsabile di produzione la verifica e la pubblica ai fornitori. La ritrovi tra le tue commesse con stato <b>Da approvare</b>.</p></div></div></div>`:""}
@@ -1232,12 +1232,12 @@ function viewNuovoLavoro(){
     <div class="field"><label>Caposquadra di riferimento</label>
       <select class="inp" id="nl-capo" ${capo_?"disabled":""}>${STATE.capi.map(c=>`<option value="${c.id}" ${d.capoId===c.id?'selected':''}>${esc(c.name)}</option>`).join("")}</select>${capo_?`<span class="hint">Sei tu il caposquadra di questa commessa</span>`:""}</div>
     <div class="row2">
-      <div class="field"><label>Data richiesta</label><input class="inp" id="nl-req" type="date" value="${d.dataRichiesta}"></div>
       <div class="field"><label>Inizio lavori stimato</label><input class="inp" id="nl-inizio" type="date" value="${d.dataInizioStimata||''}"><span class="hint">Visibile al fornitore · guida gli alert di avvio</span></div>
+      <div class="field"><label>Rientro in Righi richiesto</label><input class="inp" id="nl-rientro" type="date" value="${d.dataRientro||''}"><span class="hint">Riconsegna del quadro finito · visibile al fornitore</span></div>
     </div>
     <div class="row2">
-      <div class="field"><label>Rientro in Righi richiesto</label><input class="inp" id="nl-rientro" type="date" value="${d.dataRientro||''}"><span class="hint">Riconsegna del quadro finito · visibile al fornitore</span></div>
       <div class="field"><label>Consegna al cliente</label><input class="inp" id="nl-cons" type="date" value="${d.dataConsegna}"><span class="hint">Riservato Righi · non visibile al fornitore</span></div>
+      <div class="field" style="display:flex;flex-direction:column;justify-content:center"><span class="hint" style="margin:0">La <b>data di pubblicazione</b> è impostata in automatico quando pubblichi la commessa ai fornitori (dato riservato a Righi).</span></div>
     </div>
     <div class="field"><label>Note tecniche (facoltative)</label>
       <textarea class="inp" id="nl-desc" placeholder="Dettagli utili alla quotazione…">${esc(d.descrizione||'')}</textarea></div>
@@ -1638,7 +1638,7 @@ function openJobModal(jid){
       <div class="dl"><span class="k">Inizio lavori stimato</span><span class="v">${fmtDate(j.dataInizioStimata)}${(j.stato==="assegnato"&&isLateStart(j))?' <span class="pill danger" style="margin-left:2px">da avviare</span>':''}</span></div>
       <div class="dl"><span class="k">Rientro in Righi</span><span class="v">${fmtDate(j.dataRientro)} <span class="soft" style="font-weight:400">(${relDays(j.dataRientro)})</span>${isLateReturn(j)?' <span class="pill danger" style="margin-left:2px">in ritardo</span>':''}</span></div>
       ${isRighi?`<div class="dl"><span class="k">Consegna al cliente</span><span class="v">${fmtDate(j.dataConsegna)} <span class="soft" style="font-weight:400">· riservato Righi</span></span></div>`:""}
-      <div class="dl"><span class="k">Data richiesta</span><span class="v">${fmtDate(j.dataRichiesta)}</span></div>
+      ${isRighi?`<div class="dl"><span class="k">Data pubblicazione</span><span class="v">${j.publishedAt?fmtDate(j.publishedAt):'<span class="muted" style="font-weight:400">non ancora pubblicata</span>'}</span></div>`:""}
       <div class="dl"><span class="k">Caposquadra</span><span class="v">${c?esc(c.name):'—'}</span></div>
       ${isRighi?`<div class="dl"><span class="k">Ore stimate produzione</span><span class="v">${j.oreStimate?j.oreStimate+' h':'—'}</span></div>`:""}
       <div class="dl"><span class="k">Lavorazioni industrializzate</span><span class="v">${(j.lavorazioni&&j.lavorazioni.length)?lavLabels(j.lavorazioni).map(esc).join(" · "):'—'}</span></div>
@@ -1997,7 +1997,7 @@ function openEmailModal(to, subject, body){
 function createJob(mode){
   const d=App.draft;
   d.title=$("#nl-title").value.trim(); d.budget=$("#nl-budget").value; d.ore=$("#nl-ore").value; d.capoId=$("#nl-capo").value;
-  d.dataRichiesta=$("#nl-req").value; d.dataConsegna=$("#nl-cons").value; d.descrizione=$("#nl-desc").value.trim();
+  d.dataConsegna=$("#nl-cons").value; d.descrizione=$("#nl-desc").value.trim();
   d.dataInizioStimata=($("#nl-inizio")||{}).value||d.dataInizioStimata; d.dataRientro=($("#nl-rientro")||{}).value||d.dataRientro;
   d.ingombro=($("#nl-ingombro")||{}).value||"";
   if(!d.title){ toast("Inserisci un titolo","warn"); $("#nl-title").focus(); return; }
@@ -2013,7 +2013,7 @@ function createJob(mode){
   const stato = mode==="publish"?"pubblicato":(mode==="approvazione"?"da_approvare":"bozza");
   const n=STATE.jobs.reduce((m,j)=>Math.max(m,parseInt((j.code||"").split("-")[1])||0),2400);
   const job={ id:uid("j"), code:"RGH-"+(n+1), title:d.title, tipologia:d.tipologia, settore:d.settore, lavorazioni:d.lavorazioni||[], ingombro:d.ingombro||null,
-    budget:d.budget?Number(d.budget):null, oreStimate:d.ore?Number(d.ore):null, dataRichiesta:d.dataRichiesta,
+    budget:d.budget?Number(d.budget):null, oreStimate:d.ore?Number(d.ore):null,
     dataInizioStimata:d.dataInizioStimata, dataRientro:d.dataRientro, dataConsegna:d.dataConsegna, capoId:d.capoId,
     descrizione:d.descrizione, allegati:d.allegati||[], visibility:d.visibility, invitati:d.invitati||[],
     stato, assegnatoA:null, publishedAt: mode==="publish"?todayISO():null, createdAt:todayISO(),
@@ -2056,14 +2056,14 @@ function openRejectModal(jid){ const j=byId(STATE.jobs,jid); if(!j) return;
     <div class="field"><label>Motivo (facoltativo)</label><textarea class="inp" id="rej-note" placeholder="es. Rivedere il budget e allegare il layout aggiornato"></textarea></div>
     <button class="btn accent block" data-act="doReject" data-job="${jid}">${icon("send")} Rimanda con nota</button>`);
 }
-function dlTemplate(){ const rows=[["titolo","tipologia","settore","lavorazioni","budget","ore","data_richiesta","data_inizio","data_rientro","data_consegna","caposquadra","visibilita"],
-    ["Quadro automazione linea 3","automazione","Packaging","foratura|sbroglio","8000","120","2026-07-21","2026-08-03","2026-08-17","2026-08-20","Davis Casadei","tutti"],
-    ["Quadro potenza forno 2","potenza","Ceramica","piastra_barre|piastra_comp","15000","240","2026-07-21","2026-08-18","2026-09-02","2026-09-05","Enea Matteucci","selezionati"]];
+function dlTemplate(){ const rows=[["titolo","tipologia","settore","lavorazioni","budget","ore","data_inizio","data_rientro","data_consegna","caposquadra","visibilita"],
+    ["Quadro automazione linea 3","automazione","Packaging","foratura|sbroglio","8000","120","2026-08-03","2026-08-17","2026-08-20","Davis Casadei","tutti"],
+    ["Quadro potenza forno 2","potenza","Ceramica","piastra_barre|piastra_comp","15000","240","2026-08-18","2026-09-02","2026-09-05","Enea Matteucci","selezionati"]];
   downloadFile("template_commesse_righi.csv", toCSV(rows)); toast("Template scaricato","ok"); }
 function importJobsCSV(text){
   const rows=parseCSV(text); if(rows.length<2){ toast("File vuoto o senza righe dati","warn"); return; }
   const head=rows[0].map(h=>slug(h)); const idx=n=>head.indexOf(n);
-  const iTit=idx("titolo"),iTip=idx("tipologia"),iSet=idx("settore"),iLav=idx("lavorazioni"),iBud=idx("budget"),iOre=idx("ore"),iReq=idx("datarichiesta"),iIni=idx("datainizio"),iRit=idx("datarientro"),iCon=idx("dataconsegna"),iCap=idx("caposquadra"),iVis=idx("visibilita");
+  const iTit=idx("titolo"),iTip=idx("tipologia"),iSet=idx("settore"),iLav=idx("lavorazioni"),iBud=idx("budget"),iOre=idx("ore"),iIni=idx("datainizio"),iRit=idx("datarientro"),iCon=idx("dataconsegna"),iCap=idx("caposquadra"),iVis=idx("visibilita");
   if(iTit<0){ toast("Manca la colonna 'titolo' — usa il template","warn"); return; }
   const num=v=>v?Number(String(v).replace(/[^\d]/g,"")):null; let n=STATE.jobs.reduce((m,j)=>Math.max(m,parseInt((j.code||"").split("-")[1])||0),2400), added=0;
   for(let r=1;r<rows.length;r++){ const row=rows[r]; const tit=(row[iTit]||"").trim(); if(!tit) continue;
@@ -2077,7 +2077,7 @@ function importJobsCSV(text){
     const dIni=(iIni>=0&&row[iIni])?row[iIni].trim():addDays(dRit,-10);
     STATE.jobs.unshift({ id:uid("j"), code:"RGH-"+n, title:tit, tipologia:tip,
       settore:(iSet>=0&&row[iSet])?row[iSet].trim():SETTORI[0], lavorazioni:lavs, budget:num(row[iBud]), oreStimate:num(row[iOre]),
-      dataRichiesta:(iReq>=0&&row[iReq])?row[iReq].trim():todayISO(), dataInizioStimata:dIni, dataRientro:dRit, dataConsegna:dCons,
+      dataInizioStimata:dIni, dataRientro:dRit, dataConsegna:dCons,
       capoId:cap.id, descrizione:"", allegati:[], visibility:vis, invitati:[], stato:"bozza", assegnatoA:null, publishedAt:null, createdAt:todayISO(),
       dataRientroBase:dRit, storicoDate:[], dataRientroEff:null, assegnatoAt:null, avanzamento:null }); }
   persist(); toast(added+" commesse importate in bozza","ok");
@@ -2312,7 +2312,7 @@ document.addEventListener("input",e=>{
   if(e.target && e.target.id==="forn-search"){ App.fFilters.q=e.target.value; updateResults(); }
   // Sync dei campi "Nuovo lavoro" nella bozza: così un re-render (visibilità,
   // fornitori suggeriti) non perde ciò che è stato digitato.
-  const NLF={"nl-title":"title","nl-budget":"budget","nl-ore":"ore","nl-desc":"descrizione","nl-req":"dataRichiesta","nl-inizio":"dataInizioStimata","nl-rientro":"dataRientro","nl-cons":"dataConsegna"};
+  const NLF={"nl-title":"title","nl-budget":"budget","nl-ore":"ore","nl-desc":"descrizione","nl-inizio":"dataInizioStimata","nl-rientro":"dataRientro","nl-cons":"dataConsegna"};
   if(e.target && NLF[e.target.id]){ App.draft=App.draft||{}; App.draft[NLF[e.target.id]]=e.target.value; }
 });
 // select filtri avanzati

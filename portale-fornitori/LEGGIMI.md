@@ -119,7 +119,10 @@ cliente è riservata a Righi** e non compare mai lato fornitore. Gli **alert di
 ritardo** si basano sulle date operative del fornitore — *inizio in ritardo*
 (assegnata ma non avviata oltre l'inizio stimato) e *rientro in ritardo* (oltre
 la data di rientro) — **mai** sulla consegna al cliente. Carico terzisti,
-puntualità e ordinamento seguono la data di **rientro**.
+puntualità e ordinamento seguono la data di **rientro**. A queste si aggiunge la
+**data di pubblicazione** (quando la commessa è pubblicata ai fornitori),
+impostata **in automatico** e **riservata a Righi** (sostituisce la vecchia
+"data richiesta", che era solo informativa).
 
 **Slittamenti e modifica date**: dal dettaglio commessa il fornitore può
 chiedere uno **slittamento** (nuova data di **rientro** + motivo) che il
