@@ -87,8 +87,10 @@ guidate con foto, profilo e metriche) e include una sezione **domande frequenti*
 **Notifiche ed email**: ogni evento (pubblicazione, notifica mirata, richiesta
 guidata, risposta) genera una **notifica in app**; dove serve comunicare fuori
 dal portale è disponibile l'**email precompilata** (destinatario, oggetto e
-corpo pronti) verso fornitori e caposquadra. L'invio automatico lato server è
-la naturale evoluzione (vedi `BACKEND.md`).
+corpo pronti) verso fornitori e caposquadra. Quando l'email è rivolta a **più
+fornitori** i destinatari vanno in **copia nascosta (Ccn)**: ogni terzista non
+vede gli indirizzi degli altri. L'invio automatico lato server è la naturale
+evoluzione (vedi `BACKEND.md`).
 
 **Visibilità dei lavori**: un fornitore vede i lavori proposti secondo la
 visibilità (*tutti* o *selezionati*), ma **appena un lavoro viene assegnato
@@ -100,10 +102,14 @@ diventa una **lista di schede compatte tap-friendly** (niente tabelle da
 scorrere in orizzontale), le finestre si aprono come *bottom sheet* e i comandi
 rispettano le aree di sicurezza del dispositivo.
 
-**Metriche fornitore** (uguali per Righi e fornitore): nel profilo (lato
-fornitore) e nella *Scheda & metriche* (lato Righi) trovi **puntualità**,
-**lavori/mese**, **carico ore**, **richieste sollevate**, **tasso di
-accettazione**, **tempo di risposta** e **ritardo medio**, con mini-trend.
+**Metriche fornitore — oggettive e condivisibili**: sono **calcolate dai
+lavori** (nessun voto soggettivo), quindi **trasparenti** e **identiche** lato
+Righi e lato fornitore: **puntualità**, **lavori/mese**, **richieste sollevate**,
+**tasso di accettazione**, **tempo di risposta** e **ritardo medio**, con
+mini-trend. Le **ore** e la **saturazione via ore** restano **solo a Righi**
+(che governa il carico): al fornitore, al loro posto, si mostra l'**importo**
+dei progetti (valore attivo e consegnato). Nessuna "valutazione" arbitraria —
+se un dato non è oggettivo e verificabile, non viene mostrato.
 
 **Tre date per commessa (e chi le vede)**: ogni commessa distingue
 **inizio lavori stimato** (quando si prevede di avviare la produzione),

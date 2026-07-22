@@ -38,9 +38,9 @@ users(id uuid pk, email text unique, role text check in ('righi','fornitore'),
       name text, supplier_id uuid null fk suppliers, caposquadra bool default false,
       created_at timestamptz)                                   -- id = auth.uid()
 suppliers(id uuid pk, name text, citta text, accredited bool, specialties text[],
-          settori text[], rating numeric, referente text, created_at,
+          settori text[], referente text, created_at,   -- niente 'rating' soggettivo: la valutazione è calcolata dai lavori (vedi metriche)
           lat numeric, lng numeric, zona text,          -- mappa + ottimizzazione trasporti
-          capacita_mese int, certificazioni text[],      -- carico libero + match requisiti
+          capacita_mese int, certificazioni text[],      -- capacita_mese: carico/saturazione via ORE — SOLO Righi (al fornitore si mostra l'importo)
           dimensione_max text check in ('s','m','l'),    -- limite di spazio: ingombro max del quadro lavorabile
           attrezzature text[],                           -- dotazioni officina: piega_barre|carroponte|siglatrice|muletto|banco_prova|foratura_cn
           attivo bool default true,                      -- fornitore attualmente attivo (dal file Mappatura)
@@ -141,8 +141,10 @@ Attivare **Row Level Security** su tutte le tabelle. Regole chiave:
   caposquadra) per l'emissione ordine nell'**ERP**. In produzione: endpoint di
   export firmato o integrazione diretta con il gestionale.
 - **Email**: il client **compone** l'email (finestra dedicata: apri nel client /
-  copia). L'invio automatico (pubblicazione, assegnazione, richieste) è una
-  Edge Function transazionale (Fase 1) — vedi sez. 4.
+  copia). Con **più destinatari** (invio a più fornitori) gli indirizzi vanno in
+  **Ccn/BCC**, mai in "A": i fornitori non si vedono tra loro. L'invio automatico
+  (pubblicazione, assegnazione, richieste) è una Edge Function transazionale
+  (Fase 1, stessa regola BCC per gli invii massivi) — vedi sez. 4.
 
 Esempio (visibilità lavoro lato fornitore):
 

@@ -509,9 +509,14 @@ const LOGO = '<svg class="logomark" viewBox="0 0 48 48" fill="none" aria-hidden=
 const WM = '<span class="wm"><span class="r">righi</span> <span class="s">solutions</span></span>';
 
 /* email compose (mailto) */
-function mailto(to, subject, body, cc){
-  const q=[]; if(subject) q.push("subject="+encodeURIComponent(subject)); if(body) q.push("body="+encodeURIComponent(body)); if(cc) q.push("cc="+encodeURIComponent(cc));
-  return "mailto:"+encodeURIComponent(Array.isArray(to)?to.join(","):to).replace(/%2C/g,",")+(q.length?"?"+q.join("&"):"");
+function mailto(to, subject, body, cc, bcc){
+  const enc=v=>encodeURIComponent(Array.isArray(v)?v.join(","):v).replace(/%2C/g,",");
+  const q=[];
+  if(cc) q.push("cc="+enc(cc));
+  if(bcc) q.push("bcc="+enc(bcc));           // più destinatari in copia nascosta: non si vedono tra loro
+  if(subject) q.push("subject="+encodeURIComponent(subject));
+  if(body) q.push("body="+encodeURIComponent(body));
+  return "mailto:"+(to?enc(to):"")+(q.length?"?"+q.join("&"):"");
 }
 
 /* ============================ Storage ============================ */
@@ -784,9 +789,13 @@ function freeCapacity(sid, mk){ const s=supplier(sid); if(!s) return 0; mk=mk||m
 function loadRatio(sid, mk){ const s=supplier(sid); if(!s||!s.capacitaMese) return 1; mk=mk||monthKey(todayISO()); return monthLoad(sid, mk)/s.capacitaMese; }
 function daysBetween(a,b){ if(!a||!b) return null; return Math.round((new Date(b+"T12:00:00")-new Date(a+"T12:00:00"))/86400000); }
 // Metriche fornitore (calcolate, non memorizzate) — identiche lato Righi e lato fornitore
+// importo di una commessa per il fornitore: importo accettato, altrimenti budget
+function jobImporto(j){ if(!j) return 0; const acc=STATE.responses.find(r=>r.jobId===j.id&&r.supplierId===j.assegnatoA&&r.tipo==="accettazione"); return (acc&&acc.importo)||j.budget||0; }
 function supplierMetrics(sid){
   const jobs=STATE.jobs.filter(j=>j.assegnatoA===sid);
   const delivered=jobs.filter(j=>j.stato==="consegnato"&&j.dataRientroEff);
+  const valoreAttivo=jobs.filter(j=>["assegnato","in_corso"].includes(j.stato)).reduce((s,j)=>s+jobImporto(j),0);
+  const valoreConsegnato=delivered.reduce((s,j)=>s+jobImporto(j),0);
   const onTime=delivered.filter(j=> j.dataRientroEff<=j.dataRientro).length;
   const puntualita=delivered.length? Math.round(onTime/delivered.length*100) : null;
   const lateDel=delivered.filter(j=> j.dataRientroEff>j.dataRientro);
@@ -805,21 +814,29 @@ function supplierMetrics(sid){
   const tempoRisposta=respTimes.length? Math.round(respTimes.reduce((s,x)=>s+x,0)/respTimes.length*10)/10 : null;
   return { puntualita, ritardoMedio, slittamenti, perMonth, months, takenTotal, perMeseAvg,
     richiestePerTipo, richiesteTot:reqs.length, tassoAccett, tempoRisposta,
-    oreAttive:activeHours(sid), commesseAttive:jobs.filter(j=>["assegnato","in_corso"].includes(j.stato)).length, consegnate:delivered.length };
+    oreAttive:activeHours(sid), valoreAttivo, valoreConsegnato,
+    commesseAttive:jobs.filter(j=>["assegnato","in_corso"].includes(j.stato)).length, consegnate:delivered.length };
 }
-function metricsCardHtml(sid){ const m=supplierMetrics(sid);
+// Metriche fornitore: tutte OGGETTIVE e calcolate dai lavori (identiche lato Righi e
+// lato fornitore, quindi condivisibili). L'unica differenza: il carico è espresso in
+// ORE per Righi (che governa la saturazione) e in IMPORTO per il fornitore.
+function metricsCardHtml(sid, isRighi=true){ const m=supplierMetrics(sid);
   const pu=m.puntualita==null?"—":m.puntualita+"%"; const puCls=m.puntualita==null?"":m.puntualita>=90?"ok":m.puntualita>=75?"warn":"danger";
   const maxM=Math.max(1,...Object.values(m.perMonth));
+  const caricoTile = isRighi
+    ? `<div class="mkpi"><span class="v">${m.oreAttive}h</span><span class="l">Carico attivo</span><span class="s">${m.commesseAttive} commesse</span></div>`
+    : `<div class="mkpi"><span class="v">${fmtMoney(m.valoreAttivo)}</span><span class="l">Valore attivo</span><span class="s">${m.commesseAttive} commesse</span></div>`;
   return `<div class="card">
-    <div class="sect-t">${icon("star","sm")} Metriche fornitore</div>
+    <div class="sect-t">${icon("star","sm")} Metriche ${isRighi?'fornitore':'e reputazione'}</div>
+    <p class="chart-note" style="margin-top:-2px">Valori calcolati automaticamente dai lavori — oggettivi e identici per te e per Righi.</p>
     <div class="mgrid">
       <div class="mkpi ${puCls}"><span class="v">${pu}</span><span class="l">Puntualità</span><span class="s">${m.consegnate} consegnate${m.slittamenti?` · ${m.slittamenti} slitt.`:""}</span></div>
       <div class="mkpi"><span class="v">${m.perMeseAvg?m.perMeseAvg.toFixed(1):"0"}</span><span class="l">Lavori / mese</span><span class="s">${m.takenTotal} totali</span></div>
-      <div class="mkpi"><span class="v">${m.oreAttive}h</span><span class="l">Carico attivo</span><span class="s">${m.commesseAttive} commesse</span></div>
+      ${caricoTile}
       <div class="mkpi"><span class="v">${m.tassoAccett==null?"—":m.tassoAccett+"%"}</span><span class="l">Accettazione</span><span class="s">${m.tempoRisposta==null?"":"risposta "+m.tempoRisposta+" gg"}</span></div>
     </div>
     <div class="metric-rows">
-      <div><span class="muted">Ritardo medio consegne</span><b>${m.ritardoMedio?m.ritardoMedio+" gg":"nessuno"}</b></div>
+      <div><span class="muted">Ritardo medio rientri</span><b>${m.ritardoMedio?m.ritardoMedio+" gg":"nessuno"}</b></div>
       <div><span class="muted">Richieste sollevate</span><b>${m.richiesteTot}</b>${Object.entries(m.richiestePerTipo).map(([k,v])=>`<span class="pill plain">${REQ_TYPES[k]?REQ_TYPES[k].label:k}: ${v}</span>`).join("")}</div>
     </div>
     ${m.months.length?`<div class="spark" aria-hidden="true">${m.months.slice(-6).map(k=>`<span class="sbar" title="${monthLabel(k)}: ${m.perMonth[k]}" style="height:${Math.round(m.perMonth[k]/maxM*100)}%"></span>`).join("")}</div>
@@ -1426,7 +1443,7 @@ function viewFornitori(){
     const active=STATE.jobs.filter(j=>j.assegnatoA===s.id&&!["consegnato","chiuso"].includes(j.stato)).length; const ore=activeHours(s.id);
     return `<div class="card ${s.attivo?'':'is-off'}"><div style="display:flex;gap:11px;align-items:center;margin-bottom:10px">
       <span class="avatar" data-act="supDetail" data-sup="${s.id}" style="background:${colorFor(s.id)};cursor:pointer">${initials(s.name)}</span>
-      <div style="flex:1;min-width:0"><b class="sup-name" data-act="supDetail" data-sup="${s.id}" style="font-size:15px">${esc(s.name)}</b><div class="muted" style="font-size:12.5px">${esc(s.citta||"sede n.d.")}${s.rating?` · ${icon("star","sm")} ${s.rating}`:''}</div></div>
+      <div style="flex:1;min-width:0"><b class="sup-name" data-act="supDetail" data-sup="${s.id}" style="font-size:15px">${esc(s.name)}</b><div class="muted" style="font-size:12.5px">${esc(s.citta||"sede n.d.")}</div></div>
       ${!s.attivo?`<span class="pill plain">non attivo</span>`:active?`<span class="pill ok">${active} attivi · ${ore} h</span>`:`<span class="pill plain">libero</span>`}</div>
       <div class="tags" style="margin-bottom:6px">${s.specialties.map(sp=>`<span class="pill brand"><span class="dot ${TIPOLOGIE[sp].dot}"></span>${TIPOLOGIE[sp].short}</span>`).join("")||'<span class="pill plain">tipologie n.d.</span>'}${(s.certificazioni||[]).map(c=>`<span class="pill accent">${CERT[c]||c}</span>`).join("")}</div>
       <div style="margin-top:2px;font-size:12px;color:var(--ink-soft)">Capacità ${s.capacitaMese||0}h/mese · libere ora <b>${freeCapacity(s.id)}h</b>${s.cablatori?` · ${s.cablatori} cablatori`:''}${s.costoOrario?` · ${s.costoOrario} €/h`:''}${s.zona?` · ${esc(s.zona)}`:''}</div>
@@ -1518,25 +1535,25 @@ function viewRichiesteGuidate(u){
 
 /* ==================== VIEW: Fornitore — Profilo ==================== */
 function viewProfilo(u){
-  const s=supplier(u.supplierId);
+  const s=supplier(u.supplierId); const m=supplierMetrics(s.id);
   const done=STATE.jobs.filter(j=>j.assegnatoA===s.id&&["consegnato","chiuso"].includes(j.stato)).length;
   const active=STATE.jobs.filter(j=>j.assegnatoA===s.id&&!["consegnato","chiuso"].includes(j.stato)).length;
   return `<div class="view-head"><div><h2>Profilo fornitore</h2><p>Scheda di accreditamento</p></div></div>
   <div class="card">
     <div style="display:flex;gap:14px;align-items:center;margin-bottom:14px">
       <span class="avatar" style="width:52px;height:52px;font-size:18px;background:${colorFor(s.id)}">${initials(s.name)}</span>
-      <div><h3 style="font-size:19px">${esc(s.name)}</h3><div class="muted">${esc(s.citta)} · accreditato · ${icon("star","sm")} ${s.rating}</div></div></div>
+      <div><h3 style="font-size:19px">${esc(s.name)}</h3><div class="muted">${esc(s.citta)} · accreditato</div></div></div>
     <div class="grid k3" style="margin-bottom:14px">
       <div class="card kpi"><span class="v">${active}</span><span class="l">Commesse attive</span></div>
       <div class="card kpi ok"><span class="v">${done}</span><span class="l">Consegnate</span></div>
-      <div class="card kpi"><span class="v">${s.rating}</span><span class="l">Valutazione</span></div></div>
+      <div class="card kpi"><span class="v">${m.puntualita==null?"—":m.puntualita+"%"}</span><span class="l">Puntualità</span></div></div>
     <div class="field"><label>Specializzazioni</label><div class="tags">${s.specialties.map(sp=>`<span class="pill brand"><span class="dot ${TIPOLOGIE[sp].dot}"></span>${TIPOLOGIE[sp].short}</span>`).join("")}</div></div>
     <div class="field"><label>Certificazioni</label><div class="tags">${(s.certificazioni&&s.certificazioni.length)?s.certificazioni.map(c=>`<span class="pill accent">${CERT[c]||c}</span>`).join(""):'<span class="muted">—</span>'}</div></div>
-    <div class="row2"><div class="field"><label>Settori</label><div class="tags">${s.settori.map(se=>`<span class="pill plain">${esc(se)}</span>`).join("")}</div></div>
-      <div class="field"><label>Capacità mensile</label><div class="soft">${s.capacitaMese} h/mese · libere ora: <b>${freeCapacity(s.id)} h</b></div></div></div>
+    <div class="row2"><div class="field"><label>Settori</label><div class="tags">${s.settori.map(se=>`<span class="pill plain">${esc(se)}</span>`).join("")||'<span class="muted">—</span>'}</div></div>
+      <div class="field"><label>Valore commesse attive</label><div class="soft"><b>${fmtMoney(m.valoreAttivo)}</b> su ${m.commesseAttive} commesse${m.valoreConsegnato?` · consegnato ${fmtMoney(m.valoreConsegnato)}`:''}</div></div></div>
     <div class="field"><label>Contatti</label><div class="soft">${esc(s.referente)} · ${esc(s.email)} · ${esc(s.citta)} (${esc(s.zona)})</div></div>
   </div>
-  ${metricsCardHtml(s.id)}`;
+  ${metricsCardHtml(s.id, false)}`;
 }
 
 /* ============================ MODALS ============================ */
@@ -1803,11 +1820,11 @@ function openNewSupplier(){ const d=App.supDraft={name:"",citta:"Cesena",referen
       <div class="field"><label>Cablatori totali</label><input class="inp" id="ns-cab" type="number" inputmode="numeric" placeholder="es. 4"></div>
     </div>
     <div class="row2">
+      <div class="field"><label>Referente</label><input class="inp" id="ns-ref" value="${esc(d.referente)}" placeholder="es. Mario Rossi"></div>
       <div class="field"><label>Email / contatti</label><input class="inp" id="ns-email" type="email" value="${esc(d.email)}" placeholder="preventivi@fornitore.it"></div>
-      <div class="field"><label>Stato</label>
-        <label class="firma-box" style="margin:0"><input type="checkbox" id="ns-attivo" checked><span>Fornitore <b>attivo</b> (concorre a suggerimenti, carico e mappa)</span></label></div>
     </div>
-    <input type="hidden" id="ns-ref" value="">
+    <div class="field"><label>Stato</label>
+      <label class="firma-box" style="margin:0"><input type="checkbox" id="ns-attivo" checked><span>Fornitore <b>attivo</b> (concorre a suggerimenti, carico e mappa)</span></label></div>
     <div class="field"><label>Specializzazioni</label>
       <div class="chips">${Object.entries(TIPOLOGIE).map(([k,v])=>`<button type="button" class="chip" data-act="toggleSup" data-g="specialties" data-v="${k}"><span class="dot ${v.dot}"></span>${v.short}</button>`).join("")}</div></div>
     <div class="field"><label>Settori</label>
@@ -1826,7 +1843,7 @@ function createSupplier(){ const d=App.supDraft||{};
   if(!name){ toast("Inserisci la ragione sociale","warn"); $("#ns-name").focus(); return; }
   const citta=$("#ns-citta").value; const c=CITY[citta]||[44.14,12.24,"Romagna"];
   const sup={ id:uid("sup"), name, attivo:!$("#ns-attivo")||$("#ns-attivo").checked, citta, lat:c[0], lng:c[1], zona:c[2], accredited:true,
-    specialties:d.specialties||[], settori:d.settori||[], rating:null, referente:"",
+    specialties:d.specialties||[], settori:d.settori||[], referente:($("#ns-ref").value||"").trim(),
     capacitaMese:Number($("#ns-cap").value)||800, cablatori:Number($("#ns-cab").value)||null,
     costoOrario:Number($("#ns-costo").value)||null, risorseDedicate:null, note:null, preferenze:{},
     certificazioni:d.certificazioni||[], dimensioneMax:$("#ns-dim").value||"m", attrezzature:d.attrezzature||[],
@@ -1894,7 +1911,7 @@ function openGuide(){ const u=currentUser(); const isR=u.role==="righi"; const c
       ["Risposte rapide","Il caposquadra può risponderti con messaggi pronti (es. <i>Procedi</i>, <i>Ti richiamo</i>): li vedi nella conversazione della richiesta."] ])
     + sec("5 · Profilo, metriche e avvisi",[
       ["Il tuo profilo","In <b>Profilo</b> vedi come sei accreditato: specializzazioni, settori, certificazioni e zona. Sono i dati che Righi usa per proporti i lavori giusti."],
-      ["Le tue metriche","Vedi le tue metriche (puntualità, lavori al mese, tasso di accettazione, carico ore): sono visibili anche a Righi e migliorano la tua reputazione."],
+      ["Le tue metriche","Vedi metriche <b>oggettive e calcolate dai lavori</b> (puntualità, lavori al mese, tasso di accettazione, tempo di risposta, valore attivo): sono <b>identiche a quelle che vede Righi</b> — trasparenti e condivisibili. Le ore e la saturazione restano a Righi; a te mostriamo l'<b>importo</b> dei progetti."],
       ["Notifiche","La campanella in alto raccoglie tutti gli avvisi (nuovi lavori, assegnazioni, risposte). In produzione arrivano anche via email/WhatsApp/notifica push."] ])
     + faq([
       ["Perché non vedo un lavoro che un collega ha citato?","Perché non era rivolto a te, oppure è già stato assegnato. Vedi solo le proposte a te destinate."],
@@ -1947,9 +1964,15 @@ function emailJobToSuppliers(j, supplierIds){
   openEmailModal(emails, "["+j.code+"] Nuovo lavoro: "+j.title, body);
 }
 function openEmailModal(to, subject, body){
-  const toStr=Array.isArray(to)?to.join(", "):to; App._email={to:toStr,subject,body};
+  const arr=(Array.isArray(to)?to:[to]).filter(Boolean); const blast=arr.length>1;
+  // più fornitori: copia nascosta (Ccn) — non devono vedere gli indirizzi degli altri
+  App._email = blast ? {to:"", bcc:arr, subject, body} : {to:arr[0]||"", subject, body};
+  const recipHtml = blast
+    ? `<div class="dl"><span class="k">Ccn (copia nascosta)</span><span class="v" style="word-break:break-all">${esc(arr.join(", "))}</span></div>
+       <div class="card leftbar" style="border-left:4px solid var(--ok);margin:2px 0 10px;padding:8px 12px"><span style="font-size:12.5px;color:var(--ink-soft)">${icon("check","sm")} <b>${arr.length} destinatari in copia nascosta</b> — ogni fornitore non vede gli indirizzi degli altri.</span></div>`
+    : `<div class="dl"><span class="k">A</span><span class="v" style="word-break:break-all">${esc(arr[0]||"")}</span></div>`;
   openModal(`${modalHead("Prepara email")}
-    <div class="dl"><span class="k">A</span><span class="v" style="word-break:break-all">${esc(toStr)}</span></div>
+    ${recipHtml}
     <div class="dl"><span class="k">Oggetto</span><span class="v">${esc(subject)}</span></div>
     <div class="field"><label>Messaggio</label><textarea class="inp" id="em-body" style="min-height:150px">${esc(body)}</textarea></div>
     <div class="btn-row">
@@ -2257,8 +2280,8 @@ document.addEventListener("click",e=>{
     case "emailSup": { const s=supplier(el.dataset.sup); if(s) openEmailModal(s.email,"Righi Solutions — Portale Fornitori","Buongiorno "+s.referente+",\n\n"); break; }
     case "emailJobSup": { const j=byId(STATE.jobs,el.dataset.job); const s=j&&supplier(j.assegnatoA); if(s) openEmailModal(s.email,"["+j.code+"] "+j.title,"Buongiorno "+s.referente+",\n\nin merito alla commessa "+j.code+" — "+j.title+".\n\n"); break; }
     case "emailReq": { const rq=byId(STATE.requests,el.dataset.id); const j=rq&&byId(STATE.jobs,rq.jobId); const s=rq&&supplier(rq.supplierId); if(s) openEmailModal(s.email,"["+(j?j.code:"")+"] "+REQ_TYPES[rq.tipo].label,"Buongiorno "+s.referente+",\n\nin merito alla sua segnalazione ("+REQ_TYPES[rq.tipo].label+") sulla commessa "+(j?j.code:"")+".\n\n"); break; }
-    case "openEmailClient": { const em=App._email||{}; const bd=($("#em-body")||{}).value||em.body||""; const a=document.createElement("a"); a.href=mailto(em.to,em.subject,bd); a.target="_blank"; a.rel="noopener"; a.style.display="none"; document.body.appendChild(a); a.click(); setTimeout(()=>a.remove(),0); break; }
-    case "copyEmail": { const em=App._email||{}; const bd=($("#em-body")||{}).value||em.body||""; const txt="A: "+em.to+"\nOggetto: "+em.subject+"\n\n"+bd; if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(()=>toast("Email copiata negli appunti","ok"),()=>toast("Copia non riuscita","warn")); else toast("Copia non supportata su questo dispositivo","warn"); break; }
+    case "openEmailClient": { const em=App._email||{}; const bd=($("#em-body")||{}).value||em.body||""; const a=document.createElement("a"); a.href=mailto(em.to,em.subject,bd,null,em.bcc); a.target="_blank"; a.rel="noopener"; a.style.display="none"; document.body.appendChild(a); a.click(); setTimeout(()=>a.remove(),0); break; }
+    case "copyEmail": { const em=App._email||{}; const bd=($("#em-body")||{}).value||em.body||""; const dest=(em.bcc&&em.bcc.length)?("Ccn: "+em.bcc.join(", ")):("A: "+(em.to||"")); const txt=dest+"\nOggetto: "+em.subject+"\n\n"+bd; if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(()=>toast("Email copiata negli appunti","ok"),()=>toast("Copia non riuscita","warn")); else toast("Copia non supportata su questo dispositivo","warn"); break; }
     case "exportOrders": exportOrders(); break;
     case "dlTemplate": dlTemplate(); break;
   }

@@ -65,6 +65,12 @@ r.ok("mailto: più destinatari separati da virgola", () => {
   const m = S.mailto(["a@b.it","c@d.it"], "x");
   assert(m.includes(","), "manca la virgola tra destinatari: " + m);
 });
+r.ok("mailto: invii multipli in Ccn (bcc), campo A vuoto → indirizzi nascosti", () => {
+  const m = S.mailto("", "Nuovo lavoro", "corpo", null, ["a@b.it","c@d.it"]);
+  assert(m.startsWith("mailto:?"), "il campo A (to) deve essere vuoto nel blast: " + m);
+  const bcc = (m.match(/[?&]bcc=([^&]*)/) || [])[1] || "";
+  assert(bcc.includes(",") && /b\.it/.test(bcc) && /d\.it/.test(bcc), "i due destinatari devono stare in bcc: " + m);
+});
 
 /* ---- Visibilità (invarianti, robuste al seed casuale) ---- */
 r.ok("visibilità: nessuna bozza è visibile ai fornitori", () => {
