@@ -11,7 +11,8 @@ const END   = "/* ============================ Render";
 const EXPORTS = ["STATE","App","isLate","jobsForSupplier","filteredJobs","daysTo","relDays","fmtMoney","fmtDate",
                  "dISO","addDays","supplier","capo","byId","mailto","isCapo","activeHours","supplierMonthlyLoad","monthKey",
                  "toCSV","parseCSV","supplierMetrics","freeCapacity","monthLoad","daysBetween","jobHealth","suggestSuppliers",
-                 "TIPOLOGIE","STATI","SETTORI","LAVORAZIONI","LAV_KEYS","parseLavorazioni","REQ_TYPES","AVANZAMENTO","CERT","QUICK_REPLIES","esc","uid"];
+                 "TIPOLOGIE","STATI","SETTORI","LAVORAZIONI","LAV_KEYS","parseLavorazioni","REQ_TYPES","AVANZAMENTO","CERT","QUICK_REPLIES","esc","uid",
+                 "DIMENSIONI","ATTREZZATURE","fitsSpazio","supplier"];
 const S = sandbox(START, END, EXPORTS, {});
 // secondo sandbox fino a "Eventi" per le funzioni-azione pure (senza DOM)
 const SA = sandbox(START, "/* ============================ Eventi", ["STATE","applyDateChange","addDays",
@@ -375,6 +376,31 @@ r.ok("import CSV: la colonna 'lavorazioni' entra come array valido", () => {
   const rows = S.parseCSV(csv);
   assert.strictEqual(rows[1][3], "foratura|piastra_comp");
   assert.deepStrictEqual(S.parseLavorazioni(rows[1][3]), ["foratura","piastra_comp"]);
+});
+
+/* ---- Capacità operative: spazio/ingombro + attrezzature ---- */
+r.ok("capacità operative: ogni fornitore ha dimensioneMax e attrezzature", () => {
+  assert(S.STATE.suppliers.every(s => S.DIMENSIONI[s.dimensioneMax] && Array.isArray(s.attrezzature)),
+    "fornitore senza dimensioneMax/attrezzature valide");
+});
+r.ok("spazio: fitsSpazio confronta l'ingombro richiesto con la capacità del fornitore", () => {
+  assert.strictEqual(S.fitsSpazio({dimensioneMax:"l"}, "l"), true);
+  assert.strictEqual(S.fitsSpazio({dimensioneMax:"s"}, "l"), false, "s non deve reggere l");
+  assert.strictEqual(S.fitsSpazio({dimensioneMax:"m"}, "s"), true);
+  assert.strictEqual(S.fitsSpazio({dimensioneMax:"s"}, null), true, "senza requisito passa sempre");
+});
+r.ok("assegnazione intelligente: chi ha spazio insufficiente è penalizzato e segnalato", () => {
+  const anyDate = S.STATE.jobs[0].dataConsegna;
+  const job = {tipologia:"potenza", settore:"Vetro", dataConsegna:anyDate, oreStimate:100, ingombro:"l"};
+  const res = S.suggestSuppliers(job);
+  const smallIds = S.STATE.suppliers.filter(s => s.dimensioneMax === "s").map(s => s.id);
+  const smalls = res.filter(r => smallIds.includes(r.sid));
+  assert(smalls.length > 0, "il seed deve avere fornitori 'piccoli'");
+  smalls.forEach(r => { assert.strictEqual(r.spazioOk, false); assert(r.reasons.includes("spazio insuff.")); });
+  const big = res.find(r => (S.supplier(r.sid)||{}).dimensioneMax === "l");
+  assert(big && big.spazioOk === true, "un fornitore grande deve adattarsi");
+  // il migliore in classifica deve poter reggere l'ingombro
+  assert.strictEqual(res[0].spazioOk, true, "il primo suggerito non deve avere spazio insufficiente");
 });
 
 /* ---- Workflow di approvazione (caposquadra -> responsabile) ---- */

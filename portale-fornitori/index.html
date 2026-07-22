@@ -190,6 +190,7 @@ main{max-width:1180px;margin:0 auto;padding:16px calc(var(--sar) + 14px) calc(va
 .faq span{display:block;font-size:12.5px;color:var(--muted);line-height:1.45}
 .sup-name{cursor:pointer}
 .sup-name:hover{color:var(--brand);text-decoration:underline;text-underline-offset:2px}
+.lrow.row-warn{background:var(--danger-tint);border-radius:8px}
 /* token di riempimento (status + brand/info + tipologia); trama su danger per daltonismo/stampa */
 .cf-ok{background:var(--ok)} .cf-warn{background:var(--warn)} .cf-info{background:var(--info)} .cf-brand{background:var(--brand)} .cf-muted{background:var(--surface-3)}
 .cf-danger{background:var(--danger);background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.28) 0 3px,transparent 3px 7px)}
@@ -596,6 +597,23 @@ const AVANZAMENTO = { materiale:{label:"Materiale ricevuto"}, cablaggio:{label:"
 const AVZ_ORDER = ["materiale","cablaggio","collaudo","pronto"];
 // Certificazioni/qualifiche fornitore
 const CERT = { hv:"Quadri >250A", food:"Igienico/food", atex:"ATEX" };
+// Limite di spazio/ingombro: quanto grande può essere il quadro/batteria che il
+// fornitore riesce a lavorare e movimentare (ord serve al confronto capacita/bisogno).
+const DIMENSIONI = {
+  s:{label:"Quadri singoli — fino a 2 m", short:"fino a 2 m", ord:1},
+  m:{label:"Batterie medie — fino a 6 m", short:"fino a 6 m", ord:2},
+  l:{label:"Batterie grandi — oltre 6 m", short:"oltre 6 m", ord:3},
+};
+// Attrezzature/dotazioni di officina (disponibili o meno presso il fornitore).
+const ATTREZZATURE = {
+  piega_barre:"Piega barre", carroponte:"Carroponte", siglatrice:"Stampante siglature",
+  muletto:"Muletto", banco_prova:"Banco prova", foratura_cn:"Foratura CN",
+};
+const ATTR_KEYS = Object.keys(ATTREZZATURE);
+function attrLabels(arr){ return (arr||[]).map(k=>ATTREZZATURE[k]||k); }
+// il fornitore può gestire l'ingombro richiesto?
+function fitsSpazio(sup, ingombro){ if(!ingombro||!sup||!sup.dimensioneMax) return true;
+  return (DIMENSIONI[sup.dimensioneMax]||{ord:9}).ord >= (DIMENSIONI[ingombro]||{ord:0}).ord; }
 // Risposte rapide del caposquadra (un tocco, zero testo)
 const QUICK_REPLIES = ["Procedi pure","Ti richiamo a breve","OK, usa l'alternativa","Serve un sopralluogo","Verifico e ti aggiorno"];
 const DEMO_FOTO = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='120'><rect width='160' height='120' fill='%23dbe3e8'/><rect x='34' y='30' width='92' height='58' fill='none' stroke='%237a5a2b' stroke-width='3'/><circle cx='80' cy='55' r='10' fill='%23aab6bd'/><path d='M50 78 L72 60 L92 74 L110 58' stroke='%23708' stroke-opacity='0.4' stroke-width='2' fill='none'/><text x='80' y='106' font-size='11' text-anchor='middle' fill='%23556'>foto dal cantiere</text></svg>";
@@ -621,17 +639,17 @@ function seed(){
   ];
   capi.forEach(c=> c.email=slug(c.name.split(" ")[0])[0]+"."+slug(c.name.split(" ")[1])+"@righinet.com");
   const supDefs=[
-    // name, città, specialties, settori, rating, referente, capacitaMese (ore), certificazioni
-    ["Elettro Cablaggi Snc","Cesena",["automazione","distribuzione"],["Packaging","Legno"],4.6,"Giuseppe Marani",900,["food"]],
-    ["QuadriPro Srl","Bologna",["potenza","distribuzione"],["Food & Beverage","Vetro"],4.4,"Paolo Testi",1300,["hv","food"]],
-    ["Cablaggi Rapidi","Forlì",["automazione"],["Packaging","Logistica"],4.1,"Anna Riva",700,[]],
-    ["TecnoQuadri","Parma",["automazione","potenza"],["Ceramica","Automotive"],4.7,"Marco Delli",1100,["hv","atex"]],
-    ["Impianti Adriatica","Rimini",["distribuzione","potenza"],["Logistica","Food & Beverage"],4.2,"Elena Fabbri",800,["hv"]],
-    ["EMC Wiring","Modena",["automazione","distribuzione"],["Automotive","Farmaceutico"],4.5,"Roberto Sala",1200,["atex","food"]],
-    ["Quadristica 2000","Ravenna",["potenza"],["Vetro","Ceramica"],3.9,"Chiara Monti",650,["hv"]],
-    ["Nuova Elettromeccanica","Imola",["automazione","potenza","distribuzione"],["Packaging","Farmaceutico"],4.3,"Franco Belli",1400,["hv","atex","food"]],
+    // name, città, specialties, settori, rating, referente, capacitaMese (ore), certificazioni, dimensioneMax, attrezzature
+    ["Elettro Cablaggi Snc","Cesena",["automazione","distribuzione"],["Packaging","Legno"],4.6,"Giuseppe Marani",900,["food"],"m",["piega_barre","siglatrice","muletto"]],
+    ["QuadriPro Srl","Bologna",["potenza","distribuzione"],["Food & Beverage","Vetro"],4.4,"Paolo Testi",1300,["hv","food"],"l",["piega_barre","carroponte","siglatrice","muletto","banco_prova"]],
+    ["Cablaggi Rapidi","Forlì",["automazione"],["Packaging","Logistica"],4.1,"Anna Riva",700,[],"s",["siglatrice","muletto"]],
+    ["TecnoQuadri","Parma",["automazione","potenza"],["Ceramica","Automotive"],4.7,"Marco Delli",1100,["hv","atex"],"l",["piega_barre","carroponte","siglatrice","muletto","foratura_cn","banco_prova"]],
+    ["Impianti Adriatica","Rimini",["distribuzione","potenza"],["Logistica","Food & Beverage"],4.2,"Elena Fabbri",800,["hv"],"m",["piega_barre","carroponte","muletto"]],
+    ["EMC Wiring","Modena",["automazione","distribuzione"],["Automotive","Farmaceutico"],4.5,"Roberto Sala",1200,["atex","food"],"m",["piega_barre","siglatrice","muletto","banco_prova"]],
+    ["Quadristica 2000","Ravenna",["potenza"],["Vetro","Ceramica"],3.9,"Chiara Monti",650,["hv"],"s",["muletto"]],
+    ["Nuova Elettromeccanica","Imola",["automazione","potenza","distribuzione"],["Packaging","Farmaceutico"],4.3,"Franco Belli",1400,["hv","atex","food"],"l",["piega_barre","carroponte","siglatrice","muletto","foratura_cn","banco_prova"]],
   ];
-  const suppliers=supDefs.map((d,i)=>{ const c=CITY[d[1]]||[44.3,12.0,"—"]; return {id:"f"+(i+1),name:d[0],citta:d[1],lat:c[0],lng:c[1],zona:c[2],accredited:true,specialties:d[2],settori:d[3],rating:d[4],referente:d[5],capacitaMese:d[6],certificazioni:d[7],email:"preventivi@"+slug(d[0])+".it"}; });
+  const suppliers=supDefs.map((d,i)=>{ const c=CITY[d[1]]||[44.3,12.0,"—"]; return {id:"f"+(i+1),name:d[0],citta:d[1],lat:c[0],lng:c[1],zona:c[2],accredited:true,specialties:d[2],settori:d[3],rating:d[4],referente:d[5],capacitaMese:d[6],certificazioni:d[7],dimensioneMax:d[8],attrezzature:d[9],email:"preventivi@"+slug(d[0])+".it"}; });
   const users=[
     {id:"u_resp", name:"Marco Neri", role:"righi", righiRole:"responsabile", ruolo:"Responsabile Produzione", email:"produzione@righinet.com"},
     {id:"u_cs1", name:"Andrea Bianchi", role:"righi", righiRole:"caposquadra", capoId:"cs1", ruolo:"Caposquadra", email:capi[0].email},
@@ -645,10 +663,11 @@ function seed(){
   function mk(stato,opts){
     const tip=pick(Object.keys(TIPOLOGIE)); const set=pick(SETTORI);
     const lavs=LAV_KEYS.filter(()=>rng()<0.4); if(!lavs.length) lavs.push(pick(LAV_KEYS));
+    const ingombro = tip==="potenza" ? pick(["m","l","l"]) : tip==="distribuzione" ? pick(["m","m","l"]) : pick(["s","s","m"]);
     const budget=Math.round((3000+rng()*17000)/500)*500;
     const capoId=pick(capi).id;
     const j={ id:"j"+(codeN), code:"RGH-"+(codeN), title:TIPOLOGIE[tip].short+" "+set+" — "+pick(lineTokens),
-      tipologia:tip, settore:set, lavorazioni:lavs, budget, capoId,
+      tipologia:tip, settore:set, lavorazioni:lavs, ingombro, budget, capoId,
       descrizione:"Cablaggio e cablatura secondo schemi e distinta forniti. Collaudo funzionale prima della consegna.",
       oreStimate:Math.round((20+rng()*360)/5)*5,
       allegati:[{id:uid("a"),name:"Layout_"+slug(set)+"_"+codeN+".pdf",type:"application/pdf",layout:true,size:(300+Math.floor(rng()*500))+" KB"}],
@@ -852,10 +871,11 @@ function suggestSuppliers(job){ const mk=monthKey(job.dataConsegna); const need=
     if(s.settori.includes(job.settore)){ score+=20; reasons.push("settore"); }
     if(needHv&&s.certificazioni.includes("hv")){ score+=12; reasons.push(">250A"); }
     if(needFood&&s.certificazioni.includes("food")){ score+=10; reasons.push("igienico"); }
+    if(!fitsSpazio(s, job.ingombro)){ score-=45; reasons.push("spazio insuff."); }
     const free=freeCapacity(s.id,mk);
     if(free>=need){ score+=20; reasons.push("capacità"); } else if(free>0){ score+=8; } else { score-=12; reasons.push("saturo"); }
     if(m.puntualita!=null){ score+=Math.round((m.puntualita-70)/3); if(m.puntualita>=90) reasons.push("puntuale"); } else { score+=3; }
-    return {sid:s.id, score, free, need, overload:free<need, reasons, puntualita:m.puntualita };
+    return {sid:s.id, score, free, need, overload:free<need, spazioOk:fitsSpazio(s, job.ingombro), reasons, puntualita:m.puntualita };
   }).sort((a,b)=>b.score-a.score);
 }
 // Proiezione geografica (lat/lng -> x/y su viewBox 100×50) per la mappa SVG offline
@@ -1106,7 +1126,7 @@ function miniCard(j){ const t=TIPOLOGIE[j.tipologia],late=isLate(j),s=supplier(j
 // Duplica una commessa: riparte una nuova bozza con gli stessi dati, azzerando
 // date (oggi / +21g), allegati (nuovo layout), stato e assegnatario.
 function duplicateJob(jid){ const j=byId(STATE.jobs,jid); if(!j) return;
-  App.draft={ title:j.title, tipologia:j.tipologia, settore:j.settore, lavorazioni:(j.lavorazioni||[]).slice(),
+  App.draft={ title:j.title, tipologia:j.tipologia, settore:j.settore, lavorazioni:(j.lavorazioni||[]).slice(), ingombro:j.ingombro||"",
     budget:j.budget||"", ore:j.oreStimate||"", capoId:j.capoId, visibility:j.visibility||"tutti",
     invitati:(j.invitati||[]).slice(), descrizione:j.descrizione||"",
     dataRichiesta:todayISO(), dataConsegna:dISO(21), allegati:[], emailNotify:true };
@@ -1124,10 +1144,10 @@ function suggeritiHtml(d){ const sugg=draftSuggeriti(d); if(!sugg.length) return
     <div class="sug-head"><b>${icon("bolt","sm")} Fornitori suggeriti</b><span class="hint">idoneità per tipologia, settore, capacità e puntualità</span>
       ${sugg.length>=3?`<button type="button" class="btn sm ghost" data-act="inviteTop" data-ids="${sugg.slice(0,3).map(x=>x.sid).join(',')}">Invita i primi 3</button>`:""}</div>
     <div class="sug-list">${sugg.map(x=>{ const s=supplier(x.sid); const on=inv.includes(x.sid);
-      const tags=x.reasons.filter(r=>r!=="saturo").slice(0,3).map(r=>`<span class="pill plain">${esc(r)}</span>`).join("");
-      return `<div class="sug-row">
+      const tags=x.reasons.filter(r=>r!=="saturo"&&r!=="spazio insuff.").slice(0,3).map(r=>`<span class="pill plain">${esc(r)}</span>`).join("");
+      return `<div class="sug-row ${x.spazioOk===false?'row-warn':''}">
         <span class="avatar sm" style="background:${colorFor(s.id)}">${initials(s.name)}</span>
-        <span class="gr"><b>${esc(s.name)}</b><span class="s">${tags} · ${x.free>=x.need?`<span style="color:var(--ok)">capacità ${x.free}h</span>`:`<span style="color:var(--danger)">carico pieno</span>`}${x.puntualita!=null?" · punt "+x.puntualita+"%":""}</span></span>
+        <span class="gr"><b>${esc(s.name)}${x.spazioOk===false?' <span class="pill danger">spazio insufficiente</span>':''}</b><span class="s">${tags}${tags?' · ':''}${x.free>=x.need?`<span style="color:var(--ok)">capacità ${x.free}h</span>`:`<span style="color:var(--danger)">carico pieno</span>`}${x.puntualita!=null?" · punt "+x.puntualita+"%":""}</span></span>
         <button type="button" class="btn sm ${on?"":"accent"}" data-act="invSug" data-v="${x.sid}">${on?icon("check","sm")+" Invitato":"Invita"}</button>
       </div>`; }).join("")}</div>
     <div class="sug-sep">Oppure scegli manualmente</div></div>`;
@@ -1156,6 +1176,9 @@ function viewNuovoLavoro(){
     <div class="field"><label>Lavorazioni industrializzate</label>
       <span class="hint" style="display:block;margin:-2px 0 6px">Seleziona una o più lavorazioni previste — le vede anche il fornitore.</span>
       <div class="chips">${Object.entries(LAVORAZIONI).map(([k,v])=>`<button type="button" class="chip ${(d.lavorazioni||[]).includes(k)?'on':''}" data-act="toggleLav" data-v="${k}">${v.label}</button>`).join("")}</div></div>
+    <div class="field"><label>Ingombro previsto del quadro</label>
+      <select class="inp" id="nl-ingombro"><option value="" ${!d.ingombro?'selected':''}>Non definito</option>${Object.entries(DIMENSIONI).map(([k,v])=>`<option value="${k}" ${d.ingombro===k?'selected':''}>${esc(v.label)}</option>`).join("")}</select>
+      <span class="hint">Serve a segnalare in assegnazione i fornitori con spazio insufficiente</span></div>
     <div class="row2">
       <div class="field"><label>Budget indicativo (€)</label><input class="inp" id="nl-budget" type="number" inputmode="numeric" placeholder="es. 8000" value="${d.budget||''}"></div>
       <div class="field"><label>Ore stimate di produzione</label><input class="inp" id="nl-ore" type="number" inputmode="numeric" placeholder="es. 120" value="${d.ore||''}"><span class="hint">Riservato Righi · alimenta il carico dei terzisti</span></div>
@@ -1371,6 +1394,7 @@ function viewFornitori(){
       <div class="tags" style="margin-bottom:6px">${s.specialties.map(sp=>`<span class="pill brand"><span class="dot ${TIPOLOGIE[sp].dot}"></span>${TIPOLOGIE[sp].short}</span>`).join("")}${(s.certificazioni||[]).map(c=>`<span class="pill accent">${CERT[c]||c}</span>`).join("")}</div>
       <div class="tags">${s.settori.map(se=>`<span class="pill plain">${esc(se)}</span>`).join("")}</div>
       <div style="margin-top:8px;font-size:12px;color:var(--ink-soft)">Capacità ${s.capacitaMese}h/mese · libere ora <b>${freeCapacity(s.id)}h</b> · zona ${esc(s.zona)}</div>
+      <div style="margin-top:4px;font-size:12px;color:var(--ink-soft)">${icon("building","sm")} ${s.dimensioneMax?esc(DIMENSIONI[s.dimensioneMax].short):'—'}${(s.attrezzature&&s.attrezzature.length)?' · '+attrLabels(s.attrezzature).slice(0,3).map(esc).join(', ')+(s.attrezzature.length>3?' +'+(s.attrezzature.length-3):''):''}</div>
       <div class="btn-row" style="margin-top:10px"><button class="btn ghost sm" data-act="supDetail" data-sup="${s.id}">${icon("star","sm")} Scheda &amp; metriche</button>
         <button class="btn ghost sm" data-act="emailSup" data-sup="${s.id}">${icon("mail","sm")} Email</button>
         <button class="btn ghost sm" data-act="supJobs" data-sup="${s.id}">${active} commesse</button></div>
@@ -1541,6 +1565,7 @@ function openJobModal(jid){
       <div class="dl"><span class="k">Caposquadra</span><span class="v">${c?esc(c.name):'—'}</span></div>
       ${isRighi?`<div class="dl"><span class="k">Ore stimate produzione</span><span class="v">${j.oreStimate?j.oreStimate+' h':'—'}</span></div>`:""}
       <div class="dl"><span class="k">Lavorazioni industrializzate</span><span class="v">${(j.lavorazioni&&j.lavorazioni.length)?lavLabels(j.lavorazioni).map(esc).join(" · "):'—'}</span></div>
+      ${j.ingombro?`<div class="dl"><span class="k">Ingombro previsto</span><span class="v">${esc(DIMENSIONI[j.ingombro].label)}</span></div>`:""}
       <div class="dl"><span class="k">${isRighi?'Visibilità':'Assegnato a'}</span><span class="v">${isRighi?(j.visibility==='tutti'?'Tutti i fornitori':(j.invitati||[]).length+' selezionati'):(s?esc(s.name):'—')}</span></div>
     </div>
     ${j.descrizione?`<div class="dl"><span class="k">Note tecniche</span><span class="v" style="font-weight:400;line-height:1.5">${esc(j.descrizione)}</span></div>`:""}
@@ -1607,12 +1632,12 @@ function openAssignPick(jid){ const j=byId(STATE.jobs,jid);
   const sMap={}; suggestSuppliers(j).forEach(r=>sMap[r.sid]=r);
   const cand=jobResponses(j.id).filter(r=>r.tipo==="accettazione").sort((a,b)=>((sMap[b.supplierId]||{}).score||0)-((sMap[a.supplierId]||{}).score||0));
   openModal(`${modalHead("Assegna — "+esc(j.code))}
-    <p class="muted" style="font-size:13px;margin-top:0"><b>${esc(j.code)}</b> — ${esc(j.title)}<br>${cand.length} ${cand.length===1?'fornitore ha':'fornitori hanno'} accettato, ordinati per idoneità (specializzazione, capacità, puntualità). Scegli chi assegnare.</p>
-    <div class="rowlist">${cand.map(r=>{const s=supplier(r.supplierId); const sg=sMap[r.supplierId]||{};
-      return `<div class="lrow"><span class="avatar sm" style="background:${colorFor(s.id)}">${initials(s.name)}</span>
-      <span class="gr"><b>${esc(s.name)}${(sg.reasons&&sg.reasons.includes("puntuale"))?' <span class="pill ok">puntuale</span>':''}${r.firma?' <span class="pill ok">firmato</span>':''}</b><span class="s">offerta ${fmtMoney(r.importo)} · libere ${sg.free!=null?sg.free+'h':'—'}${sg.overload?' · <span style="color:var(--danger)">sovraccarico</span>':''}${sg.puntualita!=null?' · punt '+sg.puntualita+'%':''}</span></span>
+    <p class="muted" style="font-size:13px;margin-top:0"><b>${esc(j.code)}</b> — ${esc(j.title)}<br>${cand.length} ${cand.length===1?'fornitore ha':'fornitori hanno'} accettato, ordinati per idoneità.${j.ingombro?` Ingombro richiesto: <b>${DIMENSIONI[j.ingombro].short}</b>.`:''} Scegli chi assegnare.</p>
+    <div class="rowlist">${cand.map(r=>{const s=supplier(r.supplierId); const sg=sMap[r.supplierId]||{}; const noFit=j.ingombro&&sg.spazioOk===false;
+      return `<div class="lrow ${noFit?'row-warn':''}"><span class="avatar sm" style="background:${colorFor(s.id)}">${initials(s.name)}</span>
+      <span class="gr"><b>${esc(s.name)}${(sg.reasons&&sg.reasons.includes("puntuale"))?' <span class="pill ok">puntuale</span>':''}${r.firma?' <span class="pill ok">firmato</span>':''}${noFit?' <span class="pill danger">spazio insufficiente</span>':''}</b><span class="s">offerta ${fmtMoney(r.importo)} · libere ${sg.free!=null?sg.free+'h':'—'}${sg.overload?' · <span style="color:var(--danger)">sovraccarico</span>':''}${sg.puntualita!=null?' · punt '+sg.puntualita+'%':''}</span><span class="s">${icon("building","sm")} ${s.dimensioneMax?esc(DIMENSIONI[s.dimensioneMax].short):'—'}${(s.attrezzature&&s.attrezzature.length)?' · '+attrLabels(s.attrezzature).map(esc).join(', '):''}</span></span>
       <button class="btn sm accent" data-act="assign" data-job="${jid}" data-sup="${s.id}">Assegna</button></div>`;}).join("")}</div>
-    <p class="muted" style="font-size:12px;margin-top:8px">L'ordine considera specializzazione, settore, certificazioni, capacità libera nel mese di consegna e puntualità.</p>`);
+    <p class="muted" style="font-size:12px;margin-top:8px">L'ordine considera specializzazione, settore, certificazioni, <b>spazio/ingombro</b>, dotazioni di officina, capacità libera nel mese e puntualità.</p>`);
 }
 function openReqDetail(rid){ const r=byId(STATE.requests,rid); if(!r) return;
   const u=currentUser(); const isRighi=u&&u.role==="righi"; if(isRighi){ r.read=true; persist(); }
@@ -1685,7 +1710,7 @@ function openSwitch(){
     <div class="divide"></div>
     <button class="btn danger block" data-act="logout">${icon("logout","sm")} Esci</button>`);
 }
-function openNewSupplier(){ const d=App.supDraft={name:"",citta:"Cesena",referente:"",email:"",specialties:[],settori:[],certificazioni:[],capacitaMese:1000};
+function openNewSupplier(){ const d=App.supDraft={name:"",citta:"Cesena",referente:"",email:"",specialties:[],settori:[],certificazioni:[],attrezzature:[],dimensioneMax:"m",capacitaMese:1000};
   openModal(`${modalHead("Nuovo fornitore")}
     <p class="muted" style="font-size:13px;margin-top:0">Accredita un terzista: i dati alimentano suggerimenti di assegnazione, mappa e carico.</p>
     <div class="field"><label>Ragione sociale</label><input class="inp" id="ns-name" value="${esc(d.name)}" placeholder="es. Nuova Elettromeccanica"></div>
@@ -1703,6 +1728,11 @@ function openNewSupplier(){ const d=App.supDraft={name:"",citta:"Cesena",referen
       <div class="chips">${SETTORI.map(se=>`<button type="button" class="chip sm" data-act="toggleSup" data-g="settori" data-v="${esc(se)}">${esc(se)}</button>`).join("")}</div></div>
     <div class="field"><label>Certificazioni</label>
       <div class="chips">${Object.entries(CERT).map(([k,v])=>`<button type="button" class="chip sm" data-act="toggleSup" data-g="certificazioni" data-v="${k}">${esc(v)}</button>`).join("")}</div></div>
+    <div class="field"><label>Limite di spazio (ingombro max del quadro)</label>
+      <select class="inp" id="ns-dim">${Object.entries(DIMENSIONI).map(([k,v])=>`<option value="${k}" ${d.dimensioneMax===k?'selected':''}>${esc(v.label)}</option>`).join("")}</select>
+      <span class="hint">La dimensione più grande che l'officina riesce a costruire e movimentare</span></div>
+    <div class="field"><label>Attrezzature disponibili</label>
+      <div class="chips">${Object.entries(ATTREZZATURE).map(([k,v])=>`<button type="button" class="chip sm" data-act="toggleSup" data-g="attrezzature" data-v="${k}">${esc(v)}</button>`).join("")}</div></div>
     <button class="btn accent block" data-act="createSup">${icon("check")} Accredita fornitore</button>`);
 }
 function createSupplier(){ const d=App.supDraft||{};
@@ -1713,6 +1743,7 @@ function createSupplier(){ const d=App.supDraft||{};
     specialties:(d.specialties&&d.specialties.length)?d.specialties:["automazione"],
     settori:d.settori||[], rating:0, referente:($("#ns-ref").value||"").trim()||"—",
     capacitaMese:Number($("#ns-cap").value)||800, certificazioni:d.certificazioni||[],
+    dimensioneMax:$("#ns-dim").value||"m", attrezzature:d.attrezzature||[],
     email:($("#ns-email").value||"").trim()||("preventivi@"+slug(name)+".it") };
   STATE.suppliers.push(sup); App.supDraft=null; persist(); closeModal();
   toast("Fornitore accreditato","ok"); openSupplierModal(sup.id);
@@ -1795,8 +1826,10 @@ function openSupplierModal(sid){ const s=supplier(sid); if(!s) return;
       <div class="dl"><span class="k">Capacità mensile</span><span class="v">${s.capacitaMese} h</span></div>
       <div class="dl"><span class="k">Libere questo mese</span><span class="v">${freeCapacity(sid)} h</span></div>
       <div class="dl"><span class="k">Settori</span><span class="v">${s.settori.join(", ")}</span></div>
+      <div class="dl"><span class="k">Ingombro max lavorabile</span><span class="v">${s.dimensioneMax?esc(DIMENSIONI[s.dimensioneMax].label):'—'}</span></div>
       <div class="dl"><span class="k">Referente</span><span class="v">${esc(s.referente)} · ${esc(s.email)}</span></div>
     </div>
+    <div class="dl" style="margin-top:2px"><span class="k">${icon("building","sm")} Attrezzature di officina</span><span class="v">${(s.attrezzature&&s.attrezzature.length)?attrLabels(s.attrezzature).map(a=>`<span class="pill plain">${esc(a)}</span>`).join(" "):'<span class="muted">non indicate</span>'}</span></div>
     ${metricsCardHtml(sid)}
     <div class="divide"></div>
     <div class="btn-row"><button class="btn ghost" data-act="emailSup" data-sup="${sid}">${icon("mail","sm")} Email</button><button class="btn" data-act="supJobs" data-sup="${sid}">Commesse del fornitore</button></div>`);
@@ -1836,6 +1869,7 @@ function createJob(mode){
   const d=App.draft;
   d.title=$("#nl-title").value.trim(); d.budget=$("#nl-budget").value; d.ore=$("#nl-ore").value; d.capoId=$("#nl-capo").value;
   d.dataRichiesta=$("#nl-req").value; d.dataConsegna=$("#nl-cons").value; d.descrizione=$("#nl-desc").value.trim();
+  d.ingombro=($("#nl-ingombro")||{}).value||"";
   if(!d.title){ toast("Inserisci un titolo","warn"); $("#nl-title").focus(); return; }
   if(d.visibility==="selezionati" && !(d.invitati||[]).length){ toast("Scegli almeno un fornitore","warn"); return; }
   const u=currentUser(); const capo_=isCapo(u);
@@ -1843,7 +1877,7 @@ function createJob(mode){
   if(mode==="publish" && capo_) mode="approvazione";
   const stato = mode==="publish"?"pubblicato":(mode==="approvazione"?"da_approvare":"bozza");
   const n=STATE.jobs.reduce((m,j)=>Math.max(m,parseInt((j.code||"").split("-")[1])||0),2400);
-  const job={ id:uid("j"), code:"RGH-"+(n+1), title:d.title, tipologia:d.tipologia, settore:d.settore, lavorazioni:d.lavorazioni||[],
+  const job={ id:uid("j"), code:"RGH-"+(n+1), title:d.title, tipologia:d.tipologia, settore:d.settore, lavorazioni:d.lavorazioni||[], ingombro:d.ingombro||null,
     budget:d.budget?Number(d.budget):null, oreStimate:d.ore?Number(d.ore):null, dataRichiesta:d.dataRichiesta, dataConsegna:d.dataConsegna, capoId:d.capoId,
     descrizione:d.descrizione, allegati:d.allegati||[], visibility:d.visibility, invitati:d.invitati||[],
     stato, assegnatoA:null, publishedAt: mode==="publish"?todayISO():null, createdAt:todayISO(),
@@ -2099,6 +2133,7 @@ document.addEventListener("input",e=>{
 document.addEventListener("change",e=>{
   if(e.target && e.target.dataset && e.target.dataset.adv){ App.filters[e.target.dataset.adv]=e.target.value; App.page=1; render(); return; }
   if(e.target && e.target.id==="nl-capo"){ App.draft=App.draft||{}; App.draft.capoId=e.target.value; return; }
+  if(e.target && e.target.id==="nl-ingombro"){ App.draft=App.draft||{}; App.draft.ingombro=e.target.value; return; }
   if(e.target && e.target.id==="nl-import"){ const f=e.target.files[0]; if(!f) return;
     if(/\.(xlsx|xls)$/i.test(f.name)){ toast("Salva il file Excel come CSV, poi ricaricalo","warn"); e.target.value=""; return; }
     const rd=new FileReader(); rd.onload=()=>importJobsCSV(String(rd.result)); rd.onerror=()=>toast("Lettura file non riuscita","warn"); rd.readAsText(f); e.target.value=""; return; }

@@ -40,7 +40,9 @@ users(id uuid pk, email text unique, role text check in ('righi','fornitore'),
 suppliers(id uuid pk, name text, citta text, accredited bool, specialties text[],
           settori text[], rating numeric, referente text, created_at,
           lat numeric, lng numeric, zona text,          -- mappa + ottimizzazione trasporti
-          capacita_mese int, certificazioni text[])     -- carico libero + match requisiti
+          capacita_mese int, certificazioni text[],      -- carico libero + match requisiti
+          dimensione_max text check in ('s','m','l'),    -- limite di spazio: ingombro max del quadro lavorabile
+          attrezzature text[])                           -- dotazioni officina: piega_barre|carroponte|siglatrice|muletto|banco_prova|foratura_cn
 ```
 
 ## 2. Modello dati (Postgres)
@@ -51,6 +53,7 @@ letti da più fornitori, quindi conviene tabellare da subito.
 ```
 jobs(id uuid pk, code text unique, title text, tipologia text, settore text,
      lavorazioni text[],                                  -- lavorazioni industrializzate (multi): carp_esterna|foratura|piastra_barre|sbroglio|piastra_comp
+     ingombro text null check in ('s','m','l'),           -- ingombro previsto del quadro → confronto con dimensione_max del fornitore in assegnazione
      budget numeric, ore_stimate int,                     -- ore_stimate: SOLO Righi (mai esposto ai fornitori)
      data_richiesta date, data_consegna date,
      data_consegna_base date,                             -- data originale (per contare gli slittamenti)

@@ -111,11 +111,15 @@ chiedere uno **slittamento** (nuova data + motivo) che il caposquadra
 anche **modificare direttamente** la data. Ogni cambio resta nello **storico**.
 
 **Assegnazione intelligente**: l'anagrafica fornitore è categorizzata (zona,
-capacità mensile, certificazioni oltre a specializzazioni e settori). In
-pubblicazione/assegnazione il portale **consiglia i fornitori** migliori e
-segnala i **sovraccarichi**; il **semaforo** verde/giallo/rosso su ogni commessa
-anticipa i ritardi. Il fornitore aggiorna l'**avanzamento con un tocco**
-(materiale → cablaggio → collaudo → pronto).
+capacità mensile, certificazioni, **limite di spazio** — l'ingombro massimo del
+quadro lavorabile — e **attrezzature di officina** — piega barre, carroponte,
+stampante siglature, muletto, banco prova, foratura CN — oltre a specializzazioni
+e settori). In pubblicazione/assegnazione il portale **consiglia i fornitori**
+migliori, segnala i **sovraccarichi** e — se la commessa indica un **ingombro
+previsto** — evidenzia con "**spazio insufficiente**" i terzisti che non possono
+gestirla; il **semaforo** verde/giallo/rosso su ogni commessa anticipa i ritardi.
+Il fornitore aggiorna l'**avanzamento con un tocco** (materiale, cablaggio,
+collaudo, pronto).
 
 **Mappa fornitori** (in *Fornitori → Mappa*): pin colorati per carico del mese;
 tocca un pin per scheda e capacità libera. Da caposquadra evidenzia le **zone

@@ -110,9 +110,11 @@ Di conseguenza il prodotto è progettato attorno a due driver:
   approvazione del caposquadra (sovrascrive la data + storico + notifica) e
   **modifica diretta** della data da Righi; storico completo dei cambi.
 - **Assegnazione intelligente**: anagrafica categorizzata (specializzazioni,
-  settori, **zona/coordinate**, **capacità mensile**, **certificazioni**) che
-  alimenta il **suggerimento fornitori** in pubblicazione/assegnazione,
-  l'**avviso di sovraccarico** e il **semaforo salute commessa** (predittivo).
+  settori, **zona/coordinate**, **capacità mensile**, **certificazioni**,
+  **limite di spazio** — ingombro max lavorabile — e **attrezzature di officina**)
+  che alimenta il **suggerimento fornitori** in pubblicazione/assegnazione,
+  l'**avviso di sovraccarico**, la segnalazione **"spazio insufficiente"** (se la
+  commessa indica l'ingombro previsto) e il **semaforo salute commessa** (predittivo).
 - **Avanzamento a un tocco** lato fornitore (materiale → cablaggio → collaudo →
   pronto), notificato a Righi.
 - **Mappa fornitori** (SVG offline): pin colorati per carico, click per scheda e
