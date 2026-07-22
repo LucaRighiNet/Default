@@ -11,7 +11,7 @@ const END   = "/* ============================ Render";
 const EXPORTS = ["STATE","App","isLate","jobsForSupplier","filteredJobs","daysTo","relDays","fmtMoney","fmtDate",
                  "dISO","addDays","supplier","capo","byId","mailto","isCapo","activeHours","supplierMonthlyLoad","monthKey",
                  "toCSV","parseCSV","supplierMetrics","freeCapacity","monthLoad","daysBetween","jobHealth","suggestSuppliers",
-                 "TIPOLOGIE","STATI","SETTORI","CARPENTERIA","REQ_TYPES","AVANZAMENTO","CERT","esc","uid"];
+                 "TIPOLOGIE","STATI","SETTORI","CARPENTERIA","REQ_TYPES","AVANZAMENTO","CERT","QUICK_REPLIES","esc","uid"];
 const S = sandbox(START, END, EXPORTS, {});
 // secondo sandbox fino a "Eventi" per le funzioni-azione pure (senza DOM)
 const SA = sandbox(START, "/* ============================ Eventi", ["STATE","applyDateChange","addDays"], {});
@@ -283,6 +283,17 @@ r.ok("CSV: import legge le intestazioni del template", () => {
   assert.strictEqual(rows.length, 2);
   assert.strictEqual(rows[1][0], "Quadro test");
   assert.strictEqual(rows[1][4], "150");
+});
+
+/* ---- Risposte rapide + richieste con foto ---- */
+r.ok("QUICK_REPLIES: template presenti", () => {
+  assert(Array.isArray(S.QUICK_REPLIES) && S.QUICK_REPLIES.length >= 3);
+});
+r.ok("seed: una richiesta con foto e una con risposta del caposquadra", () => {
+  assert(S.STATE.requests.some(x => x.foto), "manca una richiesta con foto");
+  const withReply = S.STATE.requests.find(x => Array.isArray(x.risposte) && x.risposte.length);
+  assert(withReply, "manca una richiesta con risposta");
+  assert.strictEqual(withReply.risposte[0].da, "righi");
 });
 
 r.done();
