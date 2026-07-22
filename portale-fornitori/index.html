@@ -1571,7 +1571,7 @@ function openJobModal(jid){
         const reqOpen=jobRequests(j.id).some(r=>r.tipo==="collaudo"&&r.stato!=="chiusa");
         if(j.consegnaApprovata) footer=`<div class="btn-row">${contatta}<button class="btn accent" data-act="deliverJob" data-job="${j.id}">${icon("check")} Segna consegnato</button></div>`;
         else if(reqOpen) footer=`<span class="pill warn lg">Richiesta di consegna inviata — in attesa dell'approvazione del caposquadra</span><div class="btn-row" style="margin-top:8px">${contatta}</div>`;
-        else footer=`<div class="btn-row">${contatta}<button class="btn accent" data-act="reqConsegna" data-job="${j.id}">${icon("send","sm")} Richiedi approvazione consegna</button></div>`;
+        else footer=`<div class="btn-row">${contatta}<button class="btn accent" data-act="reqConsegna" data-job="${j.id}">${icon("send","sm")} Pronto alla consegna — chiedi approvazione</button></div>`;
       } else footer=`<div class="btn-row">${contatta}</div>`;
     }
     else if(accepted) footer=`<span class="pill ok lg">Proposta inviata — in attesa di Righi</span>`;
@@ -1860,7 +1860,7 @@ function openGuide(){ const u=currentUser(); const isR=u.role==="righi"; const c
     + sec("3 · Segui le tue commesse",[
       ["I miei lavori","In <b>I miei lavori</b> trovi le commesse acquisite con la <b>data di consegna</b> e lo stato. I filtri (attive, consegnate, in ritardo) ti aiutano a dare priorità."],
       ["Avanzamento a un tocco","Dal dettaglio aggiorni lo stato con un tocco, in ordine: <i>materiale ricevuto, cablaggio, collaudo, pronto al ritiro</i>. Righi vede subito a che punto sei."],
-      ["Consegna con approvazione","Quando il lavoro è pronto premi <b>Richiedi approvazione consegna</b>: il caposquadra la approva e solo allora compare <b>Segna consegnato</b>. Senza approvazione <b>non puoi consegnare</b>."],
+      ["Consegna con approvazione","Quando il lavoro è pronto premi <b>Pronto alla consegna — chiedi approvazione</b>: il caposquadra la approva e solo allora compare <b>Segna consegnato</b>. Senza approvazione <b>non puoi consegnare</b>."],
       ["Consegna in ritardo","Se una consegna è vicina o superata è evidenziata: comunica per tempo (vedi sotto) per concordare una nuova data."] ])
     + sec("4 · Comunica con il caposquadra",[
       ["Richieste guidate","Da <b>Richieste guidate</b> scegli la commessa e il tipo di richiesta (dubbio tecnico, mancanza materiale, segnalazione ritardo, chiarimento layout/sopralluogo, pronto per collaudo/ritiro): niente testo libero, la notifica arriva subito al caposquadra."],
