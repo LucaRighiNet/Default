@@ -14,7 +14,8 @@ const EXPORTS = ["STATE","App","isLate","jobsForSupplier","filteredJobs","daysTo
                  "TIPOLOGIE","STATI","SETTORI","CARPENTERIA","REQ_TYPES","AVANZAMENTO","CERT","QUICK_REPLIES","esc","uid"];
 const S = sandbox(START, END, EXPORTS, {});
 // secondo sandbox fino a "Eventi" per le funzioni-azione pure (senza DOM)
-const SA = sandbox(START, "/* ============================ Eventi", ["STATE","applyDateChange","addDays"], {});
+const SA = sandbox(START, "/* ============================ Eventi", ["STATE","applyDateChange","addDays",
+  "consegneByMonth","pipelineStati","saluteCounts","puntualitaByMonth","tipologiaMix","capoCarico","jobHealth","isLate","monthKey"], {});
 const r = runner("model_test");
 const resetFilters = () => { S.App.filters = {q:"",stato:"",tipologia:"",settore:"",capo:"",fornitore:"",late:false}; S.App.sort={key:"consegna",dir:1}; };
 
@@ -294,6 +295,59 @@ r.ok("seed: una richiesta con foto e una con risposta del caposquadra", () => {
   const withReply = S.STATE.requests.find(x => Array.isArray(x.risposte) && x.risposte.length);
   assert(withReply, "manca una richiesta con risposta");
   assert.strictEqual(withReply.risposte[0].da, "righi");
+});
+
+/* ---- Analisi: aggregati dei grafici (cruscotto) ---- */
+r.ok("analisi/consegne: mesi ordinati e conservazione del totale", () => {
+  const d = SA.consegneByMonth();
+  assert(d.months.length >= 1, "nessun mese");
+  const sorted = d.months.slice().sort();
+  assert.deepStrictEqual(d.months, sorted, "mesi non ordinati");
+  let sum = 0; d.months.forEach(m => { const v = d.map[m]; sum += v.da + v.att + v.cons; });
+  // ogni commessa ha una data di consegna -> la somma copre tutte le commesse
+  assert.strictEqual(sum, SA.STATE.jobs.length, "somma mesi != totale commesse: " + sum);
+  const maxTot = Math.max(...d.months.map(m => { const v = d.map[m]; return v.da + v.att + v.cons; }));
+  assert.strictEqual(d.max, maxTot, "max non coerente");
+});
+r.ok("analisi/consegne: i bucket rispecchiano lo stato reale", () => {
+  const d = SA.consegneByMonth();
+  const da = Object.values(d.map).reduce((a, v) => a + v.da, 0);
+  const att = Object.values(d.map).reduce((a, v) => a + v.att, 0);
+  assert.strictEqual(da, SA.STATE.jobs.filter(j => ["bozza","pubblicato"].includes(j.stato)).length);
+  assert.strictEqual(att, SA.STATE.jobs.filter(j => ["assegnato","in_corso"].includes(j.stato)).length);
+});
+r.ok("analisi/pipeline: somma per stato = totale, righe a zero escluse", () => {
+  const d = SA.pipelineStati();
+  const sum = d.rows.reduce((a, r) => a + r.n, 0);
+  assert.strictEqual(sum, SA.STATE.jobs.length, "pipeline non conserva il totale");
+  assert(d.rows.every(r => r.n > 0), "riga a zero non filtrata");
+  const pub = d.rows.find(r => r.st === "pubblicato");
+  assert(pub && pub.n === SA.STATE.jobs.filter(j => j.stato === "pubblicato").length);
+});
+r.ok("analisi/salute: verde+giallo+rosso = commesse attive", () => {
+  const d = SA.saluteCounts();
+  assert.strictEqual(d.verde + d.giallo + d.rosso, d.tot, "somma semaforo != attive");
+  const attive = SA.STATE.jobs.filter(j => ["pubblicato","assegnato","in_corso"].includes(j.stato)).length;
+  assert.strictEqual(d.tot, attive, "tot attive errato");
+  assert.strictEqual(d.late, SA.STATE.jobs.filter(SA.isLate).length, "ritardi errati");
+});
+r.ok("analisi/puntualità: solo consegne con data effettiva, % coerente", () => {
+  const d = SA.puntualitaByMonth();
+  const deliv = SA.STATE.jobs.filter(j => ["consegnato","chiuso"].includes(j.stato) && j.dataConsegnaEffettiva);
+  assert.strictEqual(d.tot, deliv.length, "conteggio consegne errato");
+  assert(d.tot > 0, "il seed deve avere consegne registrate");
+  d.months.forEach(m => { const v = d.map[m]; assert(v.ok + v.late > 0, "mese vuoto: " + m); });
+});
+r.ok("analisi/mix: tre tipologie, somma = totale", () => {
+  const d = SA.tipologiaMix();
+  assert.strictEqual(d.rows.length, 3, "tipologie != 3");
+  assert.strictEqual(d.rows.reduce((a, r) => a + r.n, 0), SA.STATE.jobs.length);
+});
+r.ok("analisi/capisquadra: somma attive = commesse assegnate/in corso, ordinate desc", () => {
+  const d = SA.capoCarico();
+  const attive = SA.STATE.jobs.filter(j => ["assegnato","in_corso"].includes(j.stato)).length;
+  assert.strictEqual(d.rows.reduce((a, r) => a + r.n, 0), attive, "carico capi != attive");
+  for (let i = 1; i < d.rows.length; i++) assert(d.rows[i].n <= d.rows[i-1].n, "non ordinate desc");
 });
 
 r.done();

@@ -160,6 +160,38 @@ main{max-width:1180px;margin:0 auto;padding:16px calc(var(--sar) + 14px) calc(va
 .load-axis{display:flex;justify-content:space-between;font-size:10.5px;color:var(--muted);margin-top:4px;font-variant-numeric:tabular-nums}
 .map-legend i.lg{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:middle}
 .map-legend i.lg.verde{background:var(--ok)} .map-legend i.lg.giallo{background:var(--warn)} .map-legend i.lg.rosso{background:var(--danger);background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.4) 0 2px,transparent 2px 5px)}
+/* ---- Toolkit grafici (sezione Analisi) ---- */
+.chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:820px){.chart-grid{grid-template-columns:1fr}}
+.chart-note{color:var(--muted);font-size:12.5px;margin:-2px 0 8px}
+.lnk{color:var(--brand);font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+/* token di riempimento (status + brand/info + tipologia); trama su danger per daltonismo/stampa */
+.cf-ok{background:var(--ok)} .cf-warn{background:var(--warn)} .cf-info{background:var(--info)} .cf-brand{background:var(--brand)} .cf-muted{background:var(--surface-3)}
+.cf-danger{background:var(--danger);background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.28) 0 3px,transparent 3px 7px)}
+.cf-auto{background:var(--auto)} .cf-dist{background:var(--dist)} .cf-pot{background:var(--pot)}
+.map-legend i.lg.cf-ok{background:var(--ok)} .map-legend i.lg.cf-warn{background:var(--warn)} .map-legend i.lg.cf-info{background:var(--info)}
+.map-legend i.lg.cf-danger{background:var(--danger);background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.4) 0 2px,transparent 2px 5px)}
+/* colonne verticali impilate */
+.vchart{display:flex;align-items:flex-end;gap:10px;height:180px;padding-top:18px;border-bottom:1px solid var(--line)}
+.vcol-wrap{flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;min-width:0}
+.vcol{width:100%;max-width:48px;min-height:3px;display:flex;flex-direction:column;border-radius:6px 6px 0 0;overflow:hidden}
+.vseg{width:100%;min-height:2px}
+.vseg+.vseg{border-top:2px solid var(--surface)}
+.vcol-tot{font-size:12px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;line-height:1}
+.vcol-x{font-size:11px;color:var(--muted);text-align:center;white-space:nowrap}
+/* barre orizzontali */
+.hchart{display:flex;flex-direction:column;gap:9px;margin-top:6px}
+.hrow{display:grid;grid-template-columns:118px 1fr auto;align-items:center;gap:10px}
+.hrow .hlab{font-size:12.5px;color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:flex;align-items:center;gap:6px}
+.htrack{height:18px;background:var(--surface-3);border-radius:6px;overflow:hidden}
+.hbar{height:100%;border-radius:6px;min-width:2px}
+.hrow .hval{font-size:12.5px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--ink)}
+.hrow.click{cursor:pointer} .hrow.click:hover .hbar{filter:brightness(1.06)} .hrow.click:hover .hlab{color:var(--brand)}
+@media(max-width:520px){.hrow{grid-template-columns:96px 1fr auto}}
+/* barra impilata singola (salute) */
+.stackbar{display:flex;height:28px;border-radius:8px;overflow:hidden;background:var(--surface-3)}
+.stackseg{height:100%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:700;min-width:0}
+.stackseg+.stackseg{border-left:2px solid var(--surface)}
 
 /* ---- Pills / badges ---- */
 .pill{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;padding:3px 9px;border-radius:999px;border:1px solid var(--line);background:var(--surface-2);color:var(--ink-soft);white-space:nowrap;font-weight:500}
@@ -792,8 +824,8 @@ function render(){
   const lavN=scopedJobs().filter(j=>j.stato!=="chiuso").length;
   const tabs = u.role==="righi"
     ? (isCapo(u)
-        ? [["dashboard","Dashboard",""],["lavori","Commesse",lavN],["richieste","Richieste",countOpenReq()]]
-        : [["dashboard","Dashboard",""],["lavori","Commesse",lavN],["nuovo","Nuovo lavoro",""],["richieste","Richieste",countOpenReq()],["fornitori","Fornitori",""]])
+        ? [["dashboard","Dashboard",""],["lavori","Commesse",lavN],["richieste","Richieste",countOpenReq()],["analisi","Analisi",""]]
+        : [["dashboard","Dashboard",""],["lavori","Commesse",lavN],["nuovo","Nuovo lavoro",""],["richieste","Richieste",countOpenReq()],["fornitori","Fornitori",""],["analisi","Analisi",""]])
     : [["bacheca","Bacheca",countBacheca()],["miei","I miei lavori",countMiei()],["richieste","Richieste guidate",""],["profilo","Profilo",""]];
   if(!App.tab || !tabs.some(t=>t[0]===App.tab)) App.tab = tabs[0][0];
   const notif = unreadFor(u);
@@ -819,6 +851,7 @@ function viewFor(u){
     if(t==="nuovo")     return viewNuovoLavoro();
     if(t==="richieste") return viewRighiRichieste();
     if(t==="fornitori") return viewFornitori();
+    if(t==="analisi")   return viewAnalisi();
   } else {
     if(t==="bacheca")   return viewBacheca(u);
     if(t==="miei")      return viewMiei(u);
@@ -1120,6 +1153,100 @@ function caricoMatrixHtml(){ const load=supplierMonthlyLoad(); const months=cari
     <tbody>${STATE.suppliers.map(s=>{ const row=load.map[s.id]||{}; const tot=activeHours(s.id);
       return `<tr data-act="supDetail" data-sup="${s.id}"><td class="t-title">${esc(s.name)}</td><td class="num">${s.capacitaMese} h</td>${months.map(m=>`<td class="num">${row[m]?row[m]+' h':'·'}</td>`).join("")}<td class="num"><b>${tot?tot+' h':'—'}</b></td></tr>`;
     }).join("")}</tbody></table></div>`;
+}
+/* ==================== VIEW: Righi — Analisi (cruscotto grafici) ==================== */
+// Tutti gli aggregati usano scopedJobs(): il caposquadra vede solo le proprie commesse.
+function consegneByMonth(){ const map={};
+  scopedJobs().forEach(j=>{ const m=monthKey(j.dataConsegna); if(!m) return; (map[m]=map[m]||{da:0,att:0,cons:0});
+    if(["bozza","pubblicato"].includes(j.stato)) map[m].da++;
+    else if(["assegnato","in_corso"].includes(j.stato)) map[m].att++; else map[m].cons++; });
+  const months=Object.keys(map).sort();
+  return { months, map, max:Math.max(1,...months.map(m=>map[m].da+map[m].att+map[m].cons)) };
+}
+function pipelineStati(){ const jobs=scopedJobs();
+  const order=[["bozza","Bozze"],["pubblicato","Da assegnare"],["assegnato","Assegnate"],["in_corso","In corso"],["consegnato","Consegnate"],["chiuso","Chiuse"]];
+  const rows=order.map(([st,lab])=>({st,lab,n:jobs.filter(j=>j.stato===st).length})).filter(r=>r.n>0);
+  return { rows, max:Math.max(1,...rows.map(r=>r.n)) };
+}
+function saluteCounts(){ const attive=scopedJobs().filter(j=>["pubblicato","assegnato","in_corso"].includes(j.stato));
+  const c={verde:0,giallo:0,rosso:0}; attive.forEach(j=>{ const l=jobHealth(j).level; c[l]=(c[l]||0)+1; });
+  return { ...c, tot:attive.length, late:scopedJobs().filter(isLate).length };
+}
+function puntualitaByMonth(){ const deliv=scopedJobs().filter(j=>["consegnato","chiuso"].includes(j.stato)&&j.dataConsegnaEffettiva);
+  const map={}; deliv.forEach(j=>{ const m=monthKey(j.dataConsegnaEffettiva); (map[m]=map[m]||{ok:0,late:0});
+    if(j.dataConsegnaEffettiva<=j.dataConsegna) map[m].ok++; else map[m].late++; });
+  const months=Object.keys(map).sort();
+  return { months, map, tot:deliv.length, max:Math.max(1,...months.map(m=>map[m].ok+map[m].late)) };
+}
+function tipologiaMix(){ const jobs=scopedJobs();
+  const rows=Object.entries(TIPOLOGIE).map(([k,v])=>({k,lab:v.short,dot:v.dot,n:jobs.filter(j=>j.tipologia===k).length}));
+  return { rows, max:Math.max(1,...rows.map(r=>r.n)) };
+}
+function capoCarico(){ const jobs=scopedJobs();
+  const rows=STATE.capi.map(c=>({id:c.id,name:c.name,n:jobs.filter(j=>j.capoId===c.id&&["assegnato","in_corso"].includes(j.stato)).length}))
+    .filter(r=>r.n>0).sort((a,b)=>b.n-a.n);
+  return { rows, max:Math.max(1,...rows.map(r=>r.n)) };
+}
+function emptyChart(msg){ return `<div class="empty" style="padding:20px">${icon("inbox")}<p>${esc(msg)}</p></div>`; }
+function chartConsegne(){ const d=consegneByMonth(); if(!d.months.length) return emptyChart("Nessuna commessa con data di consegna");
+  const segs=[["da","cf-warn","Da assegnare"],["att","cf-info","Assegnate / in corso"],["cons","cf-ok","Consegnate"]];
+  return `<div class="vchart">${d.months.map(m=>{ const v=d.map[m], tot=v.da+v.att+v.cons;
+    return `<div class="vcol-wrap"><div class="vcol-tot">${tot}</div>
+      <div class="vcol" style="height:${Math.round(tot/d.max*132)}px" title="${monthLabel(m)}: ${tot} consegne — ${v.da} da assegnare, ${v.att} attive, ${v.cons} consegnate">
+        ${segs.map(([k,cls])=> v[k]?`<div class="vseg ${cls}" style="height:${(v[k]/tot*100).toFixed(1)}%"></div>`:"").join("")}
+      </div><div class="vcol-x">${monthLabel(m)}</div></div>`; }).join("")}</div>
+    <div class="map-legend" style="margin-top:10px">${segs.map(([k,cls,lab])=>`<span><i class="lg ${cls}"></i>${lab}</span>`).join("")}</div>`;
+}
+function chartPipeline(){ const d=pipelineStati(); if(!d.rows.length) return emptyChart("Nessuna commessa");
+  return `<div class="hchart">${d.rows.map(r=>`<div class="hrow click" data-act="chartFilter" data-k="stato" data-v="${r.st}" title="${r.lab}: ${r.n} commesse">
+    <span class="hlab">${r.lab}</span><div class="htrack"><div class="hbar cf-brand" style="width:${Math.max(r.n/d.max*100,2).toFixed(1)}%"></div></div><span class="hval">${r.n}</span></div>`).join("")}</div>
+    <p class="chart-note" style="margin:8px 0 0">Tocca una fase per aprire l'elenco filtrato.</p>`;
+}
+function chartSalute(){ const d=saluteCounts(); if(!d.tot) return emptyChart("Nessuna commessa attiva");
+  const segs=[["verde","cf-ok","sotto controllo",d.verde],["giallo","cf-warn","da tenere d'occhio",d.giallo],["rosso","cf-danger","a rischio",d.rosso]];
+  return `<div class="stackbar">${segs.map(([k,cls,lab,n])=> n?`<div class="stackseg ${cls}" style="width:${(n/d.tot*100).toFixed(1)}%" title="${lab}: ${n}">${(n/d.tot)>0.06?n:""}</div>`:"").join("")}</div>
+    <div class="map-legend" style="margin-top:10px">${segs.map(([k,cls,lab,n])=>`<span><i class="lg ${cls}"></i>${lab} — <b>${n}</b></span>`).join("")}</div>
+    <p class="chart-note" style="margin:8px 0 0">${d.late?`<b style="color:var(--danger)">${d.late}</b> già in ritardo · `:""}semaforo predittivo su ${d.tot} commesse attive.${(d.rosso+d.giallo)?` <a class="lnk" data-act="chartFilter" data-k="stato" data-v="attivi">Vedi le attive</a>`:""}</p>`;
+}
+function chartPuntualita(){ const d=puntualitaByMonth(); if(!d.tot) return emptyChart("Ancora nessuna consegna registrata");
+  return `<div class="vchart">${d.months.map(m=>{ const v=d.map[m], tot=v.ok+v.late, pct=Math.round(v.ok/tot*100);
+    return `<div class="vcol-wrap"><div class="vcol-tot">${pct}%</div>
+      <div class="vcol" style="height:${Math.round(tot/d.max*132)}px" title="${monthLabel(m)}: ${v.ok} puntuali, ${v.late} in ritardo (${pct}%)">
+        ${v.late?`<div class="vseg cf-danger" style="height:${(v.late/tot*100).toFixed(1)}%"></div>`:""}
+        ${v.ok?`<div class="vseg cf-ok" style="height:${(v.ok/tot*100).toFixed(1)}%"></div>`:""}
+      </div><div class="vcol-x">${monthLabel(m)}</div></div>`; }).join("")}</div>
+    <div class="map-legend" style="margin-top:10px"><span><i class="lg cf-ok"></i>puntuali</span><span><i class="lg cf-danger"></i>in ritardo</span></div>
+    <p class="chart-note" style="margin:8px 0 0">${d.tot} consegne registrate. Il valore in alto è la puntualità del mese.</p>`;
+}
+function chartMix(){ const d=tipologiaMix();
+  return `<div class="hchart">${d.rows.map(r=>`<div class="hrow click" data-act="chartFilter" data-k="tipologia" data-v="${r.k}" title="${r.lab}: ${r.n} commesse">
+    <span class="hlab"><span class="dot ${r.dot}"></span>${r.lab}</span><div class="htrack"><div class="hbar cf-${r.dot}" style="width:${Math.max(r.n/d.max*100,2).toFixed(1)}%"></div></div><span class="hval">${r.n}</span></div>`).join("")}</div>
+    <p class="chart-note" style="margin:8px 0 0">Tocca una tipologia per filtrare le commesse.</p>`;
+}
+function chartCapo(){ const d=capoCarico(); if(!d.rows.length) return emptyChart("Nessuna commessa attiva");
+  return `<div class="hchart">${d.rows.map(r=>`<div class="hrow click" data-act="chartFilter" data-k="capo" data-v="${r.id}" title="${esc(r.name)}: ${r.n} commesse attive">
+    <span class="hlab">${esc(r.name)}</span><div class="htrack"><div class="hbar cf-brand" style="width:${Math.max(r.n/d.max*100,2).toFixed(1)}%"></div></div><span class="hval">${r.n}</span></div>`).join("")}</div>`;
+}
+function viewAnalisi(){ const u=currentUser(); const capo_=isCapo(u);
+  return `<div class="view-head"><div><h2>Analisi</h2><p>${capo_?"Le commesse che segui":"Tutte le commesse"} · aggiornato ${fmtDate(todayISO())}</p></div></div>
+  <div class="card" style="margin-bottom:14px">
+    <div class="sect-t">${icon("calendar","sm")} Consegne per mese</div>
+    <p class="chart-note">Carico di consegne pianificate per mese e stato di assegnazione: le colonne più alte sono i mesi di picco su cui anticipare l'assegnazione.</p>
+    ${chartConsegne()}
+  </div>
+  <div class="chart-grid" style="margin-bottom:14px">
+    <div class="card"><div class="sect-t">${icon("list","sm")} Pipeline commesse</div>${chartPipeline()}</div>
+    <div class="card"><div class="sect-t">${icon("bolt","sm")} Salute commesse attive</div>${chartSalute()}</div>
+  </div>
+  <div class="chart-grid" style="margin-bottom:14px">
+    <div class="card"><div class="sect-t">${icon("check","sm")} Andamento puntualità consegne</div>${chartPuntualita()}</div>
+    <div class="card"><div class="sect-t">${icon("clock2","sm")} Mix per tipologia</div>${chartMix()}</div>
+  </div>
+  <div class="card">
+    <div class="sect-t">${icon("user","sm")} Carico per caposquadra</div>
+    <p class="chart-note">Commesse attive seguite da ciascun caposquadra. Tocca una barra per l'elenco filtrato.</p>
+    ${chartCapo()}
+  </div>`;
 }
 function viewFornitori(){
   const mode=App.fornMode||"lista";
@@ -1667,6 +1794,10 @@ document.addEventListener("click",e=>{
     case "fornMode": App.fornMode=el.dataset.m; render(); break;
     case "caricoView": App.caricoView=el.dataset.m; render(); break;
     case "caricoMonth": App.caricoMonth=el.dataset.mk; render(); break;
+    case "chartFilter": App.tab="lavori"; App.lavoriMode="table"; App.page=1;
+      App.filters={q:"",stato:"",tipologia:"",settore:"",capo:"",fornitore:"",late:false};
+      if(el.dataset.k==="late") App.filters.late=true; else App.filters[el.dataset.k]=el.dataset.v;
+      render(); window.scrollTo(0,0); break;
     case "setStatoFilter": App.filters.stato=el.dataset.v; App.page=1; updateResults(); if($("#lav-search"))reflectFilterChips(); render(); break;
     case "toggleLate": App.filters.late=!App.filters.late; App.page=1; render(); break;
     case "clearFilter": App.filters[el.dataset.k]= el.dataset.k==="late"?false:""; App.page=1; render(); break;

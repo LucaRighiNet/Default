@@ -104,6 +104,12 @@ Di conseguenza il prodotto è progettato attorno a due driver:
 - **Mappa fornitori** (SVG offline): pin colorati per carico, click per scheda e
   capacità libera; per il caposquadra evidenzia le zone già presidiate
   (ottimizzazione trasporti).
+- **Analisi (cruscotto)**: scheda dedicata, scopata per ruolo, con grafici su
+  **consegne per mese** (con quota da assegnare), **pipeline per stato**,
+  **salute commesse** (semaforo aggregato), **andamento puntualità**, **mix per
+  tipologia** e **carico per caposquadra**; i grafici categoriali sono cliccabili
+  e aprono l'elenco filtrato. Palette validata (dataviz) con codifica secondaria
+  (etichette, trama, gap) per daltonismo/stampa.
 - **Interfaccia professionale senza emoji**, icone SVG, identità Righi Solutions.
 - **Offline-first** (PWA + service worker); dati nello storage del dispositivo.
 - **Seam di backend** già pronto (`Sync` + `RemoteAdapter`) — vedi `BACKEND.md`.

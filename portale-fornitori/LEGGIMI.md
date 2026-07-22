@@ -97,6 +97,14 @@ anticipa i ritardi. Il fornitore aggiorna l'**avanzamento con un tocco**
 tocca un pin per scheda e capacità libera. Da caposquadra evidenzia le **zone
 già presidiate** per accorpare i lavori e ridurre le trasferte.
 
+**Analisi** (scheda dedicata, scopata per ruolo): un **cruscotto** con sei
+grafici sulle commesse — **consegne per mese** (carico pianificato e quota ancora
+da assegnare), **pipeline per stato**, **salute** delle commesse attive (semaforo
+aggregato), **andamento puntualità**, **mix per tipologia** e **carico per
+caposquadra**. I grafici categoriali sono **cliccabili** e aprono l'elenco già
+filtrato. Colori validati per la leggibilità (anche in caso di daltonismo o
+stampa: etichette, trama sulle barre critiche e gap tra i segmenti).
+
 **Lato Fornitore**
 - **Bacheca**: i lavori proposti da Righi; **Accetta** o **fai una domanda** con
   un tocco; il **layout** per la quotazione è in evidenza.
