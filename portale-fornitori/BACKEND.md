@@ -65,6 +65,7 @@ jobs(id uuid pk, code text unique, title text, tipologia text, settore text,
      data_consegna_effettiva date,                        -- consegna reale → puntualità
      assegnato_at date,                                   -- per metriche (lavori/mese, tempo risposta)
      avanzamento text,                                    -- materiale|cablaggio|collaudo|pronto|null (aggiornato dal fornitore)
+     consegna_approvata jsonb null,                       -- {da, at} — se null il fornitore NON può consegnare (gate: serve ok del caposquadra)
      storico_date jsonb,                                  -- [{from,to,by,byRole,at,motivo,tipo}]
      capo_id uuid fk users, descrizione text, visibility text check in ('tutti','selezionati'),
      stato text check in ('bozza','da_approvare','pubblicato','assegnato','in_corso','consegnato','chiuso'),
@@ -85,6 +86,7 @@ risposte(id uuid pk, job_id uuid fk jobs, supplier_id uuid fk suppliers,
 
 richieste(id uuid pk, job_id uuid fk jobs, supplier_id uuid fk suppliers,
           tipo text check in ('dubbio','materiale','slittamento','ritardo','sopralluogo','collaudo','altro'),
+          -- tipo='collaudo' = richiesta di approvazione consegna: approvandola il caposquadra scrive jobs.consegna_approvata (sblocca "Segna consegnato")
           testo text, stato text check in ('aperta','presa','chiusa'),
           data_proposta date, esito text check in ('approvato','rifiutato'),  -- solo per 'slittamento'
           capo_id uuid fk users, read bool default false, at timestamptz)

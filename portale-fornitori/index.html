@@ -593,7 +593,7 @@ const REQ_TYPES = {
   slittamento:{label:"Richiesta di slittamento", pill:"warn"},
   ritardo:  {label:"Segnalazione ritardo", pill:"danger"},
   sopralluogo:{label:"Chiarimento layout / sopralluogo", pill:"brand"},
-  collaudo: {label:"Pronto per collaudo / ritiro", pill:"ok"},
+  collaudo: {label:"Richiesta di approvazione consegna", pill:"ok"},
   altro:    {label:"Altro", pill:""},
 };
 // Avanzamento produzione (sotto-stato lato fornitore, un tocco)
@@ -952,7 +952,7 @@ function viewLogin(){
   const urow=u=>{ const s=u.supplierId?supplier(u.supplierId):null;
     return `<button class="urow" data-login="${u.id}">
       <span class="avatar" style="background:${u.role==='righi'?'var(--accent)':colorFor(u.id)}">${initials(u.name)}</span>
-      <span class="gr"><b>${esc(u.name)}</b><span>${u.role==='righi'?esc(u.ruolo||'Righi'):esc((s?s.name:'')+' · '+(s?s.citta:''))}</span></span>
+      <span class="gr"><b>${esc(u.name)}</b><span>${u.role==='righi'?esc(u.ruolo||'Righi'):esc((s?s.name:'')+((s&&s.citta)?' · '+s.citta:''))}</span></span>
       <span class="arw">${icon("chev")}</span></button>`; };
   return `<div class="login"><div class="box">
     <div class="logo">${LOGO}<div><div class="wm-lg"><span class="r">righi</span> <span class="s">solutions</span></div><div class="sub">Portale Fornitori</div></div>
@@ -962,6 +962,7 @@ function viewLogin(){
       ${righi.map(urow).join("")}
       <div class="lbl" style="margin-top:14px">${icon("user","sm")} Accedi come — Fornitore accreditato</div>
       ${forn.map(urow).join("")}
+      <button class="btn ghost block" style="margin-top:12px" data-act="newUser">${icon("plus","sm")} Nuovo utente / accesso</button>
     </div>
     <div class="foot">Prototipo dimostrativo · accessi predisposti · i dati restano sul dispositivo</div>
   </div></div>`;
@@ -1564,7 +1565,15 @@ function openJobModal(jid){
     const mine=resp.filter(r=>r.supplierId===u.supplierId);
     const accepted=mine.some(r=>r.tipo==="accettazione");
     if(j.stato==="pubblicato"&&!accepted) footer=`<div class="btn-row"><button class="btn ghost" data-act="ask" data-job="${j.id}">Fai una domanda</button><button class="btn accent" data-act="accept" data-job="${j.id}">${icon("check")} Accetta proposta</button></div>`;
-    else if(j.assegnatoA===u.supplierId) footer=`<button class="btn accent block" data-act="quickReq" data-job="${j.id}">${icon("send")} Contatta il caposquadra</button>`;
+    else if(j.assegnatoA===u.supplierId){
+      const contatta=`<button class="btn ghost" data-act="quickReq" data-job="${j.id}">${icon("send","sm")} Contatta il caposquadra</button>`;
+      if(["assegnato","in_corso"].includes(j.stato)){
+        const reqOpen=jobRequests(j.id).some(r=>r.tipo==="collaudo"&&r.stato!=="chiusa");
+        if(j.consegnaApprovata) footer=`<div class="btn-row">${contatta}<button class="btn accent" data-act="deliverJob" data-job="${j.id}">${icon("check")} Segna consegnato</button></div>`;
+        else if(reqOpen) footer=`<span class="pill warn lg">Richiesta di consegna inviata — in attesa dell'approvazione del caposquadra</span><div class="btn-row" style="margin-top:8px">${contatta}</div>`;
+        else footer=`<div class="btn-row">${contatta}<button class="btn accent" data-act="reqConsegna" data-job="${j.id}">${icon("send","sm")} Richiedi approvazione consegna</button></div>`;
+      } else footer=`<div class="btn-row">${contatta}</div>`;
+    }
     else if(accepted) footer=`<span class="pill ok lg">Proposta inviata — in attesa di Righi</span>`;
   }
   const thread = resp.filter(r=>["accettazione","domanda"].includes(r.tipo) && (isRighi||r.supplierId===u.supplierId));
@@ -1572,6 +1581,7 @@ function openJobModal(jid){
     <div class="tags" style="margin-bottom:12px"><span class="pill ${late?'danger':st.pill}">${late?'In ritardo':st.label}</span>${tipPill(j.tipologia)}<span class="pill plain">${esc(j.settore)}</span><span class="mono muted" style="align-self:center;font-size:11px">${esc(j.code)}</span></div>
     ${(isRighi&&j.stato==="da_approvare")?`<div class="card leftbar" style="border-left:4px solid var(--warn);margin-bottom:10px;padding:9px 12px"><b style="color:var(--warn)">${icon("bolt","sm")} Da approvare</b><span class="muted" style="font-size:12.5px;margin-left:6px">richiesta da ${esc((byId(STATE.users,j.richiedente)||{}).name||(c?c.name:'caposquadra'))}</span></div>`:""}
     ${(isRighi&&j.stato==="bozza"&&j.approvazione&&j.approvazione.esito==="rifiutata")?`<div class="card leftbar" style="border-left:4px solid var(--danger);margin-bottom:10px;padding:9px 12px"><b style="color:var(--danger)">${icon("x","sm")} Da rivedere</b>${j.approvazione.motivo?`<p class="muted" style="font-size:12.5px;margin:3px 0 0">${esc(j.approvazione.motivo)}</p>`:`<span class="muted" style="font-size:12.5px;margin-left:6px">rimandata dal responsabile</span>`}</div>`:""}
+    ${(j.consegnaApprovata&&["assegnato","in_corso"].includes(j.stato))?`<div class="card leftbar" style="border-left:4px solid var(--ok);margin-bottom:10px;padding:9px 12px"><b style="color:var(--ok)">${icon("check","sm")} Consegna approvata</b><span class="muted" style="font-size:12.5px;margin-left:6px">dal caposquadra · ${esc((j.consegnaApprovata.at||'').replace('T',' '))}</span></div>`:""}
     <div class="row2">
       <div class="dl"><span class="k">Budget indicativo</span><span class="v">${fmtMoney(j.budget)}</span></div>
       <div class="dl"><span class="k">Consegna</span><span class="v">${fmtDate(j.dataConsegna)} <span class="soft" style="font-weight:400">(${relDays(j.dataConsegna)})</span></span></div>
@@ -1657,7 +1667,7 @@ function openAssignPick(jid){ const j=byId(STATE.jobs,jid);
 function openReqDetail(rid){ const r=byId(STATE.requests,rid); if(!r) return;
   const u=currentUser(); const isRighi=u&&u.role==="righi"; if(isRighi){ r.read=true; persist(); }
   const j=byId(STATE.jobs,r.jobId), s=supplier(r.supplierId), c=capo(r.capoId), t=REQ_TYPES[r.tipo];
-  const isSlip=r.tipo==="slittamento"; const thread=r.risposte||[];
+  const isSlip=r.tipo==="slittamento"; const isConsegna=r.tipo==="collaudo"; const thread=r.risposte||[];
   const stateLabel = r.esito?(r.esito==='approvato'?'Approvato':'Rifiutato'):r.stato==='aperta'?'Inviata':r.stato==='presa'?'In carico':'Chiusa';
   const statePill = r.esito==='approvato'?'ok':r.esito==='rifiutato'?'danger':r.stato==='aperta'?'warn':r.stato==='presa'?'info':'ok';
   openModal(`${modalHead(t.label)}
@@ -1668,7 +1678,7 @@ function openReqDetail(rid){ const r=byId(STATE.requests,rid); if(!r) return;
     <div class="dl"><span class="k">Ricevuta</span><span class="v">${esc((r.at||'').replace('T',' '))}</span></div>
     ${r.testo?`<div class="msg them" style="max-width:100%;margin:6px 0"><div>${esc(r.testo)}</div></div>`:""}
     ${r.foto?`<div class="attach" style="margin:2px 0 8px;cursor:pointer" data-act="openReqFoto" data-id="${rid}"><span class="fi">${icon("doc")}</span><span class="gr"><b>Foto allegata</b><span>tocca per ingrandire</span></span><img src="${r.foto}" style="width:52px;height:52px;object-fit:cover;border-radius:8px"></div>`:""}
-    ${(!isRighi)?`<div><span class="pill ${statePill} lg">${stateLabel}</span></div>`:(r.esito?`<div><span class="pill ${statePill} lg">${r.esito==='approvato'?'Approvato — consegna aggiornata':'Rifiutato'}</span></div>`:"")}
+    ${(!isRighi)?`<div><span class="pill ${statePill} lg">${stateLabel}</span></div>`:(r.esito?`<div><span class="pill ${statePill} lg">${r.esito==='approvato'?(isSlip?'Approvato — consegna aggiornata':isConsegna?'Approvato — consegna autorizzata':'Approvato'):'Rifiutato'}</span></div>`:"")}
     ${thread.length?`<div class="divide"></div><div class="sect-t">Conversazione col caposquadra</div><div class="thread">${thread.map(m=>{const mine=(m.da==='righi')===isRighi; return `<div class="msg ${mine?'us':'them'}"><div class="who">${m.da==='righi'?'Caposquadra':'Fornitore'}</div><div>${esc(m.testo)}</div><div class="t">${esc((m.at||'').replace('T',' '))}</div></div>`;}).join("")}</div>`:""}
     ${isRighi?`
       <div class="divide"></div><div class="sect-t">${icon("send","sm")} Risposta rapida</div>
@@ -1677,6 +1687,8 @@ function openReqDetail(rid){ const r=byId(STATE.requests,rid); if(!r) return;
         ${s?`<button class="btn ghost" data-act="emailReq" data-id="${rid}">${icon("mail","sm")} Email</button>`:""}
         ${isSlip
           ? (r.stato!=="chiusa"?`<button class="btn danger" data-act="rejectSlip" data-id="${rid}">Rifiuta</button><button class="btn accent" data-act="approveSlip" data-id="${rid}">${icon("check")} Approva e sposta</button>`:"")
+          : isConsegna
+          ? (r.stato!=="chiusa"?`<button class="btn danger" data-act="rejectConsegna" data-id="${rid}">Rifiuta</button><button class="btn accent" data-act="approveConsegna" data-id="${rid}">${icon("check")} Approva consegna</button>`:"")
           : `${r.stato==="aperta"?`<button class="btn" data-act="reqStato" data-id="${rid}" data-s="presa">Prendi in carico</button>`:""}${r.stato!=="chiusa"?`<button class="btn accent" data-act="reqStato" data-id="${rid}" data-s="chiusa">${icon("check")} Segna risolta</button>`:`<span class="pill ok lg">Chiusa</span>`}`}
       </div>`:""}`);
 }
@@ -1722,8 +1734,36 @@ function openSwitch(){
       return `<button class="urow" style="color:var(--ink);background:var(--surface-2);border-color:var(--line)" data-login="${u.id}">
         <span class="avatar" style="background:${u.role==='righi'?'var(--accent)':colorFor(u.id)}">${initials(u.name)}</span>
         <span class="gr"><b>${esc(u.name)} ${cur?'<span class="pill brand" style="margin-left:4px">attuale</span>':''}</b><span class="muted">${u.role==='righi'?esc(u.ruolo):esc(s?s.name:'')}</span></span><span class="arw">${icon("chev")}</span></button>`;}).join("")}
+    <button class="btn ghost block" style="margin-top:8px" data-act="newUser">${icon("plus","sm")} Nuovo utente / accesso</button>
     <div class="divide"></div>
     <button class="btn danger block" data-act="logout">${icon("logout","sm")} Esci</button>`);
+}
+function openNewUser(){ const d=App.userDraft={role:"fornitore"};
+  const roleBtn=(v,l)=>`<button type="button" class="${d.role===v?'on':''}" data-act="nuRole" data-v="${v}">${l}</button>`;
+  openModal(`${modalHead("Nuovo utente / accesso")}
+    <p class="muted" style="font-size:13px;margin-top:0">Crea un accesso al portale. Il <b>ruolo</b> determina cosa vede e può fare.</p>
+    <div class="field"><label>Ruolo</label>
+      <div class="seg">${roleBtn("fornitore","Fornitore")}${roleBtn("caposquadra","OTL / Caposquadra")}${roleBtn("responsabile","Responsabile")}</div></div>
+    <div class="field"><label>Nome</label><input class="inp" id="nu-name" placeholder="es. Mario Rossi"></div>
+    <div class="field"><label>Email (facoltativa)</label><input class="inp" id="nu-email" type="email" placeholder="nome@righinet.com"></div>
+    <div class="field" id="nu-forn"><label>Terzista collegato</label>
+      <select class="inp" id="nu-sup">${STATE.suppliers.filter(s=>s.attivo).map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join("")}</select>
+      <span class="hint">L'accesso fornitore vedrà solo le commesse di questo terzista</span></div>
+    <p class="muted" id="nu-hint" style="font-size:12px">Il <b>fornitore</b> vede la sua bacheca e le sue commesse; l'<b>OTL/caposquadra</b> propone lavori e segue le sue commesse; il <b>responsabile</b> vede e governa tutto.</p>
+    <button class="btn accent block" data-act="doCreateUser">${icon("check")} Crea accesso</button>`);
+}
+function createUser(){ const role=(App.userDraft&&App.userDraft.role)||"fornitore";
+  const name=($("#nu-name").value||"").trim(); const email=($("#nu-email").value||"").trim();
+  if(!name){ toast("Inserisci il nome","warn"); $("#nu-name").focus(); return; }
+  const p=name.split(/\s+/); const autoMail=(slug(p[0])[0]||"x")+"."+slug(p[p.length-1])+"@righinet.com";
+  const u={ id:uid("u"), name, email:email||autoMail };
+  if(role==="fornitore"){ const sid=$("#nu-sup")?$("#nu-sup").value:""; if(!sid){ toast("Scegli il terzista collegato","warn"); return; }
+    u.role="fornitore"; u.supplierId=sid; }
+  else if(role==="caposquadra"){ const cid=uid("cs"); STATE.capi.push({id:cid,name,tel:"",email:u.email});
+    u.role="righi"; u.righiRole="caposquadra"; u.capoId=cid; u.ruolo="OTL / Caposquadra"; }
+  else { u.role="righi"; u.righiRole="responsabile"; u.ruolo="Responsabile Produzione"; }
+  STATE.users.push(u); persist(); App.userDraft=null; closeModal();
+  toast("Accesso creato: "+name,"ok"); openSwitch();
 }
 function openNewSupplier(){ const d=App.supDraft={name:"",citta:"Cesena",referente:"",email:"",specialties:[],settori:[],certificazioni:[],attrezzature:[],dimensioneMax:"m",capacitaMese:1000};
   openModal(`${modalHead("Nuovo fornitore")}
@@ -1806,6 +1846,7 @@ function openGuide(){ const u=currentUser(); const isR=u.role==="righi"; const c
     + sec("Comunicazione e consegne",[
       ["Richieste dei fornitori","I fornitori ti contattano con richieste guidate (dubbi, materiale, ritardi, foto): aprile in <b>Richieste</b>, usa le <b>risposte rapide</b> o rispondi via email, poi segnale risolte."],
       ["Slittamenti","Approvi o rifiuti le richieste di slittamento consegna; se approvi, la data si aggiorna con storico e notifica."],
+      ["Approvazione consegna","Quando il fornitore chiede di consegnare (<i>Richiesta di approvazione consegna</i>), la <b>approvi o rifiuti</b> dalle Richieste: solo dopo l'approvazione il fornitore può segnare la commessa come consegnata."],
       ["Ritardi","Le consegne superate sono in rosso: usa i filtri per stato e ritardi per dare priorità."] ]); }
   else { title="Fornitore"; intro="Tutto quello che ti serve per lavorare con Righi: vedere le proposte, quotare, accettare, seguire le commesse e restare in contatto con il caposquadra.";
     body = sec("1 · Accedi e sfoglia la bacheca",[
@@ -1819,6 +1860,7 @@ function openGuide(){ const u=currentUser(); const isR=u.role==="righi"; const c
     + sec("3 · Segui le tue commesse",[
       ["I miei lavori","In <b>I miei lavori</b> trovi le commesse acquisite con la <b>data di consegna</b> e lo stato. I filtri (attive, consegnate, in ritardo) ti aiutano a dare priorità."],
       ["Avanzamento a un tocco","Dal dettaglio aggiorni lo stato con un tocco, in ordine: <i>materiale ricevuto, cablaggio, collaudo, pronto al ritiro</i>. Righi vede subito a che punto sei."],
+      ["Consegna con approvazione","Quando il lavoro è pronto premi <b>Richiedi approvazione consegna</b>: il caposquadra la approva e solo allora compare <b>Segna consegnato</b>. Senza approvazione <b>non puoi consegnare</b>."],
       ["Consegna in ritardo","Se una consegna è vicina o superata è evidenziata: comunica per tempo (vedi sotto) per concordare una nuova data."] ])
     + sec("4 · Comunica con il caposquadra",[
       ["Richieste guidate","Da <b>Richieste guidate</b> scegli la commessa e il tipo di richiesta (dubbio tecnico, mancanza materiale, segnalazione ritardo, chiarimento layout/sopralluogo, pronto per collaudo/ritiro): niente testo libero, la notifica arriva subito al caposquadra."],
@@ -2016,6 +2058,31 @@ function resolveSlip(rid, approve){ const r=byId(STATE.requests,rid); if(!r) ret
   else { const usr=STATE.users.find(x=>x.supplierId===r.supplierId); if(usr) STATE.notifications.push({id:uid("n"),toUser:usr.id,ic:"x",txt:"Slittamento non approvato",sub:(j?j.code+" — "+j.title:""),jobId:r.jobId,at:new Date().toISOString().slice(0,16),read:false}); }
   persist(); closeModal(); toast(approve?"Slittamento approvato · consegna aggiornata":"Slittamento rifiutato","ok"); render();
 }
+// Caposquadra: approva/rifiuta la richiesta di consegna del fornitore
+function resolveConsegna(rid, approve){ const r=byId(STATE.requests,rid); if(!r) return; const j=byId(STATE.jobs,r.jobId); const u=currentUser();
+  r.stato="chiusa"; r.esito=approve?"approvato":"rifiutato"; r.read=true;
+  if(approve && j) j.consegnaApprovata={da:u.id, at:new Date().toISOString().slice(0,16)};
+  const usr=STATE.users.find(x=>x.supplierId===r.supplierId);
+  if(usr) STATE.notifications.push({id:uid("n"),toUser:usr.id,ic:approve?"check":"x",txt:approve?"Consegna approvata: puoi consegnare":"Consegna non approvata",sub:(j?j.code+" — "+j.title:""),jobId:r.jobId,at:new Date().toISOString().slice(0,16),read:false});
+  persist(); closeModal(); toast(approve?"Consegna approvata":"Consegna non approvata","ok"); render();
+}
+// Fornitore: richiede l'approvazione a consegnare (va al caposquadra della commessa)
+function reqConsegna(jid){ const u=currentUser(); const j=byId(STATE.jobs,jid); if(!j||j.assegnatoA!==u.supplierId) return;
+  if(STATE.requests.some(r=>r.jobId===jid&&r.tipo==="collaudo"&&r.stato!=="chiusa")){ toast("Richiesta già inviata","warn"); return; }
+  const at=new Date().toISOString().slice(0,16);
+  STATE.requests.push({id:uid("q"),jobId:jid,supplierId:u.supplierId,tipo:"collaudo",testo:"Lavoro pronto: richiedo l'approvazione a consegnare.",at,stato:"aperta",capoId:j.capoId,from:"fornitore",read:false,esito:null});
+  const capoUser=STATE.users.find(x=>x.righiRole==="caposquadra"&&x.capoId===j.capoId);
+  if(capoUser) STATE.notifications.push({id:uid("n"),toUser:capoUser.id,ic:"check",txt:"Richiesta approvazione consegna",sub:j.code+" — "+j.title,jobId:jid,at,read:false});
+  persist(); closeModal(); toast("Richiesta di approvazione consegna inviata","ok"); render();
+}
+// Fornitore: consegna (bloccata finché il caposquadra non approva)
+function deliverJob(jid){ const u=currentUser(); const j=byId(STATE.jobs,jid); if(!j||j.assegnatoA!==u.supplierId) return;
+  if(!j.consegnaApprovata){ toast("Serve prima l'approvazione del caposquadra","warn"); return; }
+  j.stato="consegnato"; j.avanzamento="pronto"; if(!j.dataConsegnaEffettiva) j.dataConsegnaEffettiva=todayISO();
+  const capoUser=STATE.users.find(x=>x.righiRole==="caposquadra"&&x.capoId===j.capoId);
+  if(capoUser) STATE.notifications.push({id:uid("n"),toUser:capoUser.id,ic:"check",txt:"Commessa consegnata: "+j.title,sub:j.code,jobId:jid,at:new Date().toISOString().slice(0,16),read:false});
+  persist(); closeModal(); toast("Commessa consegnata","ok"); render();
+}
 function doNotify(jid){ const j=byId(STATE.jobs,jid); const ids=[...App.notifySel];
   if(!ids.length){ toast("Scegli almeno un fornitore","warn"); return; }
   notifyJob(j, ids); const wantEmail=App.notifyEmail; persist(); closeModal();
@@ -2102,6 +2169,11 @@ document.addEventListener("click",e=>{
     case "supDetail": openSupplierModal(el.dataset.sup); break;
     case "newSup": openNewSupplier(); break;
     case "createSup": createSupplier(); break;
+    case "newUser": openNewUser(); break;
+    case "doCreateUser": createUser(); break;
+    case "nuRole": { App.userDraft=App.userDraft||{}; App.userDraft.role=el.dataset.v;
+      const grp=el.closest(".seg"); if(grp) $$("button",grp).forEach(b=>b.classList.toggle("on", b===el));
+      const f=$("#nu-forn"); if(f) f.classList.toggle("hide", el.dataset.v!=="fornitore"); break; }
     case "toggleSup": { App.supDraft=App.supDraft||{}; const g=el.dataset.g; const a=App.supDraft[g]=App.supDraft[g]||[];
       const v=el.dataset.v, i=a.indexOf(v); if(i<0) a.push(v); else a.splice(i,1); el.classList.toggle("on"); break; }
     case "publish": doPublish(el.dataset.job); break;
@@ -2131,6 +2203,10 @@ document.addEventListener("click",e=>{
     case "reqDetail": openReqDetail(el.dataset.id); break;
     case "approveSlip": resolveSlip(el.dataset.id, true); break;
     case "rejectSlip": resolveSlip(el.dataset.id, false); break;
+    case "approveConsegna": resolveConsegna(el.dataset.id, true); break;
+    case "rejectConsegna": resolveConsegna(el.dataset.id, false); break;
+    case "reqConsegna": reqConsegna(el.dataset.job); break;
+    case "deliverJob": deliverJob(el.dataset.job); break;
     case "editDate": openEditDate(el.dataset.job); break;
     case "doEditDate": doEditDate(el.dataset.job); break;
     case "rmAtt": App.draft.allegati=(App.draft.allegati||[]).filter(a=>a.id!==el.dataset.id); render(); break;

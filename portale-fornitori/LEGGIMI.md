@@ -148,10 +148,17 @@ stampa: etichette, trama sulle barre critiche e gap tra i segmenti).
   una domanda** con un tocco oppure **Accetta**, confermando con una **firma
   leggera** a tuo nome (Righi vede il timbro *firmato* con data e ora); il
   **layout** per la quotazione è in evidenza.
-- **I miei lavori**: commesse acquisite e consegne.
+- **I miei lavori**: commesse acquisite e consegne, con **avanzamento a un
+  tocco**. Per consegnare serve l'**approvazione del caposquadra**: premi
+  **Richiedi approvazione consegna**; solo dopo l'ok compare **Segna consegnato**
+  (senza approvazione la consegna è bloccata).
 - **Richieste guidate**: contatta il **caposquadra** seguendo la prassi Righi
-  (dubbio tecnico, mancanza materiale, ritardo, chiarimento layout, pronto per
-  collaudo…) — la notifica arriva subito al referente della commessa.
+  (dubbio tecnico, mancanza materiale, ritardo, chiarimento layout, **richiesta
+  di approvazione consegna**…) — la notifica arriva subito al referente.
+
+**Nuovo utente / accesso**: dalla schermata di accesso o dal menu *cambia
+utente* si crea un nuovo accesso scegliendo il **ruolo** (responsabile,
+OTL/caposquadra o fornitore collegato a un terzista).
 
 ## Struttura
 

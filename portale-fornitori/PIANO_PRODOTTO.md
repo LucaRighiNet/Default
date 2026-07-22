@@ -109,6 +109,13 @@ Di conseguenza il prodotto è progettato attorno a due driver:
 - **Ciclo di vita consegna**: richiesta di **slittamento** dal fornitore con
   approvazione del caposquadra (sovrascrive la data + storico + notifica) e
   **modifica diretta** della data da Righi; storico completo dei cambi.
+- **Consegna con approvazione (gate)**: il fornitore non chiude da solo — quando
+  è pronto invia **Richiedi approvazione consegna** (richiesta al caposquadra);
+  solo dopo l'ok compare **Segna consegnato**. Senza approvazione la consegna è
+  bloccata, così Righi controlla sempre l'ultimo passo.
+- **Gestione accessi**: creazione di un **nuovo utente** dal menu di accesso
+  (ruolo **responsabile**, **OTL/caposquadra** o **fornitore** collegato a un
+  terzista dell'anagrafica); i capisquadra creati entrano subito come referenti.
 - **Dati reali (Mappatura terzisti 2026)**: 54 terzisti (28 attivi, flag
   `attivo`) con capacità ore/mese, cablatori, risorse dedicate, costo orario,
   contatti, note e **% di utilizzo preferenziale per OTL/caposquadra**.
