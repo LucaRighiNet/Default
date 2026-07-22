@@ -58,7 +58,10 @@ Righi e il lato fornitore per vedere entrambe le prospettive.
   commessa può essere **duplicata** per ripartire dagli stessi dati.
 - **Esporta ordini (ERP)**: da Commesse esporti in **CSV** gli ordini accettati
   (fornitore, importo, ore, consegna…) per l'emissione ordine in amministrazione.
-- **Richieste** e anagrafica **Fornitori** accreditati (con contatto **email**).
+- **Richieste** e anagrafica **Fornitori** accreditati (con contatto **email**):
+  con **Nuovo fornitore** accrediti un terzista (specializzazioni, settori, zona,
+  capacità, certificazioni) che entra subito in suggerimenti, mappa e carico;
+  tocca il nome per aprire la **scheda** con le metriche.
 
 **Ruoli e accessi (lato Righi)**
 - **Responsabile di produzione**: vede **tutte** le commesse, pubblica, assegna,

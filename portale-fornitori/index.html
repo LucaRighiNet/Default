@@ -188,6 +188,8 @@ main{max-width:1180px;margin:0 auto;padding:16px calc(var(--sar) + 14px) calc(va
 .faq:last-child{border-bottom:none}
 .faq b{display:block;font-size:13px;margin-bottom:2px}
 .faq span{display:block;font-size:12.5px;color:var(--muted);line-height:1.45}
+.sup-name{cursor:pointer}
+.sup-name:hover{color:var(--brand);text-decoration:underline;text-underline-offset:2px}
 /* token di riempimento (status + brand/info + tipologia); trama su danger per daltonismo/stampa */
 .cf-ok{background:var(--ok)} .cf-warn{background:var(--warn)} .cf-info{background:var(--info)} .cf-brand{background:var(--brand)} .cf-muted{background:var(--surface-3)}
 .cf-danger{background:var(--danger);background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.28) 0 3px,transparent 3px 7px)}
@@ -1335,9 +1337,12 @@ function viewAnalisi(){ const u=currentUser(); const capo_=isCapo(u);
   </div>`;
 }
 function viewFornitori(){
-  const mode=App.fornMode||"lista";
+  const mode=App.fornMode||"lista"; const canManage=!isCapo(currentUser());
   const head=`<div class="view-head"><div><h2>Fornitori accreditati</h2><p>${STATE.suppliers.length} terzisti · carico, specializzazioni e mappa</p></div>
-    <div class="seg"><button class="${mode==='lista'?'on':''}" data-act="fornMode" data-m="lista">${icon("list","sm")} Elenco</button><button class="${mode==='mappa'?'on':''}" data-act="fornMode" data-m="mappa">${icon("building","sm")} Mappa</button></div></div>`;
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      ${canManage?`<button class="btn accent" data-act="newSup">${icon("plus")} Nuovo fornitore</button>`:""}
+      <div class="seg"><button class="${mode==='lista'?'on':''}" data-act="fornMode" data-m="lista">${icon("list","sm")} Elenco</button><button class="${mode==='mappa'?'on':''}" data-act="fornMode" data-m="mappa">${icon("building","sm")} Mappa</button></div>
+    </div></div>`;
   if(mode==="mappa") return head+mapHtml();
   const cview=App.caricoView||"grafico"; const mesi=caricoMesi(); let cmk=App.caricoMonth; if(!cmk||!mesi.includes(cmk)) cmk=mesi[0];
   return head+`
@@ -1351,8 +1356,8 @@ function viewFornitori(){
   <div class="grid auto">${STATE.suppliers.map(s=>{
     const active=STATE.jobs.filter(j=>j.assegnatoA===s.id&&!["consegnato","chiuso"].includes(j.stato)).length; const ore=activeHours(s.id);
     return `<div class="card"><div style="display:flex;gap:11px;align-items:center;margin-bottom:10px">
-      <span class="avatar" style="background:${colorFor(s.id)}">${initials(s.name)}</span>
-      <div style="flex:1;min-width:0"><b style="font-size:15px">${esc(s.name)}</b><div class="muted" style="font-size:12.5px">${esc(s.citta)} · ${icon("star","sm")} ${s.rating}</div></div>
+      <span class="avatar" data-act="supDetail" data-sup="${s.id}" style="background:${colorFor(s.id)};cursor:pointer">${initials(s.name)}</span>
+      <div style="flex:1;min-width:0"><b class="sup-name" data-act="supDetail" data-sup="${s.id}" style="font-size:15px">${esc(s.name)}</b><div class="muted" style="font-size:12.5px">${esc(s.citta)} · ${icon("star","sm")} ${s.rating||"—"}</div></div>
       ${active?`<span class="pill ok">${active} attivi · ${ore} h</span>`:`<span class="pill plain">libero</span>`}</div>
       <div class="tags" style="margin-bottom:6px">${s.specialties.map(sp=>`<span class="pill brand"><span class="dot ${TIPOLOGIE[sp].dot}"></span>${TIPOLOGIE[sp].short}</span>`).join("")}${(s.certificazioni||[]).map(c=>`<span class="pill accent">${CERT[c]||c}</span>`).join("")}</div>
       <div class="tags">${s.settori.map(se=>`<span class="pill plain">${esc(se)}</span>`).join("")}</div>
@@ -1671,7 +1676,39 @@ function openSwitch(){
     <div class="divide"></div>
     <button class="btn danger block" data-act="logout">${icon("logout","sm")} Esci</button>`);
 }
-function openSupJobs(sid){ const s=supplier(sid); App.filters={q:"",stato:"",tipologia:"",settore:"",capo:"",fornitore:sid,late:false}; App.tab="lavori"; App.page=1; App.lavoriMode="table"; render(); }
+function openNewSupplier(){ const d=App.supDraft={name:"",citta:"Cesena",referente:"",email:"",specialties:[],settori:[],certificazioni:[],capacitaMese:1000};
+  openModal(`${modalHead("Nuovo fornitore")}
+    <p class="muted" style="font-size:13px;margin-top:0">Accredita un terzista: i dati alimentano suggerimenti di assegnazione, mappa e carico.</p>
+    <div class="field"><label>Ragione sociale</label><input class="inp" id="ns-name" value="${esc(d.name)}" placeholder="es. Nuova Elettromeccanica"></div>
+    <div class="row2">
+      <div class="field"><label>Città</label><select class="inp" id="ns-citta">${Object.keys(CITY).map(c=>`<option ${d.citta===c?'selected':''}>${esc(c)}</option>`).join("")}</select></div>
+      <div class="field"><label>Capacità (h/mese)</label><input class="inp" id="ns-cap" type="number" inputmode="numeric" value="${d.capacitaMese}"><span class="hint">Alimenta il carico terzisti</span></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>Referente</label><input class="inp" id="ns-ref" value="${esc(d.referente)}" placeholder="es. Mario Rossi"></div>
+      <div class="field"><label>Email</label><input class="inp" id="ns-email" type="email" value="${esc(d.email)}" placeholder="preventivi@fornitore.it"></div>
+    </div>
+    <div class="field"><label>Specializzazioni</label>
+      <div class="chips">${Object.entries(TIPOLOGIE).map(([k,v])=>`<button type="button" class="chip" data-act="toggleSup" data-g="specialties" data-v="${k}"><span class="dot ${v.dot}"></span>${v.short}</button>`).join("")}</div></div>
+    <div class="field"><label>Settori</label>
+      <div class="chips">${SETTORI.map(se=>`<button type="button" class="chip sm" data-act="toggleSup" data-g="settori" data-v="${esc(se)}">${esc(se)}</button>`).join("")}</div></div>
+    <div class="field"><label>Certificazioni</label>
+      <div class="chips">${Object.entries(CERT).map(([k,v])=>`<button type="button" class="chip sm" data-act="toggleSup" data-g="certificazioni" data-v="${k}">${esc(v)}</button>`).join("")}</div></div>
+    <button class="btn accent block" data-act="createSup">${icon("check")} Accredita fornitore</button>`);
+}
+function createSupplier(){ const d=App.supDraft||{};
+  const name=($("#ns-name").value||"").trim();
+  if(!name){ toast("Inserisci la ragione sociale","warn"); $("#ns-name").focus(); return; }
+  const citta=$("#ns-citta").value; const c=CITY[citta]||[44.14,12.24,"Romagna"];
+  const sup={ id:uid("sup"), name, citta, lat:c[0], lng:c[1], zona:c[2], accredited:true,
+    specialties:(d.specialties&&d.specialties.length)?d.specialties:["automazione"],
+    settori:d.settori||[], rating:0, referente:($("#ns-ref").value||"").trim()||"—",
+    capacitaMese:Number($("#ns-cap").value)||800, certificazioni:d.certificazioni||[],
+    email:($("#ns-email").value||"").trim()||("preventivi@"+slug(name)+".it") };
+  STATE.suppliers.push(sup); App.supDraft=null; persist(); closeModal();
+  toast("Fornitore accreditato","ok"); openSupplierModal(sup.id);
+}
+function openSupJobs(sid){ closeModal(); App.filters={q:"",stato:"",tipologia:"",settore:"",capo:"",fornitore:sid,late:false}; App.tab="lavori"; App.page=1; App.lavoriMode="table"; render(); window.scrollTo(0,0); }
 function openAttachment(jid,aid){ const j=byId(STATE.jobs,jid); const a=(j.allegati||[]).find(x=>x.id===aid); if(!a) return;
   if(a.dataUrl){ const w=window.open(); if(w) w.document.write(`<iframe src="${a.dataUrl}" style="border:0;width:100%;height:100vh"></iframe>`); return; }
   toast(a.name+" — anteprima non disponibile nel prototipo","warn");
@@ -1693,7 +1730,8 @@ function openGuide(){ const u=currentUser(); const isR=u.role==="righi"; const c
     + sec("Assegnare e governare",[
       ["Valuta le accettazioni","Chi accetta compare in <i>Da valutare</i>; ogni accettazione è <b>firmata</b> dal fornitore. Assegna al migliore (ordinati per idoneità)."],
       ["Ciclo vita e ritardi","Aggiorni la data (con storico), segui l'avanzamento del fornitore e vedi i ritardi in rosso con il semaforo predittivo."],
-      ["Carico e Analisi","In <b>Fornitori</b> l'istogramma mostra il carico ore per terzista e mese; in <b>Analisi</b> hai consegne per mese, pipeline, salute, puntualità e mix."],
+      ["Anagrafica fornitori","In <b>Fornitori</b> premi <b>Nuovo fornitore</b> per accreditare un terzista (specializzazioni, settori, zona, capacità, certificazioni): entra subito nei suggerimenti, nella mappa e nel carico. Tocca il nome di un fornitore per aprirne la scheda con le metriche."],
+      ["Carico e Analisi","L'istogramma in Fornitori mostra il carico ore per terzista e mese; in <b>Analisi</b> hai consegne per mese, pipeline, salute, puntualità e mix."],
       ["Esporta per l'ERP","Da Commesse esporti gli ordini accettati in CSV per l'emissione ordine in amministrazione."],
       ["Duplica","Da ogni commessa puoi crearne una nuova identica cambiando solo layout e date."] ]); }
   else if(isR && capo_){ title="Caposquadra"; intro="Come seguire le tue commesse, proporne di nuove per l'approvazione e restare in contatto con i fornitori.";
@@ -1992,6 +2030,10 @@ document.addEventListener("click",e=>{
     case "fStato": App.fFilters.stato=el.dataset.v; render(); break;
     case "supJobs": openSupJobs(el.dataset.sup); break;
     case "supDetail": openSupplierModal(el.dataset.sup); break;
+    case "newSup": openNewSupplier(); break;
+    case "createSup": createSupplier(); break;
+    case "toggleSup": { App.supDraft=App.supDraft||{}; const g=el.dataset.g; const a=App.supDraft[g]=App.supDraft[g]||[];
+      const v=el.dataset.v, i=a.indexOf(v); if(i<0) a.push(v); else a.splice(i,1); el.classList.toggle("on"); break; }
     case "publish": doPublish(el.dataset.job); break;
     case "createJob": createJob(el.dataset.mode); break;
     case "approveJob": approveJob(el.dataset.job); break;
