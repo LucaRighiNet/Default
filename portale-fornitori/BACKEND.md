@@ -59,7 +59,10 @@ jobs(id uuid pk, code text unique, title text, tipologia text, settore text,
      avanzamento text,                                    -- materiale|cablaggio|collaudo|pronto|null (aggiornato dal fornitore)
      storico_date jsonb,                                  -- [{from,to,by,byRole,at,motivo,tipo}]
      capo_id uuid fk users, descrizione text, visibility text check in ('tutti','selezionati'),
-     stato text, assegnato_a uuid null fk suppliers,
+     stato text check in ('bozza','da_approvare','pubblicato','assegnato','in_corso','consegnato','chiuso'),
+     assegnato_a uuid null fk suppliers,
+     richiedente uuid null fk users,                      -- caposquadra che ha proposto la commessa (workflow di approvazione)
+     approvazione jsonb null,                             -- {esito:'approvata'|'rifiutata', da, at, motivo}
      created_by uuid fk users, published_at timestamptz, created_at timestamptz)
 
 job_inviti(job_id uuid fk jobs, supplier_id uuid fk suppliers, primary key(job_id,supplier_id))
@@ -92,16 +95,24 @@ Attivare **Row Level Security** su tutte le tabelle. Regole chiave:
   visibilità (`'tutti'` oppure invitati in `job_inviti`). Così un fornitore
   **non vede i lavori assegnati ad altri**, mentre Righi vede tutto. È
   esattamente la funzione `jobsForSupplier()` del client: va replicata come
-  policy così il filtro è **sul server**, non solo in UI.
-- **`jobs` in scrittura**: solo `role='righi'`.
+  policy così il filtro è **sul server**, non solo in UI. Nota: `stato` in
+  (`'bozza'`,`'da_approvare'`) **non è mai** leggibile da un fornitore (come
+  `jobsForSupplier`, che scarta entrambi).
+- **`jobs` in scrittura**: solo `role='righi'`. Il **caposquadra** può creare una
+  commessa in `stato='da_approvare'` (con `richiedente=auth.uid()`) ma **non** può
+  portarla a `'pubblicato'`; la transizione `da_approvare → pubblicato` (e
+  `approvazione`) è consentita **solo al responsabile**. È il workflow di
+  approvazione: il caposquadra propone, il responsabile pubblica o rimanda.
 - **`risposte`**: un fornitore vede/scrive solo le proprie; Righi le vede tutte.
 - **`richieste`**: un fornitore vede/scrive le proprie; il caposquadra della
   commessa e l'ufficio subappalti le vedono.
 - **`notifiche`**: ognuno legge solo `to_user = auth.uid()`.
 - **Ruoli Righi**: il *responsabile* (`role='righi'`, non caposquadra) vede tutte
   le `jobs`; il *caposquadra* (`caposquadra=true`) vede solo `capo_id = auth.uid()`
-  (dashboard/elenco/richieste filtrati). Le funzioni di gestione (creazione,
-  assegnazione, import/export) restano al responsabile.
+  (dashboard/elenco/richieste filtrati). Il caposquadra può **proporre** commesse
+  (in `da_approvare`) e vede il **carico di tutti i fornitori** (dato aggregato,
+  non commessa-scoped); **assegnazione, pubblicazione, approvazione, import/export**
+  restano al responsabile.
 - **Campi riservati Righi**: `ore_stimate` non va mai esposto ai fornitori — usare
   una **view** dedicata (o column-level privileges) per il lato fornitore che non
   includa la colonna. Le ore alimentano il carico terzisti (somma per fornitore ×

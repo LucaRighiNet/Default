@@ -314,7 +314,7 @@ r.ok("analisi/consegne: i bucket rispecchiano lo stato reale", () => {
   const d = SA.consegneByMonth();
   const da = Object.values(d.map).reduce((a, v) => a + v.da, 0);
   const att = Object.values(d.map).reduce((a, v) => a + v.att, 0);
-  assert.strictEqual(da, SA.STATE.jobs.filter(j => ["bozza","pubblicato"].includes(j.stato)).length);
+  assert.strictEqual(da, SA.STATE.jobs.filter(j => ["bozza","da_approvare","pubblicato"].includes(j.stato)).length);
   assert.strictEqual(att, SA.STATE.jobs.filter(j => ["assegnato","in_corso"].includes(j.stato)).length);
 });
 r.ok("analisi/pipeline: somma per stato = totale, righe a zero escluse", () => {
@@ -375,6 +375,25 @@ r.ok("import CSV: la colonna 'lavorazioni' entra come array valido", () => {
   const rows = S.parseCSV(csv);
   assert.strictEqual(rows[1][3], "foratura|piastra_comp");
   assert.deepStrictEqual(S.parseLavorazioni(rows[1][3]), ["foratura","piastra_comp"]);
+});
+
+/* ---- Workflow di approvazione (caposquadra -> responsabile) ---- */
+r.ok("approvazione: il seed contiene commesse 'da approvare' inviate dai capisquadra", () => {
+  const da = SA.STATE.jobs.filter(j => j.stato === "da_approvare");
+  assert(da.length >= 1, "nessuna commessa da approvare nel seed");
+  assert(da.every(j => j.richiedente && j.capoId), "da_approvare senza richiedente/capoId");
+});
+r.ok("approvazione: 'da_approvare' è uno stato noto e non visibile ai fornitori", () => {
+  assert(SA.STATE, "state assente");
+  const S2 = S; // usa il sandbox con STATI/jobsForSupplier
+  assert(S2.STATI && S2.STATI.da_approvare, "STATI manca da_approvare");
+  // un fornitore non deve mai vedere una commessa da approvare
+  const da = S2.STATE.jobs.find(j => j.stato === "da_approvare");
+  if (da) for (const sup of S2.STATE.suppliers)
+    assert(!S2.jobsForSupplier(sup.id).some(j => j.id === da.id), "fornitore vede una da_approvare");
+});
+r.ok("approvazione: la pipeline include lo stato 'da approvare'", () => {
+  assert(SA.pipelineStati().rows.some(r => r.st === "da_approvare"), "pipeline senza da_approvare");
 });
 
 /* ---- Firma leggera dell'accettazione ---- */

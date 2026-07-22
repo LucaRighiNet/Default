@@ -13,6 +13,10 @@ portale di **delega di lavori a progetto**, pensato per gare piccole e brevi
 
 È una web-app statica offline-first (PWA), senza dipendenze da installare.
 
+- **File unico** (per provarlo su un altro PC): usa **`Portale_Fornitori_Righi.html`**
+  — un singolo file autosufficiente. Copialo dove vuoi e **fai doppio clic**: si
+  apre nel browser e funziona anche senza connessione (i dati restano sul PC). È
+  il modo più semplice per una prova offline.
 - **Subito**: apri `index.html` in un browser. Al primo accesso scegli un utente
   (lato Righi o lato Fornitore) — gli accessi sono già predisposti per la demo.
 - **Come sito** (consigliato per la PWA / installazione su telefono): servi la
@@ -47,20 +51,35 @@ Righi e il lato fornitore per vedere entrambe le prospettive.
   industrializzate** a selezione multipla — carpenteria esterna, foratura piastre,
   piastra con barre e canale, sbroglio fili, piastra con componenti —, budget,
   **ore**, date, caposquadra, layout; visibilità *tutti / selezionati*; notifica
-  anche via **email**). In alternativa **import massivo da Excel/CSV** (con
-  template scaricabile): le commesse entrano come bozze.
+  anche via **email**). Scegliendo *solo selezionati* il portale propone i
+  **fornitori suggeriti** (auto-matching per specializzazione, capacità libera e
+  puntualità), invitabili con un tocco. In alternativa **import massivo da
+  Excel/CSV** (con template scaricabile): le commesse entrano come bozze. Ogni
+  commessa può essere **duplicata** per ripartire dagli stessi dati.
 - **Esporta ordini (ERP)**: da Commesse esporti in **CSV** gli ordini accettati
   (fornitore, importo, ore, consegna…) per l'emissione ordine in amministrazione.
 - **Richieste** e anagrafica **Fornitori** accreditati (con contatto **email**).
 
 **Ruoli e accessi (lato Righi)**
 - **Responsabile di produzione**: vede **tutte** le commesse, pubblica, assegna,
-  importa/esporta, governa il carico dei terzisti.
-- **Caposquadra**: vede in Dashboard e Commesse **solo i progetti che segue**
-  (di cui è riferimento) e le relative richieste dei fornitori.
+  importa/esporta, governa il carico dei terzisti e **approva** le commesse
+  proposte dai capisquadra.
+- **Caposquadra**: vede in Dashboard e Commesse **solo i progetti che segue** e
+  le relative richieste. Può **proporre un nuovo lavoro**, che invia al
+  responsabile per l'approvazione (non pubblica direttamente). Vede inoltre il
+  **carico di tutti i fornitori** (scheda Fornitori) per capire chi è libero.
 
-**Guida in app**: il pulsante **?** in alto apre una guida passo-passo diversa
-per Responsabile, Caposquadra e Fornitore.
+**Flusso di approvazione**: quando un caposquadra compila *Nuovo lavoro* e preme
+**Invia per approvazione**, la commessa entra in stato **Da approvare** (mai
+visibile ai fornitori). Il responsabile la trova in Dashboard e nel filtro
+omonimo: **Approva e pubblica** (diventa visibile ai fornitori, con notifica al
+caposquadra) oppure **Rimanda** con una nota di revisione. Nessun passaggio
+resta scoperto: la commessa rimanda sempre a un'azione possibile.
+
+**Guida in app**: il pulsante **?** in alto apre una guida **passo-passo**
+diversa per Responsabile, Caposquadra e Fornitore. Quella del **fornitore** è
+esaustiva (bacheca, quotazione, accettazione con firma, avanzamento, richieste
+guidate con foto, profilo e metriche) e include una sezione **domande frequenti**.
 
 **Notifiche ed email**: ogni evento (pubblicazione, notifica mirata, richiesta
 guidata, risposta) genera una **notifica in app**; dove serve comunicare fuori

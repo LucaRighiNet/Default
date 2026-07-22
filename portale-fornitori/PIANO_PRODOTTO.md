@@ -75,17 +75,24 @@ Di conseguenza il prodotto è progettato attorno a due driver:
 - **Lato Fornitore**: **bacheca** dei lavori disponibili (con ricerca), **I miei
   lavori** con consegne e filtri, **richieste guidate** al caposquadra,
   **profilo** di accreditamento.
-- **Ruoli lato Righi**: *responsabile di produzione* (vede tutto) e *caposquadra*
-  (vede solo le commesse che segue). Dashboard, elenco e richieste sono filtrati
-  di conseguenza; il caposquadra non ha le funzioni di gestione (nuovo lavoro,
-  fornitori, export).
+- **Ruoli lato Righi**: *responsabile di produzione* (vede tutto, pubblica,
+  assegna, approva) e *caposquadra* (vede solo le commesse che segue). Il
+  caposquadra può **proporre un nuovo lavoro** che il responsabile **approva e
+  pubblica** o **rimanda** con nota (stato *Da approvare*, mai visibile ai
+  fornitori); vede inoltre il **carico di tutti i fornitori**.
 - **Ore stimate di produzione**: campo riservato a Righi su ogni commessa, usato
   per il **carico terzisti** — **istogramma** delle ore attive vs capacità per
   fornitore (mese selezionabile, semaforo sotto/quasi/oltre capacità, linea di
   capacità) con toggle **Tabella** multi-mese.
 - **Import massivo** delle commesse da Excel/CSV (template incluso) ed **export
   CSV degli ordini accettati** per l'emissione ordine nell'ERP.
-- **Guida in app** contestuale per responsabile, caposquadra e fornitore.
+- **Auto-matching in pubblicazione**: scegliendo *solo selezionati*, il portale
+  suggerisce i fornitori più adatti (specializzazione, capacità libera,
+  puntualità) da invitare con un tocco. Ogni commessa è **duplicabile**.
+- **Guida in app** contestuale ed **esaustiva** per responsabile, caposquadra e
+  fornitore (con domande frequenti lato fornitore).
+- **File unico portatile** (`Portale_Fornitori_Righi.html`): singolo file
+  autosufficiente, doppio clic per provarlo offline su qualsiasi PC.
 - **Pubblicazione, notifica mirata, accettazione, assegnazione** end-to-end.
 - **Firma leggera dell'accettazione**: il fornitore conferma con una spunta di
   firma a proprio nome; l'accettazione registra nominativo, data e ora e Righi
