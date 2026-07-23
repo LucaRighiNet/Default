@@ -3,7 +3,7 @@
 (function(){
 // Versione visibile della build (ingranaggio -> prima riga). Serve a capire al
 // volo quale versione sta girando su un dispositivo (cache vs deploy).
-const APP_BUILD="2026-07-10.38";
+const APP_BUILD="2026-07-10.39";
 
 /* ============ DIAGNOSTICA / ERROR TRACKING (P0) ============ */
 // Senza backend gli errori di produzione sarebbero invisibili. Diag li cattura in
@@ -2458,6 +2458,99 @@ function seatPlanAssignment(tables, guests, together, separate, simFn){
   return {assign:assign, unseated:unseated, warnings:warnings};
 }
 
+/* ============ TAVOLI: partizionamento di grafo (fattibilità + Kernighan–Lin) ============ */
+// L'assegnazione ospiti->tavoli è un PARTIZIONAMENTO DI GRAFO con capacità:
+// nodi = persone, archi pesati = affinità (simFn), must-link = "insieme"+nucleo,
+// cannot-link = "lontani". Il greedy (seatPlanAssignment) dà un seed; qui:
+//  1) controlli di FATTIBILITÀ sulle componenti del grafo must-link;
+//  2) raffinamento Kernighan–Lin: mosse/scambi di componenti tra tavoli che
+//     AUMENTANO l'affinità intra-tavolo, rispettando capacità e cannot-link.
+// Tutto puro e testabile.
+function seatMustLinkComponents(guests, together){
+  const byId={}; (guests||[]).forEach(g=>byId[g.id]=g);
+  const parent={}; (guests||[]).forEach(g=>parent[g.id]=g.id);
+  function find(x){ while(parent[x]!==x){ parent[x]=parent[parent[x]]; x=parent[x]; } return x; }
+  function union(a,b){ if(byId[a]&&byId[b]) parent[find(a)]=find(b); }
+  (together||new Set()).forEach(k=>{ const p=k.split("|"); union(p[0],p[1]); });
+  const hh={}; (guests||[]).forEach(g=>{ const h=g.household; if(h&&h!=="Senza nucleo"){ if(hh[h]) union(hh[h],g.id); else hh[h]=g.id; } });
+  const groups={}; (guests||[]).forEach(g=>{ const r=find(g.id); (groups[r]=groups[r]||[]).push(g.id); });
+  return Object.keys(groups).map(k=>groups[k]);
+}
+// Fase 1 — fattibilità: vincoli impossibili (un "lontani" dentro una componente
+// "insieme") e componenti più grandi del tavolo più capiente.
+function seatFeasibility(tables, guests, together, separate){
+  const comps=seatMustLinkComponents(guests, together);
+  const byId={}; (guests||[]).forEach(g=>byId[g.id]=g);
+  const compOf={}; comps.forEach((m,i)=>m.forEach(g=>compOf[g]=i));
+  const maxCap=(tables||[]).reduce((mx,t)=>Math.max(mx,t.seats||0),0);
+  const nm=g=>{ const x=byId[g]; return x?x.name:String(g); };
+  const impossible=[], oversized=[];
+  (separate||new Set()).forEach(k=>{ const p=k.split("|"); if(compOf[p[0]]!=null && compOf[p[0]]===compOf[p[1]]) impossible.push([nm(p[0]),nm(p[1])]); });
+  comps.forEach(m=>{ if(m.length>maxCap) oversized.push({n:m.length, sample:m.slice(0,3).map(nm)}); });
+  return {impossible:impossible, oversized:oversized, maxCap:maxCap};
+}
+// Fase 2 — raffinamento Kernighan–Lin sul seed greedy. Unità = componenti
+// must-link intatte (spostabili) o frammenti per-tavolo se il greedy le ha divise
+// (fissate). Ritorna la nuova assegnazione + affinità prima/dopo + n° mosse.
+function seatKLRefine(assign, tables, guests, together, separate, simFn, budget){
+  const comps=seatMustLinkComponents(guests, together);
+  const tIds=(tables||[]).map(t=>t.id);
+  const tOf={}; tIds.forEach((id,ti)=>{ ((assign&&assign[id])||[]).forEach(g=>{ tOf[g]=ti; }); });
+  const units=[];
+  comps.forEach(members=>{
+    const byT={}; members.forEach(g=>{ if(tOf[g]!=null){ (byT[tOf[g]]=byT[tOf[g]]||[]).push(g); } });
+    const tks=Object.keys(byT); if(!tks.length) return;
+    const pinned=tks.length>1; // componente divisa dal greedy -> frammenti fissi
+    tks.forEach(tk=>{ const ti=+tk; units.push({members:byT[ti], size:byT[ti].length, table:ti, pinned:pinned}); });
+  });
+  const N=units.length, sep=separate||new Set();
+  const sepKey=(a,b)=> a<b?a+"|"+b:b+"|"+a;
+  const aff=[], cannot=[];
+  for(let i=0;i<N;i++){ aff.push(new Float64Array(N)); cannot.push(new Uint8Array(N)); }
+  for(let i=0;i<N;i++) for(let j=i+1;j<N;j++){
+    let s=0, forbid=0; const mi=units[i].members, mj=units[j].members;
+    for(let x=0;x<mi.length;x++) for(let y=0;y<mj.length;y++){ if(sep.has(sepKey(mi[x],mj[y]))) forbid=1; if(simFn) s+=simFn(mi[x],mj[y]); }
+    aff[i][j]=aff[j][i]=s; cannot[i][j]=cannot[j][i]=forbid;
+  }
+  const T=tIds.length, assignIdx=[]; for(let t=0;t<T;t++) assignIdx.push([]);
+  units.forEach((u,i)=>assignIdx[u.table].push(i));
+  const cap=(tables||[]).map(t=>t.seats||0);
+  const used=assignIdx.map(list=>list.reduce((s,i)=>s+units[i].size,0));
+  const affTo=(i,t,excl)=>{ let s=0; const L=assignIdx[t]; for(let k=0;k<L.length;k++){ const j=L[k]; if(j!==i&&j!==excl) s+=aff[i][j]; } return s; };
+  const canPlace=(i,t,excl)=>{ const L=assignIdx[t]; for(let k=0;k<L.length;k++){ const j=L[k]; if(j!==excl && cannot[i][j]) return false; } return true; };
+  const total=()=>{ let s=0; for(let t=0;t<T;t++){ const L=assignIdx[t]; for(let x=0;x<L.length;x++) for(let y=x+1;y<L.length;y++) s+=aff[L[x]][L[y]]; } return s; };
+  const before=total();
+  let moves=0, left=(budget||Math.max(3000,N*N*6)), improved=true;
+  const del=(t,i)=>{ const k=assignIdx[t].indexOf(i); if(k>=0) assignIdx[t].splice(k,1); };
+  while(improved && left>0){ improved=false;
+    for(let i=0;i<N && left>0;i++){ if(units[i].pinned) continue;
+      for(let t2=0;t2<T && left>0;t2++){ const t1=units[i].table; if(t2===t1) continue; left--; // t1 rILETTO (cambia dopo una mossa)
+        if(used[t2]+units[i].size>cap[t2]) continue;
+        if(!canPlace(i,t2,-1)) continue;
+        if(affTo(i,t2,-1)-affTo(i,t1,i)>1e-9){
+          del(t1,i); assignIdx[t2].push(i);
+          used[t1]-=units[i].size; used[t2]+=units[i].size; units[i].table=t2; moves++; improved=true;
+        }
+      }
+    }
+    for(let i=0;i<N && left>0;i++){ if(units[i].pinned) continue;
+      for(let j=i+1;j<N && left>0;j++){ if(units[j].pinned) continue;
+        const t1=units[i].table, t2=units[j].table; if(t2===t1) continue; left--; // t1/t2 riletti ogni volta
+        const si=units[i].size, sj=units[j].size;
+        if(used[t1]-si+sj>cap[t1]) continue; if(used[t2]-sj+si>cap[t2]) continue;
+        if(!canPlace(i,t2,j) || !canPlace(j,t1,i)) continue;
+        if((affTo(i,t2,j)+affTo(j,t1,i))-(affTo(i,t1,i)+affTo(j,t2,j))>1e-9){
+          del(t1,i); del(t2,j); assignIdx[t1].push(j); assignIdx[t2].push(i);
+          used[t1]+=sj-si; used[t2]+=si-sj; units[i].table=t2; units[j].table=t1; moves++; improved=true;
+        }
+      }
+    }
+  }
+  const after=total(), out={};
+  tIds.forEach((id,ti)=>{ let arr=[]; assignIdx[ti].forEach(i=>{ arr=arr.concat(units[i].members); }); out[id]=arr; });
+  return {assign:out, before:before, after:after, moves:moves};
+}
+/* ============ fine partizionamento grafo ============ */
 
 /* ---- planimetria SVG nativa (B3) ---- */
 function seatGuestById(gid){ return (ev().guests||[]).find(g=>g.id===gid); }
@@ -2574,10 +2667,24 @@ function seatAutoAssignRun(){
   const e=ev(), tables=e.tables||[]; if(!tables.length) return null;
   const guests=seatPeople(); if(!guests.length) return {empty:true};
   const idx=seatRulesIdxAll(); // include i vincoli impliciti titolare↔segnaposto +1
-  const plan=seatPlanAssignment(tables, guests, idx.together, idx.separate, seatPersonSimFn());
-  tables.forEach(t=>{ const gs=(plan.assign[t.id]||[]).slice(0,t.seats); const arr=new Array(t.seats).fill(null); gs.forEach((g,i)=>arr[i]=g); t.seatIds=arr; });
+  const simFn=seatPersonSimFn();
+  // Seed greedy -> raffinamento Kernighan–Lin (partizionamento di grafo).
+  const plan=seatPlanAssignment(tables, guests, idx.together, idx.separate, simFn);
+  const ref=seatKLRefine(plan.assign, tables, guests, idx.together, idx.separate, simFn);
+  const assign=ref.assign;
+  tables.forEach(t=>{ const gs=(assign[t.id]||[]).slice(0,t.seats); const arr=new Array(t.seats).fill(null); gs.forEach((g,i)=>arr[i]=g); t.seatIds=arr; });
   tables.forEach(t=>{ if(seatHeadAt(t)>=2){ const r=seatOptimizeTable(t); t.seatIds=r.order.map(x=>x===undefined?null:x); } });
-  return {assigned:guests.length-plan.unseated.length, total:guests.length, unseated:plan.unseated.length};
+  const feas=seatFeasibility(tables, guests, idx.together, idx.separate);
+  return {assigned:guests.length-plan.unseated.length, total:guests.length, unseated:plan.unseated.length,
+    moves:ref.moves, gain:Math.round((ref.after-ref.before)*10)/10, feas:feas};
+}
+// Avvisi di fattibilità del grafo (vincoli impossibili, componenti troppo grandi).
+function seatFeasWarn(feas){
+  if(!feas) return "";
+  let h="";
+  (feas.impossible||[]).forEach(p=>{ h+=`<div style="font-size:12px;color:var(--no);margin-top:3px">⚠ "${esc(p[0])}" e "${esc(p[1])}" sono richiesti sia <b>insieme</b> sia <b>lontani</b>: impossibile, vince "insieme".</div>`; });
+  (feas.oversized||[]).forEach(o=>{ h+=`<div style="font-size:12px;color:var(--gold);margin-top:3px">⚠ Un gruppo di ${o.n} persone (${esc((o.sample||[]).join(", "))}…) non entra in un solo tavolo (max ${feas.maxCap} posti): verrà diviso.</div>`; });
+  return h;
 }
 function togglePlusSeats(){
   const e=ev(); e.seating=e.seating||{rules:[]};
@@ -2932,7 +3039,10 @@ function seatWizGenBind(host){
     const r=seatAutoAssignRun(); Store.save(STATE);
     let out;
     if(!r||r.empty){ out='<div class="muted">Niente da assegnare.</div>'; SEATWIZ.snapshot=null; }
-    else out=`<div style="font-size:13px">Assegnate <b>${r.assigned}/${r.total}</b> persone su ${(ev().tables||[]).length} tavoli.</div>`+(r.unseated?`<div style="font-size:13px;color:var(--no)">${r.unseated} senza posto (capienza insufficiente).</div>`:'')+seatRulesOutcome()+seatTablesCompo();
+    else out=`<div style="font-size:13px">Assegnate <b>${r.assigned}/${r.total}</b> persone su ${(ev().tables||[]).length} tavoli.</div>`
+        +(r.unseated?`<div style="font-size:13px;color:var(--no)">${r.unseated} senza posto (capienza insufficiente).</div>`:'')
+        +(r.moves?`<div style="font-size:12px" class="muted">Ottimizzazione a grafo (Kernighan–Lin): ${r.moves} spostamenti tra tavoli, affinità +${r.gain}.</div>`:'')
+        +seatFeasWarn(r.feas)+seatRulesOutcome()+seatTablesCompo();
     seatWizRender();
     const rep=document.getElementById("wz-report"); if(rep) rep.innerHTML=out;
     toast("Disposizione generata");

@@ -2631,3 +2631,36 @@ più) e SENZA crescere in altezza (header resta 75px). Il giorno stesso mostra
 Verifica: suite completa verde (25 suite). Screenshot 360/390/430px: header 75px,
 titolo non tagliato, nessun overflow di pagina; box "363 / GIORNI / ≈ 52 SETT".
 sw.js v79->v80; APP_BUILD 2026-07-10.39.
+
+## Giro 103 (Claude Code) — Tavoli: teoria dei grafi (fattibilità + Kernighan–Lin)
+
+Richiesta utente: ottimizzare il software con la teoria dei grafi (studio+piano+
+esecuzione). Analisi onesta: l'unica parte davvero "a grafo" è l'assegnazione
+ospiti->tavoli (partizionamento di grafo con capacità: nodi=persone, archi=
+affinità simFn, must-link="insieme"+nucleo, cannot-link="lontani"). Prima:
+union-find + greedy first-fit, myopico. Scelta utente: completo (Fasi 1+2+3).
+
+Nuove funzioni pure (blocco ancorabile, testato):
+- seatMustLinkComponents: componenti connesse del grafo must-link (union-find).
+- seatFeasibility (Fase 1): rileva vincoli IMPOSSIBILI ("lontani" dentro una
+  componente "insieme") e componenti più grandi del tavolo max (oversized).
+- seatKLRefine (Fase 2): raffinamento Kernighan–Lin sul seed greedy. Unità =
+  componenti must-link intatte (spostabili) o frammenti per-tavolo (fissi);
+  mosse/scambi tra tavoli che AUMENTANO l'affinità intra-tavolo rispettando
+  capacità + cannot-link. Ritorna affinità prima/dopo + n° mosse.
+seatAutoAssignRun ora: greedy -> KL -> ottimizzazione posti per tavolo. Report
+del wizard (Fase 3): n° spostamenti KL, guadagno di affinità, avvisi fattibilità.
+
+BUG trovato dall'E2E d'integrazione (non dagli unit): nei loop KL catturavo
+t1=units[i].table UNA volta prima del loop interno; dopo una mossa units[i].table
+cambia e t1 restava stale -> indexOf(i)=-1 -> splice(-1) corrompeva le liste
+duplicando le persone (134 assegnate ma 125 sedute, 30 duplicati). Fix: rileggo
+t1/t2 a ogni iterazione + del() sicuro. Dopo: 134/134 sedute, 0 duplicati,
+affinità +855.
+
+Verifica: nuova suite graph_test 8/8 (componenti, fattibilità impossibile/
+oversized, scambio migliorativo, capacità, cannot-link, no-duplicati/no-perdita,
+idempotenza); suite completa verde (26 suite). E2E 390px: 20 tavoli + vincolo
+impossibile + nucleo oversized -> genera 134/134, KL 33 mosse +855, entrambi gli
+avvisi mostrati, 0 duplicati, capacità ≤8; zero errori JS. Il 2-opt intra-tavolo
+(già ottimo) e il resto dell'app NON toccati. sw.js v80->v81; APP_BUILD 2026-07-10.40.
