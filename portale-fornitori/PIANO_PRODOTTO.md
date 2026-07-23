@@ -146,6 +146,12 @@ Di conseguenza il prodotto è progettato attorno a due driver:
   (etichette, trama, gap) per daltonismo/stampa.
 - **Interfaccia professionale senza emoji**, icone SVG, identità Righi Solutions.
 - **Offline-first** (PWA + service worker); dati nello storage del dispositivo.
+- **Grafo esplicito (perf)**: lo `STATE` è indicizzato come liste di adiacenza
+  (fornitore-commesse, commessa-risposte/richieste, inviti) ricostruite una volta
+  per versione dello stato, con memoizzazione delle metriche fornitore. Il render,
+  prima **O(n²)** (ogni riga ricalcolava le metriche riscandendo tutte le commesse),
+  è ora **lineare**: a 1000 commesse ~**10× più veloce** (73 ms → 7 ms), a parità di
+  risultati (invarianti a test). È la Fase 1 del piano "teoria dei grafi".
 - **Seam di backend** già pronto (`Sync` + `RemoteAdapter`) — vedi `BACKEND.md`.
 
 ## 5. Sintesi della ricerca (portali simili) → scelte di design

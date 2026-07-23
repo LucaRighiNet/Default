@@ -12,7 +12,7 @@ const EXPORTS = ["STATE","App","isLate","isLateStart","isLateReturn","keyDate","
                  "dISO","addDays","supplier","capo","byId","mailto","isCapo","activeHours","supplierMonthlyLoad","monthKey",
                  "toCSV","parseCSV","supplierMetrics","freeCapacity","monthLoad","daysBetween","jobHealth","suggestSuppliers",
                  "TIPOLOGIE","STATI","SETTORI","LAVORAZIONI","LAV_KEYS","parseLavorazioni","REQ_TYPES","AVANZAMENTO","CERT","QUICK_REPLIES","esc","uid",
-                 "DIMENSIONI","ATTREZZATURE","fitsSpazio","supplier"];
+                 "DIMENSIONI","ATTREZZATURE","fitsSpazio","supplier","jobResponses","jobRequests","graphIndex"];
 const S = sandbox(START, END, EXPORTS, {});
 // secondo sandbox fino a "Eventi" per le funzioni-azione pure (senza DOM)
 const SA = sandbox(START, "/* ============================ Eventi", ["STATE","applyDateChange","addDays",
@@ -211,6 +211,29 @@ r.ok("supplierMetrics: puntualità = rientri on-time / consegnati (vs rientro ri
   const del = S.STATE.jobs.filter(j => j.assegnatoA === s.id && j.stato === "consegnato" && j.dataRientroEff);
   const onTime = del.filter(j => j.dataRientroEff <= j.dataRientro).length;
   assert.strictEqual(S.supplierMetrics(s.id).puntualita, Math.round(onTime / del.length * 100));
+});
+
+/* ---- Fase 1: grafo esplicito (indici di adiacenza) — invariante di equivalenza ---- */
+r.ok("grafo: jobResponses/jobRequests via indice === scansione ingenua", () => {
+  const idx = (arr) => arr.map(x => x.id).sort();
+  for (const j of S.STATE.jobs.slice(0, 40)) {
+    assert.deepStrictEqual(idx(S.jobResponses(j.id)),
+      idx(S.STATE.responses.filter(r => r.jobId === j.id)), "respByJob diverge per " + j.id);
+    assert.deepStrictEqual(idx(S.jobRequests(j.id)),
+      idx(S.STATE.requests.filter(r => r.jobId === j.id)), "reqByJob diverge per " + j.id);
+  }
+});
+r.ok("grafo: jobsBySup copre esattamente le commesse assegnate", () => {
+  const gi = S.graphIndex();
+  for (const s of S.STATE.suppliers.slice(0, 20)) {
+    const naive = S.STATE.jobs.filter(j => j.assegnatoA === s.id).map(j => j.id).sort();
+    const via = (gi.jobsBySup[s.id] || []).map(j => j.id).sort();
+    assert.deepStrictEqual(via, naive, "jobsBySup diverge per " + s.id);
+  }
+});
+r.ok("grafo: la memo di supplierMetrics restituisce lo stesso oggetto (stessa versione stato)", () => {
+  const sid = S.STATE.jobs.find(j => j.assegnatoA).assegnatoA;
+  assert.strictEqual(S.supplierMetrics(sid), S.supplierMetrics(sid), "la seconda chiamata non è servita dalla cache");
 });
 
 /* ---- Fase C: cambio data di RIENTRO (slittamento/modifica) ---- */

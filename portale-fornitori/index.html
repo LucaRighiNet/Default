@@ -748,7 +748,26 @@ let STATE = Store.load() || seed();
 let Session = (function(){ try{ const r=Storage.get(SESSKEY); return r?JSON.parse(r):null; }catch(e){ return null; } })();
 let App = { tab:null, lavoriMode:"table", page:1, filters:{q:"",stato:"",tipologia:"",settore:"",capo:"",fornitore:"",late:false}, sort:{key:"rientro",dir:1}, fFilters:{q:"",stato:""} };
 const PAGE=40;
-function persist(){ Store.save(STATE); }
+/* ---- Grafo esplicito (indici di adiacenza + memoizzazione) ----------------
+   Le entità dello STATE formano un grafo: commesse, fornitori, OTL, risposte e
+   richieste sono nodi; assegnazioni, inviti e riferimenti sono archi. Invece di
+   riscandire le liste ad ogni query (O(n) sparso, render O(n²)), costruiamo le
+   liste di adiacenza UNA volta per versione dello stato e le percorriamo.
+   Invariante: stessi insiemi e stesso ordine del vecchio codice a scansione. */
+let _stateVer = 0;                                   // bumpato ad ogni mutazione persistita
+function persist(){ _stateVer++; Store.save(STATE); }
+let _gi=null, _giVer=-1, _giState=null;
+function graphIndex(){
+  if(_gi && _giVer===_stateVer && _giState===STATE) return _gi;   // valido finché lo stato non cambia
+  const jobsBySup={}, invBySup={}, respByJob={}, respBySup={}, reqByJob={}, reqBySup={}, jobById={};
+  const push=(m,k,v)=>{ if(k==null) return; (m[k]=m[k]||[]).push(v); };
+  for(const j of STATE.jobs){ jobById[j.id]=j; push(jobsBySup, j.assegnatoA, j); if(j.invitati) for(const sid of j.invitati) push(invBySup, sid, j); }
+  for(const r of STATE.responses){ push(respByJob, r.jobId, r); push(respBySup, r.supplierId, r); }
+  for(const q of STATE.requests){ push(reqByJob, q.jobId, q); push(reqBySup, q.supplierId, q); }
+  _gi={jobsBySup, invBySup, respByJob, respBySup, reqByJob, reqBySup, jobById}; _giVer=_stateVer; _giState=STATE; return _gi;
+}
+let _mCache=new Map(), _mCacheVer=-1, _mCacheState=null;
+function metricsCache(){ if(_mCacheVer!==_stateVer || _mCacheState!==STATE){ _mCache.clear(); _mCacheVer=_stateVer; _mCacheState=STATE; } return _mCache; }
 function setSession(userId){ Session = userId?{userId}:null; try{ Storage.set(SESSKEY, JSON.stringify(Session)); }catch(e){} }
 
 const byId = (arr,id)=> arr.find(x=>x.id===id);
@@ -769,8 +788,8 @@ function isLate(j){ return isLateStart(j) || isLateReturn(j); }
 // data operativa di riferimento (scadenza fornitore) e giorni di ritardo sul vincolo attivo
 function keyDate(j){ return j.dataRientro||j.dataConsegna; }
 function lateDays(j){ if(isLateReturn(j)) return Math.abs(daysTo(j.dataRientro)); if(isLateStart(j)) return Math.abs(daysTo(j.dataInizioStimata)); return 0; }
-function jobResponses(jid){ return STATE.responses.filter(r=>r.jobId===jid); }
-function jobRequests(jid){ return STATE.requests.filter(r=>r.jobId===jid); }
+function jobResponses(jid){ return graphIndex().respByJob[jid]||[]; }   // lista di adiacenza commessa-risposte
+function jobRequests(jid){ return graphIndex().reqByJob[jid]||[]; }     // lista di adiacenza commessa-richieste
 /* ruoli lato Righi: responsabile (vede tutto) vs caposquadra (solo le sue commesse) */
 function isCapo(u){ return !!(u && u.role==="righi" && u.righiRole==="caposquadra"); }
 function scopedJobs(){ const u=currentUser(); return isCapo(u)? STATE.jobs.filter(j=>j.capoId===u.capoId) : STATE.jobs; }
@@ -779,20 +798,22 @@ function scopedRequests(){ const u=currentUser(); return isCapo(u)? STATE.reques
 const MESI=["gen","feb","mar","apr","mag","giu","lug","ago","set","ott","nov","dic"];
 function monthKey(iso){ return (iso||"").slice(0,7); }
 function monthLabel(k){ if(!k) return "—"; const p=k.split("-"); return MESI[(+p[1])-1]+" '"+p[0].slice(2); }
-function activeHours(sid){ return STATE.jobs.filter(j=>["assegnato","in_corso"].includes(j.stato)&&j.assegnatoA===sid).reduce((s,j)=>s+(j.oreStimate||0),0); }
+function activeHours(sid){ return (graphIndex().jobsBySup[sid]||[]).filter(j=>["assegnato","in_corso"].includes(j.stato)).reduce((s,j)=>s+(j.oreStimate||0),0); }
 function supplierMonthlyLoad(){ const map={}, months=new Set();
   STATE.jobs.filter(j=>["assegnato","in_corso"].includes(j.stato)&&j.assegnatoA).forEach(j=>{ const k=monthKey(j.dataRientro); map[j.assegnatoA]=map[j.assegnatoA]||{}; map[j.assegnatoA][k]=(map[j.assegnatoA][k]||0)+(j.oreStimate||0); months.add(k); });
   return {map, months:[...months].sort()}; }
 // carico e capacità per mese di RIENTRO (scadenza operativa del fornitore)
-function monthLoad(sid, mk){ return STATE.jobs.filter(j=>["assegnato","in_corso"].includes(j.stato)&&j.assegnatoA===sid&&monthKey(j.dataRientro)===mk).reduce((s,j)=>s+(j.oreStimate||0),0); }
+function monthLoad(sid, mk){ return (graphIndex().jobsBySup[sid]||[]).filter(j=>["assegnato","in_corso"].includes(j.stato)&&monthKey(j.dataRientro)===mk).reduce((s,j)=>s+(j.oreStimate||0),0); }
 function freeCapacity(sid, mk){ const s=supplier(sid); if(!s) return 0; mk=mk||monthKey(todayISO()); return (s.capacitaMese||0) - monthLoad(sid, mk); }
 function loadRatio(sid, mk){ const s=supplier(sid); if(!s||!s.capacitaMese) return 1; mk=mk||monthKey(todayISO()); return monthLoad(sid, mk)/s.capacitaMese; }
 function daysBetween(a,b){ if(!a||!b) return null; return Math.round((new Date(b+"T12:00:00")-new Date(a+"T12:00:00"))/86400000); }
 // Metriche fornitore (calcolate, non memorizzate) — identiche lato Righi e lato fornitore
 // importo di una commessa per il fornitore: importo accettato, altrimenti budget
-function jobImporto(j){ if(!j) return 0; const acc=STATE.responses.find(r=>r.jobId===j.id&&r.supplierId===j.assegnatoA&&r.tipo==="accettazione"); return (acc&&acc.importo)||j.budget||0; }
+function jobImporto(j){ if(!j) return 0; const acc=(graphIndex().respByJob[j.id]||[]).find(r=>r.supplierId===j.assegnatoA&&r.tipo==="accettazione"); return (acc&&acc.importo)||j.budget||0; }
 function supplierMetrics(sid){
-  const jobs=STATE.jobs.filter(j=>j.assegnatoA===sid);
+  const cache=metricsCache(); const hit=cache.get(sid); if(hit) return hit;   // memo per versione di stato
+  const gi=graphIndex();
+  const jobs=gi.jobsBySup[sid]||[];                                           // adiacenza fornitore-commesse
   const delivered=jobs.filter(j=>j.stato==="consegnato"&&j.dataRientroEff);
   const valoreAttivo=jobs.filter(j=>["assegnato","in_corso"].includes(j.stato)).reduce((s,j)=>s+jobImporto(j),0);
   const valoreConsegnato=delivered.reduce((s,j)=>s+jobImporto(j),0);
@@ -804,18 +825,20 @@ function supplierMetrics(sid){
   const perMonth={}; jobs.filter(j=>j.assegnatoAt).forEach(j=>{ const k=monthKey(j.assegnatoAt); perMonth[k]=(perMonth[k]||0)+1; });
   const months=Object.keys(perMonth).sort(); const takenTotal=jobs.filter(j=>j.assegnatoAt).length;
   const perMeseAvg=months.length? takenTotal/months.length : 0;
-  const reqs=STATE.requests.filter(r=>r.supplierId===sid); const richiestePerTipo={};
+  const reqs=gi.reqBySup[sid]||[]; const richiestePerTipo={};                 // adiacenza fornitore-richieste
   reqs.forEach(r=>{ richiestePerTipo[r.tipo]=(richiestePerTipo[r.tipo]||0)+1; });
-  const invited=STATE.jobs.filter(j=>(j.invitati||[]).includes(sid));
-  const acceptedInvited=invited.filter(j=> j.assegnatoA===sid || STATE.responses.some(r=>r.jobId===j.id&&r.supplierId===sid&&r.tipo==="accettazione")).length;
+  const invited=gi.invBySup[sid]||[];                                         // adiacenza fornitore-inviti
+  const acceptedJobIds=new Set((gi.respBySup[sid]||[]).filter(r=>r.tipo==="accettazione").map(r=>r.jobId));
+  const acceptedInvited=invited.filter(j=> j.assegnatoA===sid || acceptedJobIds.has(j.id)).length;
   const tassoAccett=invited.length? Math.round(acceptedInvited/invited.length*100) : null;
-  const accs=STATE.responses.filter(r=>r.supplierId===sid&&r.tipo==="accettazione");
-  const respTimes=accs.map(a=>{ const j=byId(STATE.jobs,a.jobId); return (j&&j.publishedAt)? daysBetween(j.publishedAt,(a.at||"").slice(0,10)) : null; }).filter(x=>x!=null&&x>=0);
+  const accs=(gi.respBySup[sid]||[]).filter(r=>r.tipo==="accettazione");      // adiacenza fornitore-risposte
+  const respTimes=accs.map(a=>{ const j=gi.jobById[a.jobId]; return (j&&j.publishedAt)? daysBetween(j.publishedAt,(a.at||"").slice(0,10)) : null; }).filter(x=>x!=null&&x>=0);
   const tempoRisposta=respTimes.length? Math.round(respTimes.reduce((s,x)=>s+x,0)/respTimes.length*10)/10 : null;
-  return { puntualita, ritardoMedio, slittamenti, perMonth, months, takenTotal, perMeseAvg,
+  const res={ puntualita, ritardoMedio, slittamenti, perMonth, months, takenTotal, perMeseAvg,
     richiestePerTipo, richiesteTot:reqs.length, tassoAccett, tempoRisposta,
     oreAttive:activeHours(sid), valoreAttivo, valoreConsegnato,
     commesseAttive:jobs.filter(j=>["assegnato","in_corso"].includes(j.stato)).length, consegnate:delivered.length };
+  cache.set(sid,res); return res;
 }
 // Metriche fornitore: tutte OGGETTIVE e calcolate dai lavori (identiche lato Righi e
 // lato fornitore, quindi condivisibili). L'unica differenza: il carico è espresso in
