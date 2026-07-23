@@ -148,8 +148,15 @@ insufficiente**" se la commessa indica l'ingombro previsto), **attrezzature**,
 terzisti attivi**; i sovraccarichi sono segnalati e il **semaforo**
 verde/giallo/rosso anticipa i ritardi. Per evitare click accidentali, l'azione
 **Assegna** chiede sempre una **conferma** ("Assegnare la commessa X a Y?")
-prima di procedere. Il fornitore aggiorna l'**avanzamento con un tocco**
-(materiale, cablaggio, collaudo, pronto).
+prima di procedere.
+
+**Assegnazione ottima (in blocco)**: dal riquadro *Da valutare* il responsabile
+può premere **Assegna in modo ottimo**: il portale risolve un **matching di peso
+massimo sul grafo bipartito** commesse–fornitori (solo chi ha accettato),
+rispettando le **ore libere per fornitore e mese di rientro**, e presenta la
+**proposta** (assegnazioni, idoneità totale, commesse non collocabili) da
+**confermare** in un colpo solo. Il fornitore aggiorna l'**avanzamento con un
+tocco** (materiale, cablaggio, collaudo, pronto).
 
 **Mappa fornitori** (in *Fornitori → Mappa*): pin colorati per carico del mese
 su tutto il **Nord-Centro Italia** (i terzisti sono accreditabili in oltre 35

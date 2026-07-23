@@ -1061,7 +1061,10 @@ function viewRighiDashboard(){
       ${daApprovare.length>6?`<div class="col-more" data-act="goFilter" data-stato="da_approvare">Vedi tutte le ${daApprovare.length} ${icon("chev","sm")}</div>`:""}</div></div>`:""}
   <div class="grid k2">
     <div class="card">
-      <div class="sect-t">Da valutare — hanno accettato</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:2px">
+        <div class="sect-t" style="margin:0">Da valutare — hanno accettato</div>
+        ${daValutare.length>=2?`<button class="btn sm ghost" data-act="optimalAssign">${icon("bolt","sm")} Assegna in modo ottimo</button>`:""}
+      </div>
       ${daValutare.length?`<div class="rowlist">${daValutare.slice(0,6).map(({j,accs})=>{
         const unread=accs.some(r=>!r.read); const multi=accs.length>1;
         const sub=multi?`<b style="color:var(--accent)">${accs.length} fornitori</b> hanno accettato — scegli il migliore`
@@ -2195,6 +2198,59 @@ function doAssign(jid,sid){ const j=byId(STATE.jobs,jid); const s=supplier(sid);
   STATE.responses.filter(r=>r.jobId===jid).forEach(r=>r.read=true);
   persist(); closeModal(); toast("Assegnato a "+s.name,"ok"); render();
 }
+/* ---- Assegnazione ottima (matching sul grafo bipartito con capacità) -------
+   Commesse pubblicate con accettazioni = nodi sinistra; fornitori che hanno
+   accettato = nodi destra; arco pesato dal punteggio di suggestSuppliers.
+   Vincolo: ore libere per fornitore e per MESE di rientro. L'assegnamento
+   indivisibile con capacità è NP-arduo (GAP): usiamo il matching greedy globale
+   di peso massimo — esatto sulla capacità, deterministico, e PROPOSTO (il
+   responsabile conferma). Concorrono solo gli archi ammissibili (spazio ok). */
+function assignOptimal(){
+  const gi=graphIndex();
+  const jobs=scopedJobs().filter(j=>j.stato==="pubblicato" && (gi.respByJob[j.id]||[]).some(r=>r.tipo==="accettazione"));
+  const edges=[];
+  for(const j of jobs){
+    const accepted=new Set((gi.respByJob[j.id]||[]).filter(r=>r.tipo==="accettazione").map(r=>r.supplierId));
+    for(const cand of suggestSuppliers(j)){
+      if(!accepted.has(cand.sid) || cand.spazioOk===false) continue;
+      edges.push({jid:j.id, sid:cand.sid, score:cand.score, hours:j.oreStimate||0, mk:monthKey(keyDate(j))});
+    }
+  }
+  // ordine globale per peso decrescente (tie-break deterministici): matching greedy
+  edges.sort((a,b)=> b.score-a.score || a.hours-b.hours || (a.jid<b.jid?-1:a.jid>b.jid?1:0) || (a.sid<b.sid?-1:a.sid>b.sid?1:0));
+  const rem={};
+  const freeOf=(sid,mk)=>{ rem[sid]=rem[sid]||{}; if(rem[sid][mk]==null) rem[sid][mk]=freeCapacity(sid,mk); return rem[sid][mk]; };
+  const takenJob={}, proposal=[];
+  for(const e of edges){
+    if(takenJob[e.jid]) continue;                 // ogni commessa a un solo fornitore
+    if(freeOf(e.sid,e.mk) < e.hours) continue;    // capacità del mese insufficiente
+    takenJob[e.jid]=true; rem[e.sid][e.mk]-=e.hours; proposal.push(e);
+  }
+  const unplaceable=jobs.filter(j=>!takenJob[j.id]).map(j=>j.id);
+  return { proposal, unplaceable, totScore:proposal.reduce((s,e)=>s+e.score,0), jobsN:jobs.length };
+}
+function openOptimalAssign(){
+  const r=assignOptimal(); App._optimal=r;
+  if(!r.proposal.length){ openModal(`${modalHead("Assegnazione ottima")}<p style="font-size:14px;color:var(--ink-soft);line-height:1.5">Nessuna assegnazione proponibile: le commesse con accettazioni non hanno fornitori con <b>capacità sufficiente</b> nel mese di rientro. Aumenta la capacità o assegna a mano.</p><div class="btn-row"><button class="btn ghost" data-act="closeModal">Chiudi</button></div>`); return; }
+  const rows=r.proposal.map(e=>{ const j=byId(STATE.jobs,e.jid), s=supplier(e.sid);
+    return `<div class="lrow" style="padding:8px 4px"><span class="ic ok">${icon("check")}</span><span class="gr"><b>${esc(j.code)} — ${esc(j.title)}</b><span class="s">${esc(s.name)} · idoneità ${e.score} · ${e.hours} h · rientro ${monthLabel(e.mk)}</span></span></div>`; }).join("");
+  const unp=r.unplaceable.length? `<p class="muted" style="font-size:12.5px;margin-top:10px">${icon("bolt","sm")} ${r.unplaceable.length} ${r.unplaceable.length===1?'commessa resta':'commesse restano'} da assegnare a mano (nessun fornitore con capacità nel mese).</p>`:"";
+  openModal(`${modalHead("Proposta di assegnazione ottima")}
+    <p style="font-size:13px;color:var(--ink-soft);margin-top:0;line-height:1.5">Matching di peso massimo sul grafo bipartito commesse–fornitori (solo chi ha accettato), nel rispetto delle <b>ore libere per fornitore e mese</b>. Idoneità totale <b>${r.totScore}</b> su <b>${r.proposal.length}</b> assegnazioni.</p>
+    <div class="rowlist">${rows}</div>
+    ${unp}
+    <div class="btn-row" style="margin-top:14px"><button class="btn ghost" data-act="closeModal">Annulla</button><button class="btn accent" data-act="doOptimalAssign">${icon("check")} Conferma ${r.proposal.length} assegnazioni</button></div>`);
+}
+function doOptimalAssign(){
+  const r=App._optimal; if(!r||!r.proposal.length){ closeModal(); return; }
+  const at=new Date().toISOString().slice(0,16);
+  r.proposal.forEach(e=>{ const j=byId(STATE.jobs,e.jid); if(!j||j.stato!=="pubblicato") return;
+    j.assegnatoA=e.sid; j.stato="assegnato"; j.assegnatoAt=todayISO();
+    const usr=STATE.users.find(u=>u.supplierId===e.sid); if(usr) STATE.notifications.push({id:uid("n"),toUser:usr.id,ic:"check",txt:"Commessa assegnata: "+j.title,sub:j.code,jobId:j.id,at,read:false});
+    STATE.responses.filter(rr=>rr.jobId===e.jid).forEach(rr=>rr.read=true);
+  });
+  const n=r.proposal.length; App._optimal=null; persist(); closeModal(); toast(n+" commesse assegnate in modo ottimo","ok"); render();
+}
 function setStato(jid,st){ const j=byId(STATE.jobs,jid); j.stato=st; if(st==="consegnato"&&!j.dataRientroEff) j.dataRientroEff=todayISO(); persist(); closeModal(); toast("Stato aggiornato: "+STATI[st].label,"ok"); render(); }
 function setAvanzamento(jid, step){ const u=currentUser(); const j=byId(STATE.jobs,jid); if(!j||!u.supplierId||j.assegnatoA!==u.supplierId) return;
   j.avanzamento=step; j.avanzamentoAt=new Date().toISOString().slice(0,16); j.avanzamentoBy=u.id;
@@ -2302,6 +2358,8 @@ document.addEventListener("click",e=>{
         backAct:"assignPick", backData:{job:el.dataset.job} });
       break; }
     case "assign": doAssign(el.dataset.job, el.dataset.sup); break;
+    case "optimalAssign": openOptimalAssign(); break;
+    case "doOptimalAssign": doOptimalAssign(); break;
     case "setStato": setStato(el.dataset.job, el.dataset.s); break;
     case "setAvz": setAvanzamento(el.dataset.job, el.dataset.step); break;
     case "reqStato": reqStato(el.dataset.id, el.dataset.s); break;

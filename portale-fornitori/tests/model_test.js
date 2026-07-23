@@ -16,7 +16,7 @@ const EXPORTS = ["STATE","App","isLate","isLateStart","isLateReturn","keyDate","
 const S = sandbox(START, END, EXPORTS, {});
 // secondo sandbox fino a "Eventi" per le funzioni-azione pure (senza DOM)
 const SA = sandbox(START, "/* ============================ Eventi", ["STATE","applyDateChange","addDays",
-  "consegneByMonth","pipelineStati","saluteCounts","puntualitaByMonth","tipologiaMix","capoCarico","jobHealth","isLate","monthKey"], {});
+  "consegneByMonth","pipelineStati","saluteCounts","puntualitaByMonth","tipologiaMix","capoCarico","jobHealth","isLate","monthKey","assignOptimal","freeCapacity"], {});
 const r = runner("model_test");
 const resetFilters = () => { S.App.filters = {q:"",stato:"",tipologia:"",settore:"",capo:"",fornitore:"",late:false}; S.App.sort={key:"consegna",dir:1}; };
 
@@ -234,6 +234,25 @@ r.ok("grafo: jobsBySup copre esattamente le commesse assegnate", () => {
 r.ok("grafo: la memo di supplierMetrics restituisce lo stesso oggetto (stessa versione stato)", () => {
   const sid = S.STATE.jobs.find(j => j.assegnatoA).assegnatoA;
   assert.strictEqual(S.supplierMetrics(sid), S.supplierMetrics(sid), "la seconda chiamata non è servita dalla cache");
+});
+
+/* ---- Fase 2: assegnazione ottima (matching bipartito con capacità) ---- */
+r.ok("assegnazione ottima: proposta valida, senza doppioni e senza sforare capacità", () => {
+  const r = SA.assignOptimal();
+  assert(r && Array.isArray(r.proposal), "struttura proposta mancante");
+  const jids = r.proposal.map(e => e.jid);
+  assert.strictEqual(new Set(jids).size, jids.length, "una commessa assegnata a più fornitori");
+  for (const e of r.proposal) {
+    const j = SA.STATE.jobs.find(x => x.id === e.jid);
+    assert(j && j.stato === "pubblicato", "commessa non pubblicata nella proposta");
+    assert(SA.STATE.responses.some(rr => rr.jobId === e.jid && rr.supplierId === e.sid && rr.tipo === "accettazione"),
+      "assegnata a un fornitore che non ha accettato");
+  }
+  // vincolo di capacità: per ogni (fornitore, mese) le ore proposte <= capacità libera
+  const load = {};
+  for (const e of r.proposal) { (load[e.sid] = load[e.sid] || {}); load[e.sid][e.mk] = (load[e.sid][e.mk] || 0) + e.hours; }
+  for (const sid in load) for (const mk in load[sid])
+    assert(load[sid][mk] <= SA.freeCapacity(sid, mk) + 1e-6, "fornitore " + sid + " oltre capacità nel mese " + mk);
 });
 
 /* ---- Fase C: cambio data di RIENTRO (slittamento/modifica) ---- */

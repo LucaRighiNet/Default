@@ -152,6 +152,11 @@ Di conseguenza il prodotto è progettato attorno a due driver:
   prima **O(n²)** (ogni riga ricalcolava le metriche riscandendo tutte le commesse),
   è ora **lineare**: a 1000 commesse ~**10× più veloce** (73 ms → 7 ms), a parità di
   risultati (invarianti a test). È la Fase 1 del piano "teoria dei grafi".
+- **Assegnazione ottima (grafo, Fase 2)**: pulsante **Assegna in modo ottimo** che
+  risolve un **matching di peso massimo** sul grafo bipartito commesse–fornitori
+  (solo chi ha accettato), rispettando le **ore libere per fornitore e mese**;
+  propone l'allocazione (idoneità totale + commesse non collocabili) da confermare.
+  Invarianti verificate a test (nessun fornitore oltre capacità, nessun doppio).
 - **Seam di backend** già pronto (`Sync` + `RemoteAdapter`) — vedi `BACKEND.md`.
 
 ## 5. Sintesi della ricerca (portali simili) → scelte di design
