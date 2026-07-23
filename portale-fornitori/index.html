@@ -946,6 +946,55 @@ function suggestSuppliers(job){ const mk=monthKey(keyDate(job)); const need=job.
     return {sid:s.id, score, free, need, overload:free<need, spazioOk:fitsSpazio(s, job.ingombro), pref, reasons, puntualita:m.puntualita };
   }).sort((a,b)=>b.score-a.score);
 }
+/* ---- Collo di bottiglia della capacità (max-flow / min-cut) ----------------
+   Rete di flusso: sorgente -> commesse (cap = ore) -> fornitori che hanno
+   accettato (cap = ore) -> pozzo (cap = ore libere del fornitore nel mese).
+   Il MAX-FLOW è la domanda collocabile; per il teorema max-flow/min-cut il
+   TAGLIO MINIMO (archi saturi che separano sorgente e pozzo) individua il
+   vincolo: i fornitori raggiungibili nel grafo residuo sono i colli di
+   bottiglia (saturi e vincolanti). La capacità è per-MESE, quindi il problema
+   si decompone per mese di rientro (un piccolo max-flow indipendente per mese). */
+function maxflowMinCut(N, arcs, S, T){
+  const to=[], cap=[], g=Array.from({length:N},()=>[]);
+  const add=(u,v,c)=>{ g[u].push(to.length); to.push(v); cap.push(c);
+                       g[v].push(to.length); to.push(u); cap.push(0); };  // arco + reverse (ei ^ 1)
+  for(const a of arcs) add(a[0],a[1],a[2]);
+  let flow=0;
+  for(;;){
+    const par=new Array(N).fill(-1); par[S]=-2; const q=[S];
+    for(let h=0; h<q.length && par[T]===-1; h++){ const u=q[h];
+      for(const ei of g[u]){ const v=to[ei]; if(par[v]===-1 && cap[ei]>0){ par[v]=ei; q.push(v); } } }
+    if(par[T]===-1) break;
+    let f=Infinity; for(let v=T; v!==S; v=to[par[v]^1]) f=Math.min(f, cap[par[v]]);
+    for(let v=T; v!==S; v=to[par[v]^1]){ cap[par[v]]-=f; cap[par[v]^1]+=f; }
+    flow+=f;
+  }
+  const reach=new Array(N).fill(false); reach[S]=true; const q=[S];
+  for(let h=0; h<q.length; h++){ const u=q[h]; for(const ei of g[u]){ const v=to[ei]; if(!reach[v]&&cap[ei]>0){ reach[v]=true; q.push(v); } } }
+  return { flow, reach };
+}
+function capacityBottleneck(){
+  const gi=graphIndex();
+  const jobs=scopedJobs().filter(j=>j.stato==="pubblicato" && (gi.respByJob[j.id]||[]).some(r=>r.tipo==="accettazione"));
+  const byMonth={}; for(const j of jobs){ const m=monthKey(keyDate(j)); (byMonth[m]=byMonth[m]||[]).push(j); }
+  const out=[];
+  for(const m of Object.keys(byMonth).sort()){
+    const js=byMonth[m];
+    const supSet=new Set(); js.forEach(j=>(gi.respByJob[j.id]||[]).filter(r=>r.tipo==="accettazione").forEach(r=>supSet.add(r.supplierId)));
+    const sups=[...supSet]; const sIx={}; sups.forEach((sid,i)=>sIx[sid]=i);
+    const C=js.length, K=sups.length, S=0, T=C+K+1, N=T+1;
+    const arcs=[]; let demand=0;
+    js.forEach((j,i)=>{ const h=j.oreStimate||0; demand+=h; arcs.push([S,1+i,h]);
+      new Set((gi.respByJob[j.id]||[]).filter(r=>r.tipo==="accettazione").map(r=>r.supplierId)).forEach(sid=>{
+        if(sIx[sid]!=null && fitsSpazio(supplier(sid), j.ingombro)) arcs.push([1+i, 1+C+sIx[sid], h]); }); });
+    const capOf={}; sups.forEach((sid,k)=>{ const c=Math.max(0, freeCapacity(sid, m)); capOf[sid]=c; arcs.push([1+C+k, T, c]); });
+    const { flow, reach } = maxflowMinCut(N, arcs, S, T);
+    // fornitori vincolanti = nodi fornitore raggiungibili nel residuo (saturi e sul taglio)
+    const binding=sups.filter((sid,k)=>reach[1+C+k]).map(sid=>({sid, cap:capOf[sid]})).sort((a,b)=>a.cap-b.cap);
+    out.push({ m, demand, placeable:flow, shortfall:demand-flow, jobsN:C, binding });
+  }
+  return { months: out.filter(x=>x.demand>0), totShort: out.reduce((s,x)=>s+(x.demand-x.placeable),0) };
+}
 // Proiezione geografica (lat/lng -> x/y su viewBox 100×50) per la mappa SVG offline
 function projGeo(lat,lng){ const LAT=[43.2,45.95], LNG=[7.4,13.9];   // Nord-Centro Italia
   const x=7+((lng-LNG[0])/(LNG[1]-LNG[0]))*86; const y=7+(1-(lat-LAT[0])/(LAT[1]-LAT[0]))*36; return {x, y}; }
@@ -1425,8 +1474,28 @@ function chartCapo(){ const d=capoCarico(); if(!d.rows.length) return emptyChart
   return `<div class="hchart">${d.rows.map(r=>`<div class="hrow click" data-act="chartFilter" data-k="capo" data-v="${r.id}" title="${esc(r.name)}: ${r.n} commesse attive">
     <span class="hlab">${esc(r.name)}</span><div class="htrack"><div class="hbar cf-brand" style="width:${Math.max(r.n/d.max*100,2).toFixed(1)}%"></div></div><span class="hval">${r.n}</span></div>`).join("")}</div>`;
 }
+function chartBottleneck(){
+  const d=capacityBottleneck();
+  if(!d.months.length) return emptyChart("Nessuna commessa da assegnare con accettazioni");
+  const short=d.months.filter(x=>x.shortfall>0);
+  if(!short.length) return `<div class="card" style="background:var(--ok-tint);border-color:#bfe0cd;box-shadow:none;display:flex;gap:9px;align-items:center"><span class="lrow" style="padding:0"></span><span style="color:#256844;font-size:13.5px">${icon("check","sm")} <b>Nessun collo di bottiglia</b>: tutta la domanda con accettazioni è collocabile nella capacità disponibile.</span></div>`;
+  return short.map(x=>{
+    const pW=Math.round(x.placeable/x.demand*100), sW=100-pW;
+    const bind=x.binding.slice(0,8).map(b=>{const s=supplier(b.sid); return `<span class="pill danger" style="cursor:pointer" data-act="supJobs" data-sup="${b.sid}">${esc(s?s.name:b.sid)} · ${b.cap}h libere</span>`;}).join("");
+    return `<div style="margin-bottom:15px">
+      <div style="display:flex;justify-content:space-between;gap:8px;font-size:12.5px;margin-bottom:5px;flex-wrap:wrap"><b>${monthLabel(x.m)}</b><span class="muted">domanda ${x.demand}h · collocabili ${x.placeable}h · <b style="color:var(--danger)">mancano ${x.shortfall}h</b></span></div>
+      <div class="stackbar">${pW>0?`<div class="stackseg cf-ok" style="width:${pW}%">${pW>=14?x.placeable+'h':''}</div>`:''}<div class="stackseg cf-danger" style="width:${sW}%">${sW>=14?x.shortfall+'h':''}</div></div>
+      <div class="tags" style="margin-top:8px;align-items:center">${x.binding.length?`<span class="muted" style="font-size:11.5px">Fornitori vincolanti (min-cut):</span>${bind}`:`<span class="muted" style="font-size:11.5px">${icon("bolt","sm")} Nessun fornitore compatibile con capacità libera: il vincolo è lo <b>spazio</b> o le <b>accettazioni</b>, non le ore — serve accreditare o ampliare l'ingombro lavorabile.</span>`}</div>
+    </div>`;
+  }).join("");
+}
 function viewAnalisi(){ const u=currentUser(); const capo_=isCapo(u);
   return `<div class="view-head"><div><h2>Analisi</h2><p>${capo_?"Le commesse che segui":"Tutte le commesse"} · aggiornato ${fmtDate(todayISO())}</p></div></div>
+  <div class="card" style="margin-bottom:14px">
+    <div class="sect-t">${icon("bolt","sm")} Collo di bottiglia della capacità</div>
+    <p class="chart-note">Analisi <b>max-flow / min-cut</b> sulle commesse da assegnare (con accettazioni), per mese di rientro: quante ore di domanda <b>non sono collocabili</b> nella capacità libera e <b>quali fornitori</b> sono il vincolo. Serve a decidere dove aumentare capacità o accreditare nuovi terzisti.</p>
+    ${chartBottleneck()}
+  </div>
   <div class="card" style="margin-bottom:14px">
     <div class="sect-t">${icon("calendar","sm")} Consegne al cliente per mese</div>
     <p class="chart-note">Consegne al cliente pianificate per mese e stato di assegnazione (data riservata a Righi): le colonne più alte sono i mesi di picco su cui anticipare l'assegnazione.</p>

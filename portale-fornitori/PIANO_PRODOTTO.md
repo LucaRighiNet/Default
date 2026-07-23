@@ -157,6 +157,11 @@ Di conseguenza il prodotto è progettato attorno a due driver:
   (solo chi ha accettato), rispettando le **ore libere per fornitore e mese**;
   propone l'allocazione (idoneità totale + commesse non collocabili) da confermare.
   Invarianti verificate a test (nessun fornitore oltre capacità, nessun doppio).
+- **Collo di bottiglia della capacità (grafo, max-flow/min-cut)**: in *Analisi*,
+  per mese di rientro, un **flusso di capacità** (sorgente → commesse → fornitori
+  → pozzo) e il suo **taglio minimo** individuano **quante ore non sono collocabili**
+  e **quali fornitori sono il vincolo**, distinguendo il caso capacità dal caso
+  spazio/accettazioni. Algoritmo verificato a test (esempi noti + invarianti).
 - **Seam di backend** già pronto (`Sync` + `RemoteAdapter`) — vedi `BACKEND.md`.
 
 ## 5. Sintesi della ricerca (portali simili) → scelte di design

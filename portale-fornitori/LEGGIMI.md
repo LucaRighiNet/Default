@@ -168,9 +168,18 @@ le trasferte.
 grafici sulle commesse — **consegne per mese** (carico pianificato e quota ancora
 da assegnare), **pipeline per stato**, **salute** delle commesse attive (semaforo
 aggregato), **andamento puntualità**, **mix per tipologia** e **carico per
-caposquadra**. I grafici categoriali sono **cliccabili** e aprono l'elenco già
-filtrato. Colori validati per la leggibilità (anche in caso di daltonismo o
-stampa: etichette, trama sulle barre critiche e gap tra i segmenti).
+caposquadra**, più il **collo di bottiglia della capacità**. I grafici
+categoriali sono **cliccabili** e aprono l'elenco già filtrato. Colori validati
+per la leggibilità (anche in caso di daltonismo o stampa: etichette, trama sulle
+barre critiche e gap tra i segmenti).
+
+**Collo di bottiglia della capacità (max-flow / min-cut)**: sulle commesse da
+assegnare con accettazioni, per **mese di rientro**, il portale risolve un
+**flusso a costo di capacità** (sorgente → commesse → fornitori → pozzo con
+capacità = ore libere) e ne calcola il **taglio minimo**: dice **quante ore di
+domanda non sono collocabili** e **quali fornitori sono il vincolo** (saturi e
+determinanti). Se lo scoglio non è la capacità ma lo **spazio/le accettazioni**,
+lo segnala. Serve a decidere dove **aumentare capacità o accreditare** terzisti.
 
 **Lato Fornitore**
 - **Bacheca**: i lavori proposti da Righi con le **lavorazioni** previste; **fai

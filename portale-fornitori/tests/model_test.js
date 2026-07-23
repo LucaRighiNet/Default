@@ -12,7 +12,7 @@ const EXPORTS = ["STATE","App","isLate","isLateStart","isLateReturn","keyDate","
                  "dISO","addDays","supplier","capo","byId","mailto","isCapo","activeHours","supplierMonthlyLoad","monthKey",
                  "toCSV","parseCSV","supplierMetrics","freeCapacity","monthLoad","daysBetween","jobHealth","suggestSuppliers",
                  "TIPOLOGIE","STATI","SETTORI","LAVORAZIONI","LAV_KEYS","parseLavorazioni","REQ_TYPES","AVANZAMENTO","CERT","QUICK_REPLIES","esc","uid",
-                 "DIMENSIONI","ATTREZZATURE","fitsSpazio","supplier","jobResponses","jobRequests","graphIndex"];
+                 "DIMENSIONI","ATTREZZATURE","fitsSpazio","supplier","jobResponses","jobRequests","graphIndex","maxflowMinCut","capacityBottleneck"];
 const S = sandbox(START, END, EXPORTS, {});
 // secondo sandbox fino a "Eventi" per le funzioni-azione pure (senza DOM)
 const SA = sandbox(START, "/* ============================ Eventi", ["STATE","applyDateChange","addDays",
@@ -234,6 +234,33 @@ r.ok("grafo: jobsBySup copre esattamente le commesse assegnate", () => {
 r.ok("grafo: la memo di supplierMetrics restituisce lo stesso oggetto (stessa versione stato)", () => {
   const sid = S.STATE.jobs.find(j => j.assegnatoA).assegnatoA;
   assert.strictEqual(S.supplierMetrics(sid), S.supplierMetrics(sid), "la seconda chiamata non è servita dalla cache");
+});
+
+/* ---- Collo di bottiglia: max-flow / min-cut ---- */
+r.ok("max-flow: esempio semplice con collo noto (S->A 10, A->T 5) = 5", () => {
+  const s0 = 0, A = 1, T = 2;
+  const { flow, reach } = S.maxflowMinCut(3, [[s0,A,10],[A,T,5]], s0, T);
+  assert.strictEqual(flow, 5, "flow atteso 5");
+  assert.strictEqual(reach[A], true, "A deve stare sul lato sorgente (saturo/vincolante)");
+  assert.strictEqual(reach[T], false, "T non deve essere raggiungibile");
+});
+r.ok("max-flow/min-cut: 2 commesse 30h su 1 fornitore da 40h → flow 40, fornitore vincolante", () => {
+  // nodi: S=0, c1=1, c2=2, sup=3, T=4
+  const arcs = [[0,1,30],[0,2,30],[1,3,30],[2,3,30],[3,4,40]];
+  const { flow, reach } = S.maxflowMinCut(5, arcs, 0, 4);
+  assert.strictEqual(flow, 40, "placeable = capacità del fornitore");
+  assert.strictEqual(reach[3], true, "il fornitore (nodo 3) è sul taglio: saturo e vincolante");
+});
+r.ok("capacityBottleneck: per ogni mese 0 <= collocabili <= domanda, shortfall = domanda - collocabili", () => {
+  const d = S.capacityBottleneck();
+  assert(d && Array.isArray(d.months), "struttura mancante");
+  let sum = 0;
+  for (const x of d.months) {
+    assert(x.placeable >= 0 && x.placeable <= x.demand, "collocabili fuori range in " + x.m);
+    assert.strictEqual(x.shortfall, x.demand - x.placeable, "shortfall incoerente in " + x.m);
+    sum += x.shortfall;
+  }
+  assert.strictEqual(d.totShort, sum, "totale shortfall incoerente");
 });
 
 /* ---- Fase 2: assegnazione ottima (matching bipartito con capacità) ---- */
