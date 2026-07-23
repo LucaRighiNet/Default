@@ -250,7 +250,7 @@ input[type=checkbox]{accent-color:var(--sea); width:18px; height:18px}
 (function(){
 // Versione visibile della build (ingranaggio -> prima riga). Serve a capire al
 // volo quale versione sta girando su un dispositivo (cache vs deploy).
-const APP_BUILD="2026-07-10.40";
+const APP_BUILD="2026-07-10.41";
 
 /* ============ DIAGNOSTICA / ERROR TRACKING (P0) ============ */
 // Senza backend gli errori di produzione sarebbero invisibili. Diag li cattura in
@@ -900,7 +900,9 @@ function recompute(){
   // budget: per-guest lines scale with planned guests
   let est=0,quo=0,act=0;
   e.budget.forEach(b=>{
-    b._total = (b.costType==="perGuest") ? Math.round((b.perHead||0)*g) : b.estimated;
+    b._total = (b.costType==="perGuest") ? Math.round((b.perHead||0)*g)
+             : (b.costType==="mixed") ? Math.round((+b.fixedBase||0)+(b.perHead||0)*g)
+             : b.estimated;
     est+=b._total; quo+=(+b.quote||0); act+=(+b.actual||0);
   });
   // Base del budget = PREVENTIVI (la colonna Stima e' stata rimossa: i valori
@@ -1267,7 +1269,9 @@ function migrateBudgetV2(){
       const g=(e.meta&&e.meta.plannedGuests)||0;
       (e.budget||[]).forEach(b=>{
         if((+b.quote||0)>0) return;
-        const tot=(b.costType==="perGuest") ? Math.round((+b.perHead||0)*g) : (+b.estimated||0);
+        const tot=(b.costType==="perGuest") ? Math.round((+b.perHead||0)*g)
+                : (b.costType==="mixed") ? Math.round((+b.fixedBase||0)+(+b.perHead||0)*g)
+                : (+b.estimated||0);
         if(tot>0) b.quote=tot;
       });
       e.budgetV2=true;
@@ -1884,17 +1888,21 @@ function editBenchTargets(){
 /* ============ BUDGET: PROIEZIONE & SCENARI (predittivo) ============ */
 // Funzione PURA (testabile): proietta il costo finale in base agli RSVP reali.
 // Le voci "a coperto" (costType perGuest) scalano col numero di teste; le fisse
-// no. Modella il MINIMO GARANTITO del catering (paghi comunque N coperti anche
-// se ne confermi meno) sulla voce a coperto più cara (tipicamente il catering).
+// no. Le voci "miste" (costType mixed: forfait fisso + extra a coperto, tipico
+// del catering "totale forfettizzato + extra a persona") contribuiscono con la
+// parte fissa alla base e con l'extra alla tariffa a coperto. Modella il MINIMO
+// GARANTITO del catering (paghi comunque N coperti anche se ne confermi meno)
+// sulla voce a coperto più cara (tipicamente il catering).
 // Nessun dato modificato: solo stime, etichettate come tali.
 function budgetForecast(){
   const e=ev(), m=meta(), lines=e.budget||[];
-  let fixedBase=0, rateAll=0, cateringRate=0, cateringName="", quoteSum=0;
+  let fixedBase=0, rateAll=0, cateringRate=0, cateringName="", quoteSum=0, forfaitBase=0;
   lines.forEach(b=>{
     quoteSum += (+b.quote||0);
-    if(b.costType==="perGuest"){
+    if(b.costType==="perGuest" || b.costType==="mixed"){
       const ph=+b.perHead||0; rateAll+=ph;
       if(ph>cateringRate){ cateringRate=ph; cateringName=b.item||""; }
+      if(b.costType==="mixed"){ const fb=+b.fixedBase||0; fixedBase+=fb; forfaitBase+=fb; }
     } else {
       fixedBase += (+b.actual||0) || (+b.quote||0) || (+b.estimated||0);
     }
@@ -1930,7 +1938,7 @@ function budgetForecast(){
   const wasted=Math.round(cateringRate*emptyCovers);
   let verdict="na";
   if(ceiling>0){ const r=worst/ceiling; verdict = r>1?"over":(r>=0.9?"warn":"ok"); }
-  return {fixedBase,rateAll,rateOther,cateringRate,cateringName,quoteSum,ceiling,
+  return {fixedBase,forfaitBase,rateAll,rateOther,cateringRate,cateringName,quoteSum,ceiling,
     headsConf,headsAttesa,planned,minG,scenarios,worstHeads,worst,perHeadRef,perHeadRefLabel,emptyCovers,wasted,verdict};
 }
 function budgetForecastCard(){
@@ -1951,15 +1959,16 @@ function budgetForecastCard(){
     <div class="grid cards" style="grid-template-columns:1fr 1fr 1fr;margin-top:10px">
       <div class="card kpi"><div class="v">${f.rateAll?money(f.rateAll):"—"}</div><div class="l">Quanto costa un invitato in più <span class="muted" style="font-weight:400">(solo voci a coperto)</span></div></div>
       <div class="card kpi"><div class="v">${f.perHeadRef?money(f.perHeadRef):"—"}</div><div class="l">Costo medio a testa, tutto incluso${f.perHeadRefLabel?` <span class="muted" style="font-weight:400">(scenario: ${esc(f.perHeadRefLabel.replace(/\s*\(.*\)/,"").toLowerCase())})</span>`:""}</div></div>
-      <div class="card kpi"><div class="v">${money(f.cateringRate)}</div><div class="l">Prezzo del catering a coperto <span class="muted" style="font-weight:400">(tariffa a persona, modificabile nella voce)</span></div></div>
+      <div class="card kpi"><div class="v">${money(f.cateringRate)}</div><div class="l">${f.forfaitBase?"Extra a coperto del catering":"Prezzo del catering a coperto"} <span class="muted" style="font-weight:400">(tariffa a persona, modificabile nella voce)</span></div></div>
     </div>
+    ${f.forfaitBase?`<div class="card" style="margin-top:2px"><div style="font-size:13px">Contratto <b>misto</b>: forfait fisso <b>${money(f.forfaitBase)}</b> (non cambia col numero di ospiti) <b>+</b> extra <b>${money(f.cateringRate)}</b> a coperto. La stima totale = forfait + extra × coperti.</div></div>`:""}
     ${f.minG?`<div class="card" style="margin-top:2px;${f.emptyCovers>0?'':'opacity:.85'}"><h3 style="font-size:14px">Minimo garantito catering: ${dnum(f.minG)} coperti <span class="muted" style="font-weight:400;font-size:12px">(li paghi anche se confermi meno persone)</span></h3>
       ${f.emptyCovers>0
         ? `<div style="font-size:13px">Confermati finora <b>${dnum(f.headsConf)}</b>, ma paghi comunque <b>${dnum(f.minG)}</b> coperti: <b style="color:var(--no)">${dnum(f.emptyCovers)} pasti pagati a vuoto ≈ ${money(f.wasted)}</b>. Ti servono ancora ${dnum(f.emptyCovers)} conferme per non sprecarli.</div>`
         : `<div class="muted" style="font-size:13px">Confermati ${dnum(f.headsConf)}, sopra il minimo di ${dnum(f.minG)}: nessun pasto pagato a vuoto. ✓</div>`}
     </div>`:""}
     <div class="scroll-x" style="margin-top:8px"><table class="tbl"><thead><tr><th>Se alla fine vengono…</th><th class="num">Coperti</th><th class="num">Spesa totale stimata</th><th class="num">A testa</th><th></th></tr></thead><tbody>${scRows}</tbody></table></div>
-    <div class="muted" style="font-size:11px;margin-top:6px">Come leggerla: le voci "a coperto" (catering, navetta…) crescono col numero di persone, le voci fisse (fiori, foto…) no. Il minimo garantito si applica al catering. "A testa" = spesa totale ÷ coperti di quello scenario. Restano stime: i tuoi preventivi sono la verità.</div>
+    <div class="muted" style="font-size:11px;margin-top:6px">Come leggerla: le voci "a coperto" (catering, navetta…) crescono col numero di persone, le voci fisse (fiori, foto…) no. Le voci "miste" (forfait + extra a persona) hanno una parte fissa e una che scala. Il minimo garantito si applica al catering. "A testa" = spesa totale ÷ coperti di quello scenario. Restano stime: i tuoi preventivi sono la verità.</div>
   </div>`;
 }
 // Comprimi/espandi le voci di spesa (sono ~50: evita scroll infinito verso i
@@ -4079,7 +4088,10 @@ function editBudget(id){
        <div class="field"><label>Preventivo (€)</label><input class="inp" type="number" id="f_quote" value="${b.quote||0}"></div>
        <div class="field"><label>Effettivo (€)</label><input class="inp" type="number" id="f_act" value="${b.actual||0}"></div>
      </div>
-     <div class="field"><label>Prezzo a coperto (€) <span class="muted" style="font-size:11px">(vuoto = costo fisso; se compilato, la voce scala col numero di ospiti)</span></label><input class="inp" type="number" id="f_perhead" min="0" value="${b.costType==="perGuest"?(b.perHead||""):""}" inputmode="numeric" placeholder="es. 100"></div>
+     <div class="two">
+       <div class="field"><label>Prezzo a coperto (€) <span class="muted" style="font-size:11px">(vuoto = costo fisso; se compilato, scala con gli ospiti)</span></label><input class="inp" type="number" id="f_perhead" min="0" value="${(b.costType==="perGuest"||b.costType==="mixed")?(b.perHead||""):""}" inputmode="numeric" placeholder="es. 100"></div>
+       <div class="field"><label>Forfait base (€) <span class="muted" style="font-size:11px">(parte fissa del contratto misto: non scala)</span></label><input class="inp" type="number" id="f_fixedbase" min="0" value="${b.costType==="mixed"?(b.fixedBase||""):""}" inputmode="numeric" placeholder="es. 3000"></div>
+     </div>
      <div class="field"><label>Stato</label><select class="inp" id="f_paid"><option value="0"${!b.paid?" selected":""}>Da pagare</option><option value="1"${b.paid?" selected":""}>Pagata</option></select></div>
      <div class="field"><label>Macro-voce <span class="muted" style="font-size:11px">(analisi intelligente)</span></label>
        <select class="inp" id="f_macro">
@@ -4097,10 +4109,11 @@ function editBudget(id){
       if(!cur){ toast("Voce non più presente (aggiornata da un altro dispositivo)"); return; }
       cur.item=$("#f_item").value.trim();
       cur.quote=+$("#f_quote").value||0; cur.actual=+$("#f_act").value||0; cur.paid=$("#f_paid").value==="1";
-      // Prezzo a coperto: >0 -> voce "a coperto" (scala con gli ospiti); vuoto -> costo fisso.
+      // Modello di costo: a coperto (scala), misto (forfait fisso + extra a coperto), fisso.
       const ph=Math.max(0, +$("#f_perhead").value||0);
-      if(ph>0){ cur.costType="perGuest"; cur.perHead=ph; }
-      else if(cur.costType==="perGuest"){ cur.costType="fixed"; cur.perHead=0; }
+      const fb=Math.max(0, +$("#f_fixedbase").value||0);
+      if(ph>0){ cur.perHead=ph; if(fb>0){ cur.costType="mixed"; cur.fixedBase=fb; } else { cur.costType="perGuest"; cur.fixedBase=0; } }
+      else { if(cur.costType==="perGuest"||cur.costType==="mixed"){ cur.costType="fixed"; } cur.perHead=0; cur.fixedBase=0; }
       const mv=$("#f_macro").value; if(mv) cur.macro=mv; else delete cur.macro; // "" = automatica
       commit("Voce aggiornata");
     }}]);

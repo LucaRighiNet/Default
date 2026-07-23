@@ -2664,3 +2664,33 @@ idempotenza); suite completa verde (26 suite). E2E 390px: 20 tavoli + vincolo
 impossibile + nucleo oversized -> genera 134/134, KL 33 mosse +855, entrambi gli
 avvisi mostrati, 0 duplicati, capacità ≤8; zero errori JS. Il 2-opt intra-tavolo
 (già ottimo) e il resto dell'app NON toccati. sw.js v80->v81; APP_BUILD 2026-07-10.40.
+
+## Giro 104 (Claude Code) — Budget: catering "misto" (forfait fisso + extra a coperto)
+
+Su chiarimento dell'utente sul contratto reale del catering ("totale
+forfettizzato + extra a persona"), il modello di costo delle voci di budget
+aveva solo due tipi mutuamente esclusivi: "fisso" OPPURE "a coperto". Serviva
+il terzo caso, ibrido.
+
+Nuovo costType "mixed": total = forfaitBase (fisso, non scala) + perHead*coperti.
+- recompute._total e migrateBudgetV2: ramo mixed aggiunto.
+- budgetForecast: le voci mixed contribuiscono con la parte fissa a fixedBase
+  e con l'extra alla tariffa a coperto (rateAll/cateringRate). Nuovo forfaitBase
+  esposto per la card. Il MINIMO GARANTITO continua ad applicarsi solo all'extra
+  a coperto, NON al forfait (i "pasti a vuoto" costano extra*copertiMancanti,
+  non il forfait): comportamento verificato dai test.
+- Card proiezione: quando c'è un forfait mostra la riga "Contratto misto:
+  forfait X + extra Y a coperto", rietichetta la KPI catering come "Extra a
+  coperto", aggiorna il "Come leggerla".
+- editBudget: nuovo campo "Forfait base (€)" accanto al "Prezzo a coperto";
+  save logic a 3 vie (coperto+forfait=mixed; solo coperto=perGuest; niente=fixed,
+  azzera entrambi). Precompilazione corretta per tutti e tre i tipi.
+
+Verifica: budget_forecast_test 12/12 (2 nuovi: split forfait/extra, minimo
+garantito solo sull'extra); suite completa verde (sync_test flake di timing
+noto, 22/22 in isolamento su 3 run). E2E 390px: catering misto forfait 3000 +
+60/coperto, minG 120, previsti 100 -> card mostra "misto"/forfait/2.400 a vuoto;
+form precompila 3000+60, cambio forfait a 5000 resta mixed, azzero il coperto
+torna fixed e azzera perHead+fixedBase; zero errori JS. Il resto del budget
+(KPI preventivi/effettivo, benchmark, macro-voci) NON toccato.
+sw.js v81->v82; APP_BUILD 2026-07-10.41.
