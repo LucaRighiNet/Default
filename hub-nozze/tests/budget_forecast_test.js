@@ -122,4 +122,33 @@ r.ok("semaforo: na quando non c'è tetto (nessun preventivo)", () => {
   assert.strictEqual(f.verdict, "na");
 });
 
+r.ok("misto (forfait + extra a coperto): forfait in fixedBase, extra nella tariffa", () => {
+  // Catering misto: forfait 3000 fisso + 60 a coperto. Fotografo fisso 5000.
+  const lines=[
+    { item:"Catering", costType:"mixed", perHead:60, fixedBase:3000, quote:0, actual:0, estimated:0 },
+    { item:"Fotografo",costType:"fixed", perHead:0,  fixedBase:0,    quote:5000, actual:0, estimated:0 }
+  ];
+  const guests=[]; for(let i=0;i<100;i++) guests.push(g("conf"));
+  evState = { meta:{plannedGuests:0, minGuaranteed:0, contingencyPct:0}, guests, budget:lines };
+  const f=S.budgetForecast();
+  assert.strictEqual(f.cateringRate, 60, "extra a coperto = 60");
+  assert.strictEqual(f.rateAll, 60);
+  assert.strictEqual(f.forfaitBase, 3000, "forfait esposto a parte");
+  // fixedBase = forfait(3000) + fotografo(5000) = 8000
+  assert.strictEqual(f.fixedBase, 8000);
+  // proj(100) = 8000 + 60*100 = 14000
+  assert.strictEqual(sc(f,"conf").cost, 14000);
+});
+
+r.ok("misto: il minimo garantito si applica solo all'extra a coperto, non al forfait", () => {
+  const lines=[{ item:"Catering", costType:"mixed", perHead:60, fixedBase:3000, quote:0, actual:0, estimated:0 }];
+  const guests=[]; for(let i=0;i<80;i++) guests.push(g("conf")); // 80 teste, minG 120
+  evState = { meta:{plannedGuests:0, minGuaranteed:120, contingencyPct:0}, guests, budget:lines };
+  const f=S.budgetForecast();
+  // proj(80) = 3000 (forfait fisso) + 60*max(80,120) = 3000 + 7200 = 10200
+  assert.strictEqual(sc(f,"conf").cost, 10200);
+  assert.strictEqual(f.emptyCovers, 40); // 120-80
+  assert.strictEqual(f.wasted, 2400);    // 40 * 60 (solo l'extra, non il forfait)
+});
+
 r.done();
