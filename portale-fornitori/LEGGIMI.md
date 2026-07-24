@@ -134,10 +134,9 @@ cliente. Ogni cambio di rientro resta nello **storico**.
 2026* — **54 terzisti** (di cui **28 attivi**, flag `attivo`), con **capacità
 ore/mese**, **cablatori**, **risorse dedicate a Righi**, **costo orario**,
 **contatti**, note e — dato chiave — la **percentuale di utilizzo preferenziale
-per ciascun OTL/caposquadra** (Casadei, Matteucci, Gregori, Smeraldi, Foschi,
-Chiaruttini). I dati mancanti nel file (tipologie, ingombro, attrezzature, sede
-per alcuni) sono "non specificati" e completabili in app; dove le note lo
-permettono sono dedotti.
+per ciascun OTL/caposquadra**. I dati mancanti nel file (tipologie, ingombro,
+attrezzature, sede per alcuni) sono "non specificati" e completabili in app;
+dove le note lo permettono sono dedotti.
 
 **Assegnazione intelligente**: in assegnazione il portale ordina i terzisti per
 idoneità combinando la **preferenza dell'OTL della commessa** (la % del file:
