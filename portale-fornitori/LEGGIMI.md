@@ -35,7 +35,9 @@ Righi e il lato fornitore per vedere entrambe le prospettive.
 **Lato Righi**
 - **Dashboard** (per ruolo, vedi sotto): commesse pubblicate/assegnate,
   **ritardi**, accettazioni da valutare, richieste dei fornitori (KPI cliccabili
-  che portano al filtro).
+  che portano al filtro) e la lista **Assegnati / in corso** (la commessa appena
+  assegnata compare in cima, evidenziata: così dopo l'assegnazione la si vede
+  subito senza cambiare scheda).
 - **Commesse — vista massiva**: pensata per **centinaia di commesse in parallelo**
   (~150 assegnate + ~40 da assegnare nel seed dimostrativo). **Elenco** a tabella
   densa con **ricerca**, **filtri** (stato, tipologia, settore, caposquadra,

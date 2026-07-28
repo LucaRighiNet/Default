@@ -1091,6 +1091,9 @@ function viewRighiDashboard(){
     .map(j=>({j, accs:jobResponses(j.id).filter(r=>r.tipo==="accettazione")}))
     .filter(x=>x.accs.length>0)
     .sort((a,b)=> ((b.accs.some(r=>!r.read)?1:0)-(a.accs.some(r=>!r.read)?1:0)) || (b.accs.length-a.accs.length));
+  // Assegnati / in corso: ordinati per assegnazione più recente (la commessa appena assegnata in cima)
+  const attivi=base.filter(j=>["assegnato","in_corso"].includes(j.stato)&&j.assegnatoA)
+    .sort((a,b)=> (b.assegnatoAt||"").localeCompare(a.assegnatoAt||"") || (a.dataRientro||"").localeCompare(b.dataRientro||""));
   return `
   <div class="view-head"><div><h2>Ciao, ${esc(u.name.split(" ")[0])}</h2><p>${capo_?"Le commesse che segui":"Tutte le commesse"} · ${fmtDate(todayISO())}</p></div>
     <button class="btn accent" data-act="goNuovo">${icon("plus")} Nuovo lavoro</button></div>
@@ -1132,6 +1135,14 @@ function viewRighiDashboard(){
         :`<div class="empty">${icon("check")}<p>Nessuna richiesta aperta</p></div>`}
     </div>
   </div>
+  ${attivi.length?`<div class="card" style="margin-top:14px">
+    <div class="sect-t">${icon("check","sm")} Assegnati / in corso (${attivi.length})</div>
+    <div class="rowlist">${attivi.slice(0,6).map(j=>{const s=supplier(j.assegnatoA);const st=STATI[j.stato]||{label:j.stato,pill:'ok'};const justNow=j.assegnatoAt===todayISO();return `
+      <div class="lrow" data-job="${j.id}">
+        <span class="ic ok">${icon("check")}</span>
+        <span class="gr"><b>${esc(j.code)} — ${esc(j.title)}</b><span class="s">${s?esc(s.name):'—'} · rientro ${fmtDate(j.dataRientro)} (${relDays(j.dataRientro)})</span></span>
+        ${justNow?`<span class="pill accent">appena assegnata</span>`:`<span class="pill ${st.pill}">${st.label}</span>`}</div>`;}).join("")}
+      ${attivi.length>6?`<div class="col-more" data-act="goFilter" data-stato="attivi">Vedi tutte le ${attivi.length} ${icon("chev","sm")}</div>`:""}</div></div>`:""}
   ${risk.length?`<div class="card" style="margin-top:14px;border-left:4px solid var(--warn)">
     <div class="sect-t" style="color:var(--warn)">${icon("bolt","sm")} A rischio (${risk.length}) — anticipa il ritardo</div>
     <div class="rowlist">${risk.slice(0,5).map(j=>{const s=supplier(j.assegnatoA);const h=jobHealth(j);return `
