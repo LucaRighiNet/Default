@@ -60,8 +60,11 @@ Righi e il lato fornitore per vedere entrambe le prospettive.
   (fornitore, importo, ore, consegna…) per l'emissione ordine in amministrazione.
 - **Richieste** e anagrafica **Fornitori** accreditati (con contatto **email**):
   con **Nuovo fornitore** accrediti un terzista (specializzazioni, settori, zona,
-  capacità, certificazioni) che entra subito in suggerimenti, mappa e carico;
-  tocca il nome per aprire la **scheda** con le metriche.
+  capacità, certificazioni, attrezzature, preferenze OTL) che entra subito in
+  suggerimenti, mappa e carico; tocca il nome per aprire la **scheda** con le
+  metriche. Dalla scheda, il **responsabile di produzione** può **Modifica
+  scheda** e aggiornare tutti i dati (il caposquadra non può: creazione e
+  modifica dell'anagrafica sono riservate al responsabile).
 
 **Ruoli e accessi (lato Righi)**
 - **Responsabile di produzione**: vede **tutte** le commesse, pubblica, assegna,
