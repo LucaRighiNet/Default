@@ -1091,6 +1091,9 @@ function viewRighiDashboard(){
     .map(j=>({j, accs:jobResponses(j.id).filter(r=>r.tipo==="accettazione")}))
     .filter(x=>x.accs.length>0)
     .sort((a,b)=> ((b.accs.some(r=>!r.read)?1:0)-(a.accs.some(r=>!r.read)?1:0)) || (b.accs.length-a.accs.length));
+  // Assegnati / in corso: ordinati per assegnazione più recente (la commessa appena assegnata in cima)
+  const attivi=base.filter(j=>["assegnato","in_corso"].includes(j.stato)&&j.assegnatoA)
+    .sort((a,b)=> (b.assegnatoAt||"").localeCompare(a.assegnatoAt||"") || (a.dataRientro||"").localeCompare(b.dataRientro||""));
   return `
   <div class="view-head"><div><h2>Ciao, ${esc(u.name.split(" ")[0])}</h2><p>${capo_?"Le commesse che segui":"Tutte le commesse"} · ${fmtDate(todayISO())}</p></div>
     <button class="btn accent" data-act="goNuovo">${icon("plus")} Nuovo lavoro</button></div>
@@ -1132,6 +1135,14 @@ function viewRighiDashboard(){
         :`<div class="empty">${icon("check")}<p>Nessuna richiesta aperta</p></div>`}
     </div>
   </div>
+  ${attivi.length?`<div class="card" style="margin-top:14px">
+    <div class="sect-t">${icon("check","sm")} Assegnati / in corso (${attivi.length})</div>
+    <div class="rowlist">${attivi.slice(0,6).map(j=>{const s=supplier(j.assegnatoA);const st=STATI[j.stato]||{label:j.stato,pill:'ok'};const justNow=j.assegnatoAt===todayISO();return `
+      <div class="lrow" data-job="${j.id}">
+        <span class="ic ok">${icon("check")}</span>
+        <span class="gr"><b>${esc(j.code)} — ${esc(j.title)}</b><span class="s">${s?esc(s.name):'—'} · rientro ${fmtDate(j.dataRientro)} (${relDays(j.dataRientro)})</span></span>
+        ${justNow?`<span class="pill accent">appena assegnata</span>`:`<span class="pill ${st.pill}">${st.label}</span>`}</div>`;}).join("")}
+      ${attivi.length>6?`<div class="col-more" data-act="goFilter" data-stato="attivi">Vedi tutte le ${attivi.length} ${icon("chev","sm")}</div>`:""}</div></div>`:""}
   ${risk.length?`<div class="card" style="margin-top:14px;border-left:4px solid var(--warn)">
     <div class="sect-t" style="color:var(--warn)">${icon("bolt","sm")} A rischio (${risk.length}) — anticipa il ritardo</div>
     <div class="rowlist">${risk.slice(0,5).map(j=>{const s=supplier(j.assegnatoA);const h=jobHealth(j);return `
@@ -1915,49 +1926,86 @@ function createUser(){ const role=(App.userDraft&&App.userDraft.role)||"fornitor
   STATE.users.push(u); persist(); App.userDraft=null; closeModal();
   toast("Accesso creato: "+name,"ok"); openSwitch();
 }
-function openNewSupplier(){ const d=App.supDraft={name:"",citta:"Cesena",referente:"",email:"",specialties:[],settori:[],certificazioni:[],attrezzature:[],dimensioneMax:"m",capacitaMese:1000};
-  openModal(`${modalHead("Nuovo fornitore")}
-    <p class="muted" style="font-size:13px;margin-top:0">Accredita un terzista: i dati alimentano suggerimenti di assegnazione, mappa e carico.</p>
-    <div class="field"><label>Ragione sociale</label><input class="inp" id="ns-name" value="${esc(d.name)}" placeholder="es. Nuova Elettromeccanica"></div>
+// Campi condivisi del form fornitore (creazione e modifica). d = App.supDraft:
+// gli scalari pre-riempiono gli input, gli array (chip) sono gestiti da toggleSup.
+function supplierFormFields(d){
+  const chip=(g,k,label,dot)=>`<button type="button" class="chip${g==='specialties'?'':' sm'}${(d[g]||[]).includes(k)?' on':''}" data-act="toggleSup" data-g="${g}" data-v="${esc(k)}">${dot?`<span class="dot ${dot}"></span>`:''}${label}</button>`;
+  const numv=v=>v!=null&&v!==""?v:"";
+  return `
+    <div class="field"><label>Ragione sociale</label><input class="inp" id="ns-name" value="${esc(d.name||'')}" placeholder="es. Nuova Elettromeccanica"></div>
     <div class="row2">
       <div class="field"><label>Città / sede</label><select class="inp" id="ns-citta">${Object.keys(CITY).map(c=>`<option ${d.citta===c?'selected':''}>${esc(c)}</option>`).join("")}</select></div>
-      <div class="field"><label>Capacità (h/mese)</label><input class="inp" id="ns-cap" type="number" inputmode="numeric" value="${d.capacitaMese}"><span class="hint">Alimenta il carico terzisti</span></div>
+      <div class="field"><label>Capacità (h/mese)</label><input class="inp" id="ns-cap" type="number" inputmode="numeric" value="${numv(d.capacitaMese)}"><span class="hint">Alimenta carico e collo di bottiglia</span></div>
     </div>
     <div class="row2">
-      <div class="field"><label>Costo orario (€/h)</label><input class="inp" id="ns-costo" type="number" inputmode="numeric" placeholder="es. 25"></div>
-      <div class="field"><label>Cablatori totali</label><input class="inp" id="ns-cab" type="number" inputmode="numeric" placeholder="es. 4"></div>
+      <div class="field"><label>Costo orario (€/h)</label><input class="inp" id="ns-costo" type="number" inputmode="numeric" value="${numv(d.costoOrario)}" placeholder="es. 25"></div>
+      <div class="field"><label>Cablatori totali</label><input class="inp" id="ns-cab" type="number" inputmode="numeric" value="${numv(d.cablatori)}" placeholder="es. 4"></div>
     </div>
     <div class="row2">
-      <div class="field"><label>Referente</label><input class="inp" id="ns-ref" value="${esc(d.referente)}" placeholder="es. Mario Rossi"></div>
-      <div class="field"><label>Email / contatti</label><input class="inp" id="ns-email" type="email" value="${esc(d.email)}" placeholder="preventivi@fornitore.it"></div>
+      <div class="field"><label>Risorse dedicate a Righi</label><input class="inp" id="ns-ris" type="number" inputmode="numeric" value="${numv(d.risorseDedicate)}" placeholder="es. 2"></div>
+      <div class="field"><label>Ingombro max lavorabile</label><select class="inp" id="ns-dim">${Object.entries(DIMENSIONI).map(([k,v])=>`<option value="${k}" ${d.dimensioneMax===k?'selected':''}>${esc(v.label)}</option>`).join("")}</select></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>Referente</label><input class="inp" id="ns-ref" value="${esc(d.referente||'')}" placeholder="es. Mario Rossi"></div>
+      <div class="field"><label>Email / contatti</label><input class="inp" id="ns-email" type="email" value="${esc(d.email||'')}" placeholder="preventivi@fornitore.it"></div>
     </div>
     <div class="field"><label>Stato</label>
-      <label class="firma-box" style="margin:0"><input type="checkbox" id="ns-attivo" checked><span>Fornitore <b>attivo</b> (concorre a suggerimenti, carico e mappa)</span></label></div>
+      <label class="firma-box" style="margin:0"><input type="checkbox" id="ns-attivo" ${d.attivo!==false?'checked':''}><span>Fornitore <b>attivo</b> (concorre a suggerimenti, carico e mappa)</span></label></div>
     <div class="field"><label>Specializzazioni</label>
-      <div class="chips">${Object.entries(TIPOLOGIE).map(([k,v])=>`<button type="button" class="chip" data-act="toggleSup" data-g="specialties" data-v="${k}"><span class="dot ${v.dot}"></span>${v.short}</button>`).join("")}</div></div>
+      <div class="chips">${Object.entries(TIPOLOGIE).map(([k,v])=>chip('specialties',k,v.short,v.dot)).join("")}</div></div>
     <div class="field"><label>Settori</label>
-      <div class="chips">${SETTORI.map(se=>`<button type="button" class="chip sm" data-act="toggleSup" data-g="settori" data-v="${esc(se)}">${esc(se)}</button>`).join("")}</div></div>
+      <div class="chips">${SETTORI.map(se=>chip('settori',se,esc(se),'')).join("")}</div></div>
     <div class="field"><label>Certificazioni</label>
-      <div class="chips">${Object.entries(CERT).map(([k,v])=>`<button type="button" class="chip sm" data-act="toggleSup" data-g="certificazioni" data-v="${k}">${esc(v)}</button>`).join("")}</div></div>
-    <div class="field"><label>Limite di spazio (ingombro max del quadro)</label>
-      <select class="inp" id="ns-dim">${Object.entries(DIMENSIONI).map(([k,v])=>`<option value="${k}" ${d.dimensioneMax===k?'selected':''}>${esc(v.label)}</option>`).join("")}</select>
-      <span class="hint">La dimensione più grande che l'officina riesce a costruire e movimentare</span></div>
+      <div class="chips">${Object.entries(CERT).map(([k,v])=>chip('certificazioni',k,esc(v),'')).join("")}</div></div>
     <div class="field"><label>Attrezzature disponibili</label>
-      <div class="chips">${Object.entries(ATTREZZATURE).map(([k,v])=>`<button type="button" class="chip sm" data-act="toggleSup" data-g="attrezzature" data-v="${k}">${esc(v)}</button>`).join("")}</div></div>
+      <div class="chips">${Object.entries(ATTREZZATURE).map(([k,v])=>chip('attrezzature',k,esc(v),'')).join("")}</div></div>
+    <div class="field"><label>Preferenza di utilizzo per OTL (%)</label>
+      <div class="row2">${STATE.capi.map(c=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:2px"><span style="flex:1;font-size:12.5px;color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.name)}</span><input class="inp" id="ns-pref-${c.id}" type="number" inputmode="numeric" min="0" max="100" style="width:84px" value="${numv(d.preferenze&&d.preferenze[c.id])}" placeholder="0"></div>`).join("")}</div></div>
+    <div class="field"><label>Note</label><textarea class="inp" id="ns-note" placeholder="Vincoli, lavorazioni particolari…">${esc(d.note||'')}</textarea></div>`;
+}
+// Legge il form nell'oggetto fornitore (scalari dal DOM, array/chip dal draft d)
+function readSupplierForm(d){
+  const citta=$("#ns-citta").value; const c=CITY[citta]||[44.14,12.24,"Romagna"];
+  const num=id=>{ const v=$(id)?$(id).value:""; return v===""?null:Number(v); };
+  const pref={}; STATE.capi.forEach(cp=>{ const el=$("#ns-pref-"+cp.id); const v=el?el.value:""; if(v!=="") pref[cp.id]=Number(v); });
+  return { name:($("#ns-name").value||"").trim(), citta, lat:c[0], lng:c[1], zona:c[2],
+    capacitaMese:num("#ns-cap")||0, costoOrario:num("#ns-costo"), cablatori:num("#ns-cab"), risorseDedicate:num("#ns-ris"),
+    dimensioneMax:$("#ns-dim").value||"m", referente:($("#ns-ref").value||"").trim(), email:($("#ns-email").value||"").trim(),
+    attivo:!$("#ns-attivo")||$("#ns-attivo").checked, preferenze:pref, note:($("#ns-note").value||"").trim()||null,
+    specialties:(d.specialties||[]).slice(), settori:(d.settori||[]).slice(), certificazioni:(d.certificazioni||[]).slice(), attrezzature:(d.attrezzature||[]).slice() };
+}
+function openNewSupplier(){
+  if(isCapo(currentUser())){ toast("Solo il responsabile di produzione può accreditare un fornitore","warn"); return; }
+  const d=App.supDraft={ name:"",citta:"Cesena",referente:"",email:"",specialties:[],settori:[],certificazioni:[],attrezzature:[],dimensioneMax:"m",capacitaMese:1000,attivo:true,preferenze:{} };
+  openModal(`${modalHead("Nuovo fornitore")}
+    <p class="muted" style="font-size:13px;margin-top:0">Accredita un terzista: i dati alimentano suggerimenti di assegnazione, mappa e carico.</p>
+    ${supplierFormFields(d)}
     <button class="btn accent block" data-act="createSup">${icon("check")} Accredita fornitore</button>`);
 }
-function createSupplier(){ const d=App.supDraft||{};
-  const name=($("#ns-name").value||"").trim();
-  if(!name){ toast("Inserisci la ragione sociale","warn"); $("#ns-name").focus(); return; }
-  const citta=$("#ns-citta").value; const c=CITY[citta]||[44.14,12.24,"Romagna"];
-  const sup={ id:uid("sup"), name, attivo:!$("#ns-attivo")||$("#ns-attivo").checked, citta, lat:c[0], lng:c[1], zona:c[2], accredited:true,
-    specialties:d.specialties||[], settori:d.settori||[], referente:($("#ns-ref").value||"").trim(),
-    capacitaMese:Number($("#ns-cap").value)||800, cablatori:Number($("#ns-cab").value)||null,
-    costoOrario:Number($("#ns-costo").value)||null, risorseDedicate:null, note:null, preferenze:{},
-    certificazioni:d.certificazioni||[], dimensioneMax:$("#ns-dim").value||"m", attrezzature:d.attrezzature||[],
-    email:($("#ns-email").value||"").trim()||("preventivi@"+slug(name)+".it") };
+function createSupplier(){ const d=App.supDraft||{}; const f=readSupplierForm(d);
+  if(!f.name){ toast("Inserisci la ragione sociale","warn"); $("#ns-name").focus(); return; }
+  const sup=Object.assign({ id:uid("sup"), accredited:true }, f);
+  if(!sup.email) sup.email="preventivi@"+slug(f.name)+".it";
   STATE.suppliers.push(sup); App.supDraft=null; persist(); closeModal();
   toast("Fornitore accreditato","ok"); openSupplierModal(sup.id);
+}
+function openEditSupplier(sid){
+  if(isCapo(currentUser())){ toast("Solo il responsabile di produzione può modificare la scheda","warn"); return; }
+  const s=supplier(sid); if(!s) return;
+  const d=App.supDraft={ name:s.name, citta:s.citta, referente:s.referente, email:s.email, capacitaMese:s.capacitaMese,
+    costoOrario:s.costoOrario, cablatori:s.cablatori, risorseDedicate:s.risorseDedicate, dimensioneMax:s.dimensioneMax,
+    attivo:s.attivo, note:s.note, preferenze:Object.assign({}, s.preferenze||{}),
+    specialties:(s.specialties||[]).slice(), settori:(s.settori||[]).slice(), certificazioni:(s.certificazioni||[]).slice(), attrezzature:(s.attrezzature||[]).slice() };
+  openModal(`${modalHead("Modifica fornitore")}
+    <p class="muted" style="font-size:13px;margin-top:0">Aggiorna i dati del terzista: alimentano suggerimenti, mappa, carico e collo di bottiglia.</p>
+    ${supplierFormFields(d)}
+    <button class="btn accent block" data-act="saveSup" data-sup="${sid}">${icon("check")} Salva modifiche</button>`);
+}
+function saveSupplier(sid){ if(isCapo(currentUser())){ toast("Solo il responsabile di produzione può modificare la scheda","warn"); return; }
+  const s=supplier(sid); if(!s) return; const d=App.supDraft||{}; const f=readSupplierForm(d);
+  if(!f.name){ toast("Inserisci la ragione sociale","warn"); $("#ns-name").focus(); return; }
+  Object.assign(s, f); if(!s.email) s.email="preventivi@"+slug(f.name)+".it";
+  App.supDraft=null; persist(); closeModal(); toast("Scheda fornitore aggiornata","ok"); openSupplierModal(sid);
 }
 function openSupJobs(sid){ closeModal(); App.filters={q:"",stato:"",tipologia:"",settore:"",capo:"",fornitore:sid,late:false}; App.tab="lavori"; App.page=1; App.lavoriMode="table"; render(); window.scrollTo(0,0); }
 function openAttachment(jid,aid){ const j=byId(STATE.jobs,jid); const a=(j.allegati||[]).find(x=>x.id===aid); if(!a) return;
@@ -2050,7 +2098,7 @@ function openSupplierModal(sid){ const s=supplier(sid); if(!s) return;
     ${s.note?`<div class="dl"><span class="k">Note</span><span class="v" style="font-weight:400;line-height:1.45">${esc(s.note)}</span></div>`:""}
     ${metricsCardHtml(sid)}
     <div class="divide"></div>
-    <div class="btn-row"><button class="btn ghost" data-act="emailSup" data-sup="${sid}">${icon("mail","sm")} Email</button><button class="btn" data-act="supJobs" data-sup="${sid}">Commesse del fornitore</button></div>`);
+    <div class="btn-row">${!isCapo(currentUser())?`<button class="btn accent" data-act="editSup" data-sup="${sid}">${icon("doc","sm")} Modifica scheda</button>`:""}<button class="btn ghost" data-act="emailSup" data-sup="${sid}">${icon("mail","sm")} Email</button><button class="btn ghost" data-act="supJobs" data-sup="${sid}">Commesse del fornitore</button></div>`);
 }
 
 /* ============================ AZIONI ============================ */
@@ -2395,6 +2443,8 @@ document.addEventListener("click",e=>{
     case "supDetail": openSupplierModal(el.dataset.sup); break;
     case "newSup": openNewSupplier(); break;
     case "createSup": createSupplier(); break;
+    case "editSup": openEditSupplier(el.dataset.sup); break;
+    case "saveSup": saveSupplier(el.dataset.sup); break;
     case "newUser": openNewUser(); break;
     case "doCreateUser": createUser(); break;
     case "nuRole": { App.userDraft=App.userDraft||{}; App.userDraft.role=el.dataset.v;
