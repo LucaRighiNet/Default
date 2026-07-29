@@ -728,10 +728,10 @@ function seed(){
   const active=jobs.filter(j=>j.assegnatoA&&(j.stato==="assegnato"||j.stato==="in_corso"));
   const genTypes=["dubbio","materiale","sopralluogo","collaudo","altro"];
   for(let i=0;i<10;i++){ const j=active[Math.floor(rng()*active.length)]; const tp=pick(genTypes);
-    requests.push({id:uid("q"),jobId:j.id,supplierId:j.assegnatoA,tipo:tp,testo:tp==="materiale"?"Mancano alcuni morsetti sezionabili.":tp==="dubbio"?"Siglatura morsetti non chiara sul foglio 4.":"",at:dISO(-Math.floor(rng()*3))+"T"+(8+i)+":30",stato:i<6?"aperta":"presa",capoId:j.capoId,from:"fornitore",read:i>=6}); }
+    requests.push({id:"qs"+requests.length,jobId:j.id,supplierId:j.assegnatoA,tipo:tp,testo:tp==="materiale"?"Mancano alcuni morsetti sezionabili.":tp==="dubbio"?"Siglatura morsetti non chiara sul foglio 4.":"",at:dISO(-Math.floor(rng()*3))+"T"+(8+i)+":30",stato:i<6?"aperta":"presa",capoId:j.capoId,from:"fornitore",read:i>=6}); }
   // richieste di slittamento aperte (da approvare)
   for(let i=0;i<3;i++){ const j=active[Math.floor(rng()*active.length)]; if(!j) continue;
-    requests.push({id:uid("q"),jobId:j.id,supplierId:j.assegnatoA,tipo:"slittamento",testo:"Ritardo nella fornitura del materiale dal nostro fornitore.",dataProposta:addDays(j.dataRientro,7+Math.floor(rng()*7)),esito:null,at:dISO(-Math.floor(rng()*2))+"T10:1"+i,stato:"aperta",capoId:j.capoId,from:"fornitore",read:false}); }
+    requests.push({id:"qs"+requests.length,jobId:j.id,supplierId:j.assegnatoA,tipo:"slittamento",testo:"Ritardo nella fornitura del materiale dal nostro fornitore.",dataProposta:addDays(j.dataRientro,7+Math.floor(rng()*7)),esito:null,at:dISO(-Math.floor(rng()*2))+"T10:1"+i,stato:"aperta",capoId:j.capoId,from:"fornitore",read:false}); }
   // slittamenti già approvati in passato: storico sul RIENTRO (~15% delle commesse attive)
   active.filter(()=>rng()<0.15).forEach(j=>{ const orig=addDays(j.dataRientro,-(5+Math.floor(rng()*8))); j.dataRientroBase=orig;
     j.storicoDate.push({from:orig,to:j.dataRientro,byRole:"caposquadra",by:j.capoId,at:dISO(-(3+Math.floor(rng()*20))),motivo:"Slittamento concordato",tipo:"slittamento"}); });
@@ -797,7 +797,8 @@ function resolveMagicLink(){
   const p={}; h.split("&").forEach(kv=>{ const i=kv.indexOf("="); const k=i<0?kv:kv.slice(0,i), v=i<0?"":kv.slice(i+1); if(k){ try{ p[decodeURIComponent(k)]=decodeURIComponent(v); }catch(e){ p[k]=v; } } });
   try{ history.replaceState(null,"",(location.href||"").split("#")[0]); }catch(e){ try{ location.hash=""; }catch(_){} }
   if(p.c||p.q) App._deepLink={ code:p.c||null, req:p.q||null };
-  if(p.f){ const u=ensureSupplierUser(p.f); if(u) setSession(u.id); }
+  if(p.f){ const u=ensureSupplierUser(p.f); if(u) setSession(u.id); }        // link personale del fornitore
+  else if(p.u && byId(STATE.users,p.u)) setSession(p.u);                     // link personale di un utente Righi (es. caposquadra)
 }
 // dopo il render iniziale (o dopo login manuale col link generico): apre la commessa/richiesta del link
 function openDeepLinkTarget(){ const d=App._deepLink; const u=currentUser(); if(!d||!u) return; App._deepLink=null;
@@ -2147,26 +2148,44 @@ function doPublish(jid){ const j=byId(STATE.jobs,jid); if(!j) return; j.stato="p
 function notifyJob(j, supplierIds){
   supplierIds.forEach(sid=>{ const usr=STATE.users.find(u=>u.supplierId===sid); if(usr) STATE.notifications.push({id:uid("n"),toUser:usr.id,ic:"bolt",txt:"Nuovo lavoro: "+j.title,sub:j.code+" · "+fmtMoney(j.budget),jobId:j.id,at:new Date().toISOString().slice(0,16),read:false}); });
 }
+function copyText(txt){ if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(()=>toast("Copiato negli appunti","ok"),()=>toast("Copia non riuscita","warn")); else toast("Copia non supportata su questo dispositivo","warn"); }
+// corpo personalizzato per un singolo fornitore dell'invio massivo: intro comune + SUO link diretto
+function bulkPersonalBody(intro, sid, code){
+  return intro+"\n\nAccedi al portale e rispondi direttamente qui (un clic, nessuna password):\n"
+    +portalLink({f:sid,c:code})+"\n\nRighi Solutions — Ufficio Subappalti";
+}
 function emailJobToSuppliers(j, supplierIds){
-  const emails=supplierIds.map(id=>supplier(id)).filter(Boolean).map(s=>s.email);
-  if(!emails.length) return;
-  const body="Buongiorno,\n\nRighi Solutions propone un nuovo lavoro sul Portale Fornitori:\n\n"
+  const recips=supplierIds.map(id=>supplier(id)).filter(s=>s&&s.email).map(s=>({email:s.email,sid:s.id,name:s.name}));
+  if(!recips.length) return;
+  const intro="Buongiorno,\n\nRighi Solutions propone un nuovo lavoro sul Portale Fornitori:\n\n"
     +"Commessa: "+j.code+" — "+j.title+"\nTipologia: "+TIPOLOGIE[j.tipologia].label+"\nSettore: "+j.settore
-    +"\nBudget indicativo: "+fmtMoney(j.budget)+"\nInizio lavori stimato: "+fmtDate(j.dataInizioStimata)+"\nRientro in Righi richiesto: "+fmtDate(j.dataRientro)
-    +"\n\nAccedete al portale per vedere il layout, accettare o porre domande:\n"+portalLink({c:j.code})
-    +"\n\nRighi Solutions — Ufficio Subappalti";
-  openEmailModal(emails, "["+j.code+"] Nuovo lavoro: "+j.title+" · rispondi nel portale", body);
+    +"\nBudget indicativo: "+fmtMoney(j.budget)+"\nInizio lavori stimato: "+fmtDate(j.dataInizioStimata)+"\nRientro in Righi richiesto: "+fmtDate(j.dataRientro);
+  openBulkEmailModal(recips, "["+j.code+"] Nuovo lavoro: "+j.title+" · rispondi nel portale", intro, j.code);
+}
+// Invio a più fornitori: un messaggio PERSONALE per ciascuno, col proprio link diretto (nessuno atterra sul login).
+// Ogni destinatario riceve solo il suo indirizzo — non vede gli altri.
+function openBulkEmailModal(recips, subject, intro, code){
+  App._emailBulk={subject, code, recips};
+  const rows=recips.map((r,i)=>`<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--line)">
+      <span style="flex:1;word-break:break-all;font-size:13px">${esc(r.email)}</span>
+      <button class="btn ghost sm" data-act="bulkOpenOne" data-idx="${i}">${icon("mail","sm")} Apri</button>
+      <button class="btn ghost sm" data-act="bulkCopyOne" data-idx="${i}">${icon("copy","sm")} Copia</button>
+    </div>`).join("");
+  openModal(`${modalHead("Prepara email ai fornitori")}
+    <div class="card leftbar" style="border-left:4px solid var(--ok);margin:0 0 10px;padding:8px 12px"><span style="font-size:12.5px;color:var(--ink-soft)">${icon("check","sm")} <b>${recips.length} messaggi personalizzati</b> — ogni fornitore riceve il <b>suo</b> link diretto (lo porta sulla commessa già riconosciuto, senza login) e non vede gli indirizzi degli altri.</span></div>
+    <div class="dl"><span class="k">Oggetto</span><span class="v">${esc(subject)}</span></div>
+    <div class="field"><label>Messaggio comune (a ciascuno viene aggiunto il suo link personale)</label><textarea class="inp" id="em-body" style="min-height:130px">${esc(intro)}</textarea></div>
+    <div class="sect-t" style="margin-top:6px">Destinatari</div>
+    <div>${rows}</div>
+    <div class="btn-row" style="margin-top:12px">
+      <button class="btn accent" data-act="bulkCopyAll">${icon("copy","sm")} Copia tutti i messaggi</button>
+    </div>
+    <p class="muted" style="font-size:12px;margin:10px 0 0">Nel prototipo prepari qui i messaggi (uno per fornitore, ognuno col suo link). In produzione l'invio personalizzato è automatico lato server — vedi la Guida.</p>`);
 }
 function openEmailModal(to, subject, body){
-  const arr=(Array.isArray(to)?to:[to]).filter(Boolean); const blast=arr.length>1;
-  // più fornitori: copia nascosta (Ccn) — non devono vedere gli indirizzi degli altri
-  App._email = blast ? {to:"", bcc:arr, subject, body} : {to:arr[0]||"", subject, body};
-  const recipHtml = blast
-    ? `<div class="dl"><span class="k">Ccn (copia nascosta)</span><span class="v" style="word-break:break-all">${esc(arr.join(", "))}</span></div>
-       <div class="card leftbar" style="border-left:4px solid var(--ok);margin:2px 0 10px;padding:8px 12px"><span style="font-size:12.5px;color:var(--ink-soft)">${icon("check","sm")} <b>${arr.length} destinatari in copia nascosta</b> — ogni fornitore non vede gli indirizzi degli altri.</span></div>`
-    : `<div class="dl"><span class="k">A</span><span class="v" style="word-break:break-all">${esc(arr[0]||"")}</span></div>`;
+  App._email = {to:(Array.isArray(to)?to[0]:to)||"", subject, body};
   openModal(`${modalHead("Prepara email")}
-    ${recipHtml}
+    <div class="dl"><span class="k">A</span><span class="v" style="word-break:break-all">${esc(App._email.to)}</span></div>
     <div class="dl"><span class="k">Oggetto</span><span class="v">${esc(subject)}</span></div>
     <div class="field"><label>Messaggio</label><textarea class="inp" id="em-body" style="min-height:150px">${esc(body)}</textarea></div>
     <div class="btn-row">
@@ -2288,8 +2307,11 @@ function doQuickReq(jid){ const u=currentUser(); const j=byId(STATE.jobs,jid); i
   if(App.qr.foto) req.foto=App.qr.foto;
   STATE.requests.push(req);
   const wantEmail=App.qr.email; persist(); closeModal(); toast(App.qr.tipo==="slittamento"?"Richiesta di slittamento inviata":"Richiesta inviata al caposquadra","ok"); render();
-  if(wantEmail && c && c.email){ const body="Buongiorno "+c.name+",\n\nsegnalazione dal Portale Fornitori:\n\nCommessa: "+j.code+" — "+j.title+"\nTipo: "+tp.label+(req.dataProposta?("\nNuova data proposta: "+fmtDate(req.dataProposta)):"")+(note?("\nDettaglio: "+note):"")+"\nFornitore: "+(supplier(u.supplierId)||{}).name+"\n\nGrazie.";
-    openEmailModal(c.email, "["+j.code+"] "+tp.label, body); }
+  if(wantEmail && c && c.email){ const cu=STATE.users.find(x=>x.capoId===c.id);
+    const link=portalLink(cu?{u:cu.id,q:req.id,c:j.code}:{q:req.id,c:j.code});
+    const body="Buongiorno "+c.name+",\n\nsegnalazione dal Portale Fornitori:\n\nCommessa: "+j.code+" — "+j.title+"\nTipo: "+tp.label+(req.dataProposta?("\nNuova data proposta: "+fmtDate(req.dataProposta)):"")+(note?("\nDettaglio: "+note):"")+"\nFornitore: "+(supplier(u.supplierId)||{}).name
+      +"\n\nApri la richiesta nel portale e rispondi qui (un clic):\n"+link+"\n\nGrazie.";
+    openEmailModal(c.email, "["+j.code+"] "+tp.label+" · gestisci nel portale", body); }
 }
 // Cambio data di RIENTRO: registra storico, sovrascrive, notifica il fornitore
 function applyDateChange(j, newDate, motivo, byRole, byUser){
@@ -2537,8 +2559,11 @@ document.addEventListener("click",e=>{
     case "emailSup": { const s=supplier(el.dataset.sup); if(s) openEmailModal(s.email,"Righi Solutions — Portale Fornitori · accedi e rispondi",portalEmailBody(s.referente,"",portalLink({f:s.id}))); break; }
     case "emailJobSup": { const j=byId(STATE.jobs,el.dataset.job); const s=j&&supplier(j.assegnatoA); if(s) openEmailModal(s.email,"["+j.code+"] "+j.title+" · rispondi nel portale",portalEmailBody(s.referente,"In merito alla commessa "+j.code+" — "+j.title+".",portalLink({f:s.id,c:j.code}))); break; }
     case "emailReq": { const rq=byId(STATE.requests,el.dataset.id); const j=rq&&byId(STATE.jobs,rq.jobId); const s=rq&&supplier(rq.supplierId); if(s) openEmailModal(s.email,"["+(j?j.code:"")+"] "+REQ_TYPES[rq.tipo].label+" · rispondi nel portale",portalEmailBody(s.referente,"In merito alla sua segnalazione ("+REQ_TYPES[rq.tipo].label+") sulla commessa "+(j?j.code:"")+".",portalLink({f:s.id,q:rq.id,c:(j?j.code:null)}))); break; }
-    case "openEmailClient": { const em=App._email||{}; const bd=($("#em-body")||{}).value||em.body||""; const a=document.createElement("a"); a.href=mailto(em.to,em.subject,bd,null,em.bcc); a.target="_blank"; a.rel="noopener"; a.style.display="none"; document.body.appendChild(a); a.click(); setTimeout(()=>a.remove(),0); break; }
-    case "copyEmail": { const em=App._email||{}; const bd=($("#em-body")||{}).value||em.body||""; const dest=(em.bcc&&em.bcc.length)?("Ccn: "+em.bcc.join(", ")):("A: "+(em.to||"")); const txt=dest+"\nOggetto: "+em.subject+"\n\n"+bd; if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(()=>toast("Email copiata negli appunti","ok"),()=>toast("Copia non riuscita","warn")); else toast("Copia non supportata su questo dispositivo","warn"); break; }
+    case "openEmailClient": { const em=App._email||{}; const bd=($("#em-body")||{}).value||em.body||""; const a=document.createElement("a"); a.href=mailto(em.to,em.subject,bd); a.target="_blank"; a.rel="noopener"; a.style.display="none"; document.body.appendChild(a); a.click(); setTimeout(()=>a.remove(),0); break; }
+    case "copyEmail": { const em=App._email||{}; const bd=($("#em-body")||{}).value||em.body||""; copyText("A: "+(em.to||"")+"\nOggetto: "+em.subject+"\n\n"+bd); break; }
+    case "bulkOpenOne": { const bk=App._emailBulk||{}; const r=(bk.recips||[])[+el.dataset.idx]; if(!r) break; const intro=($("#em-body")||{}).value||""; const a=document.createElement("a"); a.href=mailto(r.email,bk.subject,bulkPersonalBody(intro,r.sid,bk.code)); a.target="_blank"; a.rel="noopener"; a.style.display="none"; document.body.appendChild(a); a.click(); setTimeout(()=>a.remove(),0); break; }
+    case "bulkCopyOne": { const bk=App._emailBulk||{}; const r=(bk.recips||[])[+el.dataset.idx]; if(!r) break; const intro=($("#em-body")||{}).value||""; copyText("A: "+r.email+"\nOggetto: "+bk.subject+"\n\n"+bulkPersonalBody(intro,r.sid,bk.code)); break; }
+    case "bulkCopyAll": { const bk=App._emailBulk||{}; const intro=($("#em-body")||{}).value||""; const txt=(bk.recips||[]).map(r=>"A: "+r.email+"\nOggetto: "+bk.subject+"\n\n"+bulkPersonalBody(intro,r.sid,bk.code)).join("\n\n----------------------------------------\n\n"); copyText(txt); break; }
     case "exportOrders": exportOrders(); break;
     case "dlTemplate": dlTemplate(); break;
   }

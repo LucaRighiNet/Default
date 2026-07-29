@@ -98,12 +98,14 @@ Regole di sicurezza (il link **è** una credenziale al portatore):
 - Token legato al destinatario: un link rubato vale solo per quel `user_id`, e il
   primo redeem può fissare il device.
 
-**Invio a più fornitori.** Nel client, l'e-mail in Ccn è unica e condivisa: il link
-generico porta al portale ma non può identificare il singolo (una sola sessione non
-può valere per tutti). In produzione l'invio è **server-side, un messaggio per
-fornitore**, ciascuno con il **proprio** token personale: così anche l'e-mail di
-gruppo diventa un magic link individuale, e i destinatari continuano a non vedersi
-tra loro.
+**Invio a più fornitori.** Nessun destinatario deve atterrare sul login, quindi il
+link è **sempre personale**: già nel client l'invio massivo prepara **un messaggio
+per fornitore**, ciascuno col **proprio** link diretto (`#f=<supplier>&c=<commessa>`)
+e col solo indirizzo del destinatario — così ognuno arriva sulla commessa già
+riconosciuto e non vede gli altri. In produzione questo diventa l'invio
+**server-side automatico**, un messaggio per fornitore con il **proprio token
+firmato**. (Un eventuale link *senza* identità — condiviso a mano — è solo un
+ripiego: porta alla schermata di accesso, poi apre comunque la commessa.)
 
 ## 2. Modello dati (Postgres)
 

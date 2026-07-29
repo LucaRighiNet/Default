@@ -97,14 +97,17 @@ fornitori** i destinatari vanno in **copia nascosta (Ccn)**: ogni terzista non
 vede gli indirizzi degli altri. L'invio automatico lato server è la naturale
 evoluzione (vedi `BACKEND.md`).
 
-**Link diretto al portale (magic link)**: ogni email al fornitore contiene, nel
-corpo, un **link che apre il portale già identificati e sulla commessa (o
-richiesta) giusta** — un solo clic, niente password. Serve a portare dentro al
+**Link diretto al portale (magic link)**: ogni email contiene, nel corpo, un
+**link che apre il portale già identificati e direttamente sulla pagina finale**
+— la commessa da accettare, la richiesta da gestire — pronta all'azione, **senza
+passare dal login**. Un solo clic, niente password. Serve a portare dentro al
 portale anche chi è abituato a lavorare via email: dall'email si arriva subito al
-punto in cui rispondere. Il link personale porta direttamente in sessione;
-l'email di gruppo (Ccn) porta un link generico alla commessa e chiede prima di
-riconoscersi. Nel prototipo l'accesso è sul dispositivo; in produzione il link
-porta un **token firmato e a scadenza** verificato dal server (vedi `BACKEND.md`).
+punto in cui rispondere. Anche l'invio a **più fornitori** è personalizzato: ogni
+destinatario riceve il **suo** link diretto (e non vede gli indirizzi degli
+altri), così nessuno finisce sul login. Il link vale sia per i fornitori sia per
+gli utenti Righi (es. il caposquadra che apre una richiesta da gestire). Nel
+prototipo l'accesso è sul dispositivo; in produzione il link porta un **token
+firmato e a scadenza** verificato dal server (vedi `BACKEND.md`).
 
 **Visibilità dei lavori**: un fornitore vede i lavori proposti secondo la
 visibilità (*tutti* o *selezionati*), ma **appena un lavoro viene assegnato
