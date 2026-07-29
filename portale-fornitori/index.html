@@ -770,6 +770,43 @@ let _mCache=new Map(), _mCacheVer=-1, _mCacheState=null;
 function metricsCache(){ if(_mCacheVer!==_stateVer || _mCacheState!==STATE){ _mCache.clear(); _mCacheVer=_stateVer; _mCacheState=STATE; } return _mCache; }
 function setSession(userId){ Session = userId?{userId}:null; try{ Storage.set(SESSKEY, JSON.stringify(Session)); }catch(e){} }
 
+/* ---- Link diretto (magic link) nelle email ------------------------------------
+   Porta il fornitore dentro al portale, gia' identificato, sulla commessa/richiesta
+   giusta: un clic dall'email e risponde nel portale (niente password nel prototipo).
+   In produzione il link porta un token firmato e a scadenza, verificato lato server
+   (vedi BACKEND.md). L'hash viene ripulito subito: nessuna identita' resta nell'URL. */
+function portalLink(params){
+  const base=(location.href||"").split("#")[0];
+  const q=Object.keys(params||{}).filter(k=>params[k]!=null&&params[k]!=="").map(k=>k+"="+encodeURIComponent(params[k]));
+  return base+(q.length?"#"+q.join("&"):"");
+}
+// corpo email standard con invito a rispondere nel portale + link diretto in evidenza
+function portalEmailBody(referente, contesto, link){
+  return "Buongiorno "+referente+",\n\n"+(contesto?contesto+"\n\n":"")
+    +"Puo' accedere al portale e rispondere direttamente qui (un clic, nessuna password):\n"+link
+    +"\n\nRighi Solutions — Ufficio Subappalti";
+}
+// garantisce un accesso fornitore per il terzista del link (solo alcuni sono pre-creati)
+function ensureSupplierUser(sid){ const s=supplier(sid); if(!s) return null;
+  let u=STATE.users.find(x=>x.supplierId===sid);
+  if(!u){ u={id:"u_link_"+sid, name:s.name, role:"fornitore", supplierId:sid, email:s.email}; STATE.users.push(u); persist(); }
+  return u; }
+// al boot: se l'URL ha #f=<fornitore>&c=<commessa> (o &q=<richiesta>), autentica e memorizza il target
+function resolveMagicLink(){
+  const h=(location.hash||"").replace(/^#/,""); if(!h) return;
+  const p={}; h.split("&").forEach(kv=>{ const i=kv.indexOf("="); const k=i<0?kv:kv.slice(0,i), v=i<0?"":kv.slice(i+1); if(k){ try{ p[decodeURIComponent(k)]=decodeURIComponent(v); }catch(e){ p[k]=v; } } });
+  try{ history.replaceState(null,"",(location.href||"").split("#")[0]); }catch(e){ try{ location.hash=""; }catch(_){} }
+  if(p.c||p.q) App._deepLink={ code:p.c||null, req:p.q||null };
+  if(p.f){ const u=ensureSupplierUser(p.f); if(u) setSession(u.id); }
+}
+// dopo il render iniziale (o dopo login manuale col link generico): apre la commessa/richiesta del link
+function openDeepLinkTarget(){ const d=App._deepLink; const u=currentUser(); if(!d||!u) return; App._deepLink=null;
+  if(d.req){ const r=byId(STATE.requests,d.req); if(r){ App.tab="richieste"; render(); openReqDetail(r.id); return; } }
+  if(d.code){ const j=STATE.jobs.find(x=>x.code===d.code); if(j){
+    App.tab = u.role!=="fornitore" ? "lavori" : (j.assegnatoA===u.supplierId ? "miei" : "bacheca");
+    render(); openJobModal(j.id); } }
+}
+
 const byId = (arr,id)=> arr.find(x=>x.id===id);
 const supplier = id => byId(STATE.suppliers,id);
 const capo = id => byId(STATE.capi,id);
@@ -2116,8 +2153,9 @@ function emailJobToSuppliers(j, supplierIds){
   const body="Buongiorno,\n\nRighi Solutions propone un nuovo lavoro sul Portale Fornitori:\n\n"
     +"Commessa: "+j.code+" — "+j.title+"\nTipologia: "+TIPOLOGIE[j.tipologia].label+"\nSettore: "+j.settore
     +"\nBudget indicativo: "+fmtMoney(j.budget)+"\nInizio lavori stimato: "+fmtDate(j.dataInizioStimata)+"\nRientro in Righi richiesto: "+fmtDate(j.dataRientro)
-    +"\n\nAccedete al portale per visualizzare il layout e accettare o porre domande.\n\nRighi Solutions — Ufficio Subappalti";
-  openEmailModal(emails, "["+j.code+"] Nuovo lavoro: "+j.title, body);
+    +"\n\nAccedete al portale per vedere il layout, accettare o porre domande:\n"+portalLink({c:j.code})
+    +"\n\nRighi Solutions — Ufficio Subappalti";
+  openEmailModal(emails, "["+j.code+"] Nuovo lavoro: "+j.title+" · rispondi nel portale", body);
 }
 function openEmailModal(to, subject, body){
   const arr=(Array.isArray(to)?to:[to]).filter(Boolean); const blast=arr.length>1;
@@ -2391,7 +2429,7 @@ document.addEventListener("click",e=>{
   if(!el) return;
   if(el.hasAttribute("data-close-bg") && e.target===el){ closeModal(); return; }
   if(el.tagName==="A") return; // lascia procedere i mailto/tel
-  if(el.dataset.login){ setSession(el.dataset.login); App.tab=null; App.filters={q:"",stato:"",tipologia:"",settore:"",capo:"",fornitore:"",late:false}; App.fFilters={q:"",stato:""}; closeModal(); render(); return; }
+  if(el.dataset.login){ setSession(el.dataset.login); App.tab=null; App.filters={q:"",stato:"",tipologia:"",settore:"",capo:"",fornitore:"",late:false}; App.fFilters={q:"",stato:""}; closeModal(); render(); openDeepLinkTarget(); return; }
   if(el.dataset.tab && !el.dataset.act){ App.tab=el.dataset.tab; App.page=1; render(); window.scrollTo(0,0); return; }
 
   if(el.dataset.set){ const g=el.dataset.set; App.draft=App.draft||{}; App.draft[g]=el.dataset.v;
@@ -2496,9 +2534,9 @@ document.addEventListener("click",e=>{
     case "rmAtt": App.draft.allegati=(App.draft.allegati||[]).filter(a=>a.id!==el.dataset.id); render(); break;
     case "openAtt": openAttachment(el.dataset.job, el.dataset.att); break;
     case "guide": openGuide(); break;
-    case "emailSup": { const s=supplier(el.dataset.sup); if(s) openEmailModal(s.email,"Righi Solutions — Portale Fornitori","Buongiorno "+s.referente+",\n\n"); break; }
-    case "emailJobSup": { const j=byId(STATE.jobs,el.dataset.job); const s=j&&supplier(j.assegnatoA); if(s) openEmailModal(s.email,"["+j.code+"] "+j.title,"Buongiorno "+s.referente+",\n\nin merito alla commessa "+j.code+" — "+j.title+".\n\n"); break; }
-    case "emailReq": { const rq=byId(STATE.requests,el.dataset.id); const j=rq&&byId(STATE.jobs,rq.jobId); const s=rq&&supplier(rq.supplierId); if(s) openEmailModal(s.email,"["+(j?j.code:"")+"] "+REQ_TYPES[rq.tipo].label,"Buongiorno "+s.referente+",\n\nin merito alla sua segnalazione ("+REQ_TYPES[rq.tipo].label+") sulla commessa "+(j?j.code:"")+".\n\n"); break; }
+    case "emailSup": { const s=supplier(el.dataset.sup); if(s) openEmailModal(s.email,"Righi Solutions — Portale Fornitori · accedi e rispondi",portalEmailBody(s.referente,"",portalLink({f:s.id}))); break; }
+    case "emailJobSup": { const j=byId(STATE.jobs,el.dataset.job); const s=j&&supplier(j.assegnatoA); if(s) openEmailModal(s.email,"["+j.code+"] "+j.title+" · rispondi nel portale",portalEmailBody(s.referente,"In merito alla commessa "+j.code+" — "+j.title+".",portalLink({f:s.id,c:j.code}))); break; }
+    case "emailReq": { const rq=byId(STATE.requests,el.dataset.id); const j=rq&&byId(STATE.jobs,rq.jobId); const s=rq&&supplier(rq.supplierId); if(s) openEmailModal(s.email,"["+(j?j.code:"")+"] "+REQ_TYPES[rq.tipo].label+" · rispondi nel portale",portalEmailBody(s.referente,"In merito alla sua segnalazione ("+REQ_TYPES[rq.tipo].label+") sulla commessa "+(j?j.code:"")+".",portalLink({f:s.id,q:rq.id,c:(j?j.code:null)}))); break; }
     case "openEmailClient": { const em=App._email||{}; const bd=($("#em-body")||{}).value||em.body||""; const a=document.createElement("a"); a.href=mailto(em.to,em.subject,bd,null,em.bcc); a.target="_blank"; a.rel="noopener"; a.style.display="none"; document.body.appendChild(a); a.click(); setTimeout(()=>a.remove(),0); break; }
     case "copyEmail": { const em=App._email||{}; const bd=($("#em-body")||{}).value||em.body||""; const dest=(em.bcc&&em.bcc.length)?("Ccn: "+em.bcc.join(", ")):("A: "+(em.to||"")); const txt=dest+"\nOggetto: "+em.subject+"\n\n"+bd; if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(()=>toast("Email copiata negli appunti","ok"),()=>toast("Copia non riuscita","warn")); else toast("Copia non supportata su questo dispositivo","warn"); break; }
     case "exportOrders": exportOrders(); break;
@@ -2542,7 +2580,9 @@ let _narrow = isNarrow(), _rzt=null;
 window.addEventListener("resize",()=>{ clearTimeout(_rzt); _rzt=setTimeout(()=>{ const n=isNarrow(); if(n!==_narrow){ _narrow=n; if(currentUser()) render(); } },200); });
 
 /* ============================ Boot ============================ */
+resolveMagicLink();   // #f=<fornitore>&c=<commessa>: autentica il fornitore dal link email
 render();
+openDeepLinkTarget(); // apre la commessa/richiesta indicata dal link
 if("serviceWorker" in navigator){ window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{})); }
 </script>
 </body>

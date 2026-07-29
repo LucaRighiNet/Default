@@ -50,6 +50,61 @@ suppliers(id uuid pk, name text, citta text, accredited bool, specialties text[]
 supplier_pref(supplier_id uuid fk suppliers, capo_id uuid fk users, perc int, primary key(supplier_id,capo_id))
 ```
 
+## 1-bis. Deep link nelle email (magic link) — dall'email al portale in un clic
+
+Obiettivo: il fornitore abituato all'e-mail riceve un messaggio e, cliccando **un
+solo link**, entra nel portale **già identificato** e **sulla commessa/richiesta
+giusta**, dove risponde. Zero password, zero ricerca manuale: l'e-mail diventa il
+"gancio" che porta al portale.
+
+**Nel prototipo (client)** il link è un hash non firmato costruito dallo stesso
+device: `…/index.html#f=<supplier_id>&c=<codice_commessa>` (oppure `&q=<richiesta>`).
+Al boot `resolveMagicLink()` legge l'hash, crea/riusa l'utente fornitore, apre la
+sessione locale, ripulisce subito l'hash dall'URL e apre la commessa. È una **demo
+dell'esperienza**, non un meccanismo di sicurezza: l'hash non è segreto e vale solo
+su quel dispositivo.
+
+**In produzione** il link è un **token firmato e a scadenza**, verificato lato
+server. Il link non contiene mai l'`id` in chiaro: contiene solo il token.
+
+```
+magic_links(
+  id uuid pk,
+  token_hash text unique,          -- si salva l'HASH del token (sha256), mai il token in chiaro
+  user_id uuid fk users,           -- a chi concede l'accesso (fornitore)
+  target_type text,                -- 'job' | 'request' | 'home'
+  target_id uuid null,             -- commessa/richiesta da aprire
+  expires_at timestamptz,          -- TTL: 7-14 gg per "vai al portale"; 15 min se apre sessione senza altra verifica
+  single_use bool default false,   -- true per azioni sensibili (approvazioni)
+  used_at timestamptz null,
+  created_by uuid, created_at timestamptz
+)
+```
+
+Flusso: e-mail contiene `https://portale.righinet.com/r/<token>` -> il server cerca
+`sha256(token)` in `magic_links`, verifica **non scaduto** e (se `single_use`) **non
+usato**, imposta il cookie di sessione per `user_id`, marca `used_at`, poi **302**
+verso la pagina profonda (`/commesse/<code>` o `/richieste/<id>`) con il box risposta
+già pronto.
+
+Regole di sicurezza (il link **è** una credenziale al portatore):
+
+- **Solo HTTPS**; non loggare mai l'URL completo; `Referrer-Policy: no-referrer` così
+  il token non esce verso terze parti.
+- **TTL corto** se il click apre direttamente la sessione; per link a lunga vita,
+  al click chiedere una conferma leggera (OTP via e-mail) prima di dare la sessione.
+- **Single-use + rotazione** per link che autorizzano azioni (es. approvazioni).
+- **Rate-limit** e log di IP/device sul redeem; **revoca** possibile (cancella la riga).
+- Token legato al destinatario: un link rubato vale solo per quel `user_id`, e il
+  primo redeem può fissare il device.
+
+**Invio a più fornitori.** Nel client, l'e-mail in Ccn è unica e condivisa: il link
+generico porta al portale ma non può identificare il singolo (una sola sessione non
+può valere per tutti). In produzione l'invio è **server-side, un messaggio per
+fornitore**, ciascuno con il **proprio** token personale: così anche l'e-mail di
+gruppo diventa un magic link individuale, e i destinatari continuano a non vedersi
+tra loro.
+
 ## 2. Modello dati (Postgres)
 
 Il portale è **per-entità** (non whole-document): i lavori sono oggetti condivisi
