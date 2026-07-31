@@ -84,6 +84,17 @@ omonimo: **Approva e pubblica** (diventa visibile ai fornitori, con notifica al
 caposquadra) oppure **Rimanda** con una nota di revisione. Nessun passaggio
 resta scoperto: la commessa rimanda sempre a un'azione possibile.
 
+**Stati della commessa**: il ciclo di vita è **Bozza** (in preparazione, non
+visibile ai fornitori) → **Da approvare** (proposta di un caposquadra in attesa
+del responsabile) → **Da assegnare** (pubblicata ai fornitori, raccoglie le
+accettazioni) → **Assegnato** (affidata a un fornitore: da qui valgono le date
+operative e gli alert di ritardo) → **In corso** (produzione avviata) →
+**Consegnato** (quadro finito rientrato in Righi) → **Chiuso** (archiviata). Il
+badge colorato è lo stesso in bacheca, in cima a ogni commessa e nella guida in
+app, che ora **spiega ogni stato** in una sezione dedicata per ciascun ruolo (il
+fornitore la vede dalla sua prospettiva: *Proposta → In attesa di Righi →
+Assegnata a te → Consegnata*).
+
 **Guida in app**: il pulsante **?** in alto apre una guida **passo-passo**
 diversa per Responsabile, Caposquadra e Fornitore. Quella del **fornitore** è
 esaustiva (bacheca, quotazione, accettazione con firma, avanzamento, richieste
@@ -208,7 +219,9 @@ lo segnala. Serve a decidere dove **aumentare capacità o accreditare** terzisti
   (senza approvazione la consegna è bloccata).
 - **Richieste guidate**: contatta il **caposquadra** seguendo la prassi Righi
   (dubbio tecnico, mancanza materiale, ritardo, chiarimento layout, **richiesta
-  di approvazione consegna**…) — la notifica arriva subito al referente.
+  di approvazione consegna**…) — la notifica arriva subito al referente. Con il
+  tipo **Altro** la nota di testo diventa **obbligatoria** (il campo si segna
+  come tale), così una richiesta generica arriva sempre con una descrizione utile.
 
 **Nuovo utente / accesso**: dalla schermata di accesso o dal menu *cambia
 utente* si crea un nuovo accesso scegliendo il **ruolo** (responsabile,

@@ -503,6 +503,7 @@ const IC = {
   upload:'<path d="M12 15V4m0 0 4 4m-4-4-4 4M5 19h14"/>',
   download:'<path d="M12 4v11m0 0 4-4m-4 4-4-4M5 20h14"/>',
   copy:'<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/>',
+  link:'<path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/>',
 };
 function icon(n,cls){ return '<svg class="svg-ic '+(cls||'')+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(IC[n]||'')+'</svg>'; }
 const LOGO = '<svg class="logomark" viewBox="0 0 48 48" fill="none" aria-hidden="true"><path d="M39 11.5 A19 19 0 1 0 39 36.5" stroke="currentColor" stroke-width="4.6" stroke-linecap="round"/></svg>';
@@ -1828,7 +1829,7 @@ function openQuickReq(jid){ const j=byId(STATE.jobs,jid), c=capo(j.capoId); App.
     <div class="sect-t" style="margin-top:12px">Tipo di richiesta</div>
     <div class="chips" id="qr-types">${Object.entries(REQ_TYPES).map(([k,v])=>`<button class="chip sm" data-qrtype="${k}">${v.label}</button>`).join("")}</div>
     <div class="field hide" id="qr-slip" style="margin-top:12px"><label>Nuova data di rientro proposta</label><input class="inp" id="qr-date" type="date" value="${addDays(j.dataRientro,10)}"><span class="hint">Rientro attuale: ${fmtDate(j.dataRientro)} — lo slittamento va approvato da Righi.</span></div>
-    <div class="field" style="margin-top:12px"><label>Dettaglio (facoltativo)</label><textarea class="inp" id="qr-note" placeholder="Poche parole bastano…"></textarea></div>
+    <div class="field" style="margin-top:12px"><label id="qr-note-lbl">Dettaglio (facoltativo)</label><textarea class="inp" id="qr-note" placeholder="Poche parole bastano…"></textarea></div>
     <div class="field"><label>Foto (facoltativa) — meglio di mille parole</label>
       <div id="qr-foto-prev"></div>
       <label class="btn ghost sm" style="cursor:pointer">${icon("doc","sm")} Allega/scatta foto<input type="file" id="qr-foto" accept="image/*" capture="environment" class="hide"></label></div>
@@ -2054,9 +2055,22 @@ function openGuide(){ const u=currentUser(); const isR=u.role==="righi"; const c
   const step=(n,t,d)=>`<div class="lrow" style="align-items:flex-start"><span class="ic" style="font-weight:700">${n}</span><span class="gr"><b>${t}</b><span class="s" style="white-space:normal">${d}</span></span></div>`;
   const sec=(t,items)=>`<div class="guide-sec"><div class="guide-sec-t">${t}</div><div class="rowlist">${items.map((it,i)=>step(i+1,it[0],it[1])).join("")}</div></div>`;
   const faq=(items)=>`<div class="guide-sec"><div class="guide-sec-t">Domande frequenti</div>${items.map(([q,a])=>`<div class="faq"><b>${q}</b><span>${a}</span></div>`).join("")}</div>`;
+  // Riga "stato -> significato" con lo stesso badge colorato che si vede nell'app
+  const stRow=(pill,label,meaning)=>`<div style="display:flex;gap:10px;align-items:baseline;padding:7px 0;border-top:1px solid var(--line)"><span style="flex:0 0 116px"><span class="pill ${pill} lg">${label}</span></span><span style="white-space:normal;font-size:13px;line-height:1.5;color:var(--ink-soft)">${meaning}</span></div>`;
+  const stJob=(k,meaning)=>stRow(STATI[k].pill,STATI[k].label,meaning);   // badge preso da STATI (coerente con la bacheca)
+  const stateSec=(t,rows,note)=>`<div class="guide-sec"><div class="guide-sec-t">${t}</div><div>${rows.join("")}</div>${note?`<p class="muted" style="font-size:12px;margin:8px 0 0">${note}</p>`:""}</div>`;
   let title, intro, body;
   if(isR && !capo_){ title="Responsabile di produzione"; intro="Come pubblicare i lavori, approvare le proposte dei capisquadra, assegnare e governare i subappalti.";
-    body = sec("Pubblicare un lavoro",[
+    body = stateSec("Gli stati della commessa",[
+      stJob("bozza","In preparazione: non è ancora visibile ai fornitori. La crei tu o entra dall'import massivo."),
+      stJob("da_approvare","Un caposquadra l'ha proposta e aspetta il tuo via libera: la <b>approvi</b> (passa a Da assegnare) oppure la <b>rimandi</b> con una nota."),
+      stJob("pubblicato","Pubblicata e visibile ai fornitori: raccoglie le accettazioni. Chi accetta compare in <i>Da valutare</i>, pronto per l'assegnazione."),
+      stJob("assegnato","Affidata a un fornitore. Da qui valgono le <b>date operative</b> (inizio stimato e rientro) e i relativi alert di ritardo."),
+      stJob("in_corso","La produzione è partita: il fornitore ha iniziato ad aggiornare l'avanzamento."),
+      stJob("consegnato","Il quadro finito è rientrato in Righi."),
+      stJob("chiuso","Pratica completata e archiviata.") ],
+      "È lo stesso badge colorato che vedi sulla bacheca e in cima a ogni commessa.")
+    + sec("Pubblicare un lavoro",[
       ["Componi la commessa","Da <b>Nuovo lavoro</b> imposti titolo, tipologia, settore, <b>lavorazioni industrializzate</b> (multi-scelta), budget, ore stimate, date, caposquadra e alleghi il <b>layout</b> per la quotazione."],
       ["Fornitori suggeriti","Scegliendo <i>solo selezionati</i>, il portale ti propone i terzisti più adatti per specializzazione, capacità libera e puntualità: invitali con un tocco o usa <i>Invita i primi 3</i>."],
       ["Import massivo","In alternativa carichi molte commesse insieme da Excel/CSV (scarica il template): entrano come bozze."],
@@ -2072,7 +2086,15 @@ function openGuide(){ const u=currentUser(); const isR=u.role==="righi"; const c
       ["Esporta per l'ERP","Da Commesse esporti gli ordini accettati in CSV per l'emissione ordine in amministrazione."],
       ["Duplica","Da ogni commessa puoi crearne una nuova identica cambiando solo layout e date."] ]); }
   else if(isR && capo_){ title="Caposquadra"; intro="Come seguire le tue commesse, proporne di nuove per l'approvazione e restare in contatto con i fornitori.";
-    body = sec("Le tue commesse",[
+    body = stateSec("Gli stati della commessa",[
+      stJob("bozza","La stai preparando: è solo tua, non ancora inviata."),
+      stJob("da_approvare","Inviata al responsabile: aspetta il suo via libera. Se la <b>rimanda</b>, la ritrovi con la nota <i>Da rivedere</i> e puoi correggerla e reinviarla."),
+      stJob("pubblicato","Approvata e pubblicata ai fornitori: sta raccogliendo le accettazioni."),
+      stJob("assegnato","Il responsabile l'ha affidata a un fornitore: da qui la segui."),
+      stJob("in_corso","Produzione in corso: il fornitore aggiorna l'avanzamento."),
+      stJob("consegnato","Quadro finito rientrato in Righi.") ],
+      "È lo stesso badge colorato che vedi in Dashboard e in cima a ogni commessa.")
+    + sec("Le tue commesse",[
       ["Vista filtrata","In Dashboard e Commesse vedi solo i lavori di cui sei caposquadra di riferimento."],
       ["Carico di tutti i fornitori","In <b>Fornitori</b> vedi l'istogramma del carico di <b>tutti</b> i terzisti: utile per capire chi è libero prima di proporre un lavoro."] ])
     + sec("Proporre un nuovo lavoro",[
@@ -2098,6 +2120,11 @@ function openGuide(){ const u=currentUser(); const isR=u.role==="righi"; const c
       ["Avanzamento a un tocco","Dal dettaglio aggiorni lo stato con un tocco, in ordine: <i>materiale ricevuto, cablaggio, collaudo, pronto al ritiro</i>. Righi vede subito a che punto sei."],
       ["Consegna con approvazione","Quando il lavoro è pronto premi <b>Pronto alla consegna — chiedi approvazione</b>: il caposquadra la approva e solo allora compare <b>Segna consegnato</b>. Senza approvazione <b>non puoi consegnare</b>."],
       ["Consegna in ritardo","Se una consegna è vicina o superata è evidenziata: comunica per tempo (vedi sotto) per concordare una nuova data."] ])
+    + stateSec("Gli stati che vedi",[
+      stRow("info","Proposta","È sulla tua bacheca: puoi <b>accettarla</b> o fare una domanda. Non vedi le bozze né i lavori affidati ad altri."),
+      stRow("warn","In attesa di Righi","Hai accettato e firmato: ora decide Righi, che assegna la commessa. Ricevi una notifica quando lo fa."),
+      stRow("ok","Assegnata a te","Righi ti ha affidato il lavoro: aggiorni l'avanzamento (materiale, cablaggio, collaudo, pronto) e a fine lavoro <b>chiedi l'approvazione a consegnare</b>."),
+      stRow("brand","Consegnata","Hai riconsegnato il quadro finito a Righi.") ])
     + sec("4 · Comunica con il caposquadra",[
       ["Richieste guidate","Da <b>Richieste guidate</b> scegli la commessa e il tipo di richiesta (dubbio tecnico, mancanza materiale, segnalazione ritardo, chiarimento layout/sopralluogo, pronto per collaudo/ritiro): niente testo libero, la notifica arriva subito al caposquadra."],
       ["Allega una foto","Puoi allegare una <b>foto</b> dal cantiere (es. una morsettiera o un materiale mancante) invece di descriverla a parole."],
@@ -2166,16 +2193,19 @@ function emailJobToSuppliers(j, supplierIds){
 // Ogni destinatario riceve solo il suo indirizzo — non vede gli altri.
 function openBulkEmailModal(recips, subject, intro, code){
   App._emailBulk={subject, code, recips};
-  const rows=recips.map((r,i)=>`<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--line)">
-      <span style="flex:1;word-break:break-all;font-size:13px">${esc(r.email)}</span>
-      <button class="btn ghost sm" data-act="bulkOpenOne" data-idx="${i}">${icon("mail","sm")} Apri</button>
-      <button class="btn ghost sm" data-act="bulkCopyOne" data-idx="${i}">${icon("copy","sm")} Copia</button>
+  const rows=recips.map((r,i)=>`<div style="padding:8px 0;border-bottom:1px solid var(--line)">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="flex:1;word-break:break-all;font-size:13px">${esc(r.email)}</span>
+        <button class="btn ghost sm" data-act="bulkOpenOne" data-idx="${i}">${icon("mail","sm")} Apri</button>
+        <button class="btn ghost sm" data-act="bulkCopyOne" data-idx="${i}">${icon("copy","sm")} Copia</button>
+      </div>
+      <div style="font-size:11px;color:var(--accent-deep);word-break:break-all;margin-top:3px">${icon("link","sm")} link personale: ${esc(portalLink({f:r.sid,c:code}))}</div>
     </div>`).join("");
   openModal(`${modalHead("Prepara email ai fornitori")}
     <div class="card leftbar" style="border-left:4px solid var(--ok);margin:0 0 10px;padding:8px 12px"><span style="font-size:12.5px;color:var(--ink-soft)">${icon("check","sm")} <b>${recips.length} messaggi personalizzati</b> — ogni fornitore riceve il <b>suo</b> link diretto (lo porta sulla commessa già riconosciuto, senza login) e non vede gli indirizzi degli altri.</span></div>
     <div class="dl"><span class="k">Oggetto</span><span class="v">${esc(subject)}</span></div>
     <div class="field"><label>Messaggio comune (a ciascuno viene aggiunto il suo link personale)</label><textarea class="inp" id="em-body" style="min-height:130px">${esc(intro)}</textarea></div>
-    <div class="sect-t" style="margin-top:6px">Destinatari</div>
+    <div class="sect-t" style="margin-top:6px">Destinatari — ognuno con il suo link diretto</div>
     <div>${rows}</div>
     <div class="btn-row" style="margin-top:12px">
       <button class="btn accent" data-act="bulkCopyAll">${icon("copy","sm")} Copia tutti i messaggi</button>
@@ -2302,6 +2332,7 @@ function doAsk(jid){ const u=currentUser(); const t=$("#ask-t").value.trim(); if
 }
 function doQuickReq(jid){ const u=currentUser(); const j=byId(STATE.jobs,jid); if(!App.qr||!App.qr.tipo){ toast("Scegli il tipo di richiesta","warn"); return; }
   const note=$("#qr-note").value.trim(); const c=capo(j.capoId); const tp=REQ_TYPES[App.qr.tipo];
+  if(App.qr.tipo==="altro" && !note){ toast("Per \"Altro\" specifica meglio il problema o la richiesta","warn"); const n=$("#qr-note"); if(n) n.focus(); return; }
   const req={id:uid("q"),jobId:jid,supplierId:u.supplierId,tipo:App.qr.tipo,testo:note,at:new Date().toISOString().slice(0,16),stato:"aperta",capoId:j.capoId,from:"fornitore",read:false};
   if(App.qr.tipo==="slittamento"){ const d=$("#qr-date")?$("#qr-date").value:""; if(!d){ toast("Indica la nuova data proposta","warn"); return; } req.dataProposta=d; req.esito=null; }
   if(App.qr.foto) req.foto=App.qr.foto;
@@ -2459,7 +2490,8 @@ document.addEventListener("click",e=>{
     return; }
   if(el.dataset.toggle==="inv"){ App.draft=App.draft||{invitati:[]}; App.draft.invitati=App.draft.invitati||[];
     const id=el.dataset.v; const i=App.draft.invitati.indexOf(id); if(i<0) App.draft.invitati.push(id); else App.draft.invitati.splice(i,1); el.classList.toggle("on"); return; }
-  if(el.dataset.qrtype){ App.qr=App.qr||{}; App.qr.tipo=el.dataset.qrtype; $$("#qr-types .chip").forEach(c=>c.classList.remove("on","accent")); el.classList.add("on","accent"); const b=$("#qr-send"); if(b) b.disabled=false; const slip=$("#qr-slip"); if(slip) slip.classList.toggle("hide", el.dataset.qrtype!=="slittamento"); return; }
+  if(el.dataset.qrtype){ App.qr=App.qr||{}; App.qr.tipo=el.dataset.qrtype; $$("#qr-types .chip").forEach(c=>c.classList.remove("on","accent")); el.classList.add("on","accent"); const b=$("#qr-send"); if(b) b.disabled=false; const slip=$("#qr-slip"); if(slip) slip.classList.toggle("hide", el.dataset.qrtype!=="slittamento");
+    const isAltro=el.dataset.qrtype==="altro"; const lbl=$("#qr-note-lbl"); if(lbl) lbl.textContent=isAltro?"Dettaglio (obbligatorio)":"Dettaglio (facoltativo)"; const nt=$("#qr-note"); if(nt) nt.placeholder=isAltro?"Descrivi il problema o la richiesta…":"Poche parole bastano…"; return; }
   if(el.dataset.np){ const id=el.dataset.np; if(App.notifySel.has(id)) App.notifySel.delete(id); else App.notifySel.add(id); el.classList.toggle("on"); return; }
 
   if(el.dataset.job && !el.dataset.act){ openJobModal(el.dataset.job); return; }
