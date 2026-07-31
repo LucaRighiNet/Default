@@ -108,6 +108,21 @@ fornitori** i destinatari vanno in **copia nascosta (Ccn)**: ogni fornitore non
 vede gli indirizzi degli altri. L'invio automatico lato server è la naturale
 evoluzione (vedi `BACKEND.md`).
 
+**Risposte al fornitore — avviso automatico**: quando Righi invia una **risposta
+rapida**, approva/rifiuta uno **slittamento** o l'**approvazione a consegnare**,
+il fornitore riceve *due* cose: la **notifica nel portale** e, in automatico,
+un'**email di avviso** che contiene il testo della risposta e il **link diretto**
+a quella richiesta. Così anche chi vive nella posta elettronica vede la risposta
+e con un clic torna nel portale per replicare. L'avviso si può disattivare per la
+singola richiesta con l'interruttore *Avviso automatico via email*; la notifica
+in app parte comunque. Nel prototipo l'email si apre già compilata nel programma
+di posta (basta premere Invia); in produzione parte da sola lato server.
+
+**Consegna delle notifiche garantita**: le notifiche ai fornitori venivano perse
+se il fornitore non aveva ancora un accesso al portale (solo alcuni sono
+pre-creati nella demo). Ora l'accesso viene creato al volo, quindi assegnazioni,
+risposte, cambi data ed esiti arrivano **sempre** al destinatario.
+
 **Link diretto al portale (magic link)**: ogni email contiene, nel corpo, un
 **link che apre il portale già identificati e direttamente sulla pagina finale**
 — la commessa da accettare, la richiesta da gestire — pronta all'azione, **senza

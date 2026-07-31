@@ -792,6 +792,34 @@ function ensureSupplierUser(sid){ const s=supplier(sid); if(!s) return null;
   let u=STATE.users.find(x=>x.supplierId===sid);
   if(!u){ u={id:"u_link_"+sid, name:s.name, role:"fornitore", supplierId:sid, email:s.email}; STATE.users.push(u); persist(); }
   return u; }
+// Notifica in app al fornitore. Consegna GARANTITA: se il fornitore non ha ancora
+// un accesso al portale viene creato al volo (prima le notifiche andavano perse).
+function notifySupplier(sid, o){ const usr=ensureSupplierUser(sid); if(!usr) return null;
+  const n={id:uid("n"),toUser:usr.id,ic:o.ic||"bell",txt:o.txt,sub:o.sub||"",jobId:o.jobId||null,at:new Date().toISOString().slice(0,16),read:false};
+  STATE.notifications.push(n); return n; }
+// Email di avviso al fornitore su una richiesta, col link diretto alla richiesta stessa:
+// chi vive nella posta riceve la risposta e ci clicca sopra per rispondere nel portale.
+function reqReplyEmail(r, testo, titolo){
+  const s=supplier(r.supplierId); if(!s||!s.email) return null;
+  const j=byId(STATE.jobs,r.jobId); const tp=REQ_TYPES[r.tipo]||{label:"Richiesta"};
+  const contesto=(titolo||"Abbiamo risposto alla sua segnalazione")+" ("+tp.label+")"
+    +(j?" sulla commessa "+j.code+" — "+j.title:"")+":\n\n\""+testo+"\"";
+  return { to:s.email,
+    subject:"["+(j?j.code:"")+"] "+tp.label+" · risposta da Righi",
+    body:portalEmailBody(s.referente||s.name, contesto, portalLink({f:s.id,q:r.id,c:(j?j.code:null)})) };
+}
+// L'avviso via email al fornitore e' attivo per impostazione predefinita (si puo' spegnere per singola risposta)
+const wantReplyEmail = ()=> App.replyEmail!==false;
+// Invio AUTOMATICO dell'avviso: non apre il modale "Prepara email", consegna
+// direttamente al programma di posta gia' compilato (destinatario, oggetto, testo e link).
+// In produzione questo passaggio sparisce del tutto: invia il server (vedi BACKEND.md).
+function sendEmailNow(em){
+  if(!em||!em.to) return false;
+  App._email=em; App._lastSent={to:em.to, subject:em.subject, at:new Date().toISOString().slice(0,16)};
+  try{ const a=document.createElement("a"); a.href=mailto(em.to,em.subject,em.body); a.target="_blank"; a.rel="noopener";
+       a.style.display="none"; document.body.appendChild(a); a.click(); setTimeout(()=>a.remove(),0); }catch(e){ return false; }
+  return true;
+}
 // al boot: se l'URL ha #f=<fornitore>&c=<commessa> (o &q=<richiesta>), autentica e memorizza il target.
 // Ritorna true se il link ha cambiato la sessione o fissato un target (serve per ri-renderizzare).
 function resolveMagicLink(){
@@ -1889,6 +1917,7 @@ function openReqDetail(rid){ const r=byId(STATE.requests,rid); if(!r) return;
     ${isRighi?`
       <div class="divide"></div><div class="sect-t">${icon("send","sm")} Risposta rapida</div>
       <div class="chips">${QUICK_REPLIES.map(q=>`<button class="chip sm" data-act="quickReply" data-id="${rid}" data-txt="${esc(q)}">${esc(q)}</button>`).join("")}</div>
+      <div class="toggle-row"><button class="switch ${wantReplyEmail()?'on':''}" data-act="toggleReplyEmail" aria-label="avviso email"></button><div class="gr"><b>Avviso automatico via email</b><span>${s&&s.email?`Alla risposta parte in automatico l'email a ${esc(s.email)} con il <b>link diretto</b> a questa richiesta: il fornitore ci clicca e risponde nel portale.`:`Questo fornitore non ha un'email in anagrafica: riceve solo la notifica nel portale.`}</span></div></div>
       <div class="btn-row" style="margin-top:12px">
         ${s?`<button class="btn ghost" data-act="emailReq" data-id="${rid}">${icon("mail","sm")} Email</button>`:""}
         ${isSlip
@@ -1901,8 +1930,10 @@ function openReqDetail(rid){ const r=byId(STATE.requests,rid); if(!r) return;
 function sendQuickReply(rid, testo){ const r=byId(STATE.requests,rid); if(!r||!testo) return; const u=currentUser();
   r.risposte=r.risposte||[]; r.risposte.push({da:"righi", testo, at:new Date().toISOString().slice(0,16), byUser:u.id});
   if(r.stato==="aperta") r.stato="presa"; r.read=true;
-  const usr=STATE.users.find(x=>x.supplierId===r.supplierId); if(usr) STATE.notifications.push({id:uid("n"),toUser:usr.id,ic:"mail",txt:"Risposta dal caposquadra: "+testo,sub:(byId(STATE.jobs,r.jobId)||{}).code,jobId:r.jobId,at:new Date().toISOString().slice(0,16),read:false});
-  persist(); toast("Risposta inviata","ok"); openReqDetail(rid);
+  notifySupplier(r.supplierId,{ic:"mail",txt:"Risposta dal caposquadra: "+testo,sub:(byId(STATE.jobs,r.jobId)||{}).code,jobId:r.jobId});
+  // il fornitore abituato alla posta va raggiunto anche li': email automatica col link diretto alla richiesta
+  const sent=wantReplyEmail()?sendEmailNow(reqReplyEmail(r,testo)):false;
+  persist(); toast(sent?"Risposta inviata · email di avviso al fornitore":"Risposta inviata","ok"); openReqDetail(rid);
 }
 function openReqFoto(rid){ const r=byId(STATE.requests,rid); if(!r||!r.foto) return;
   openModal(`${modalHead("Foto allegata")}<img src="${r.foto}" style="width:100%;border-radius:10px;border:1px solid var(--line)" alt="foto della richiesta"><div class="btn-row" style="margin-top:12px"><button class="btn ghost block" data-act="reqDetail" data-id="${rid}">Torna alla richiesta</button></div>`);
@@ -2111,6 +2142,7 @@ function openGuide(){ const u=currentUser(); const isR=u.role==="righi"; const c
       ["Segui l'esito","La commessa resta tra le tue con stato <b>Da approvare</b>. Se il responsabile la rimanda, vedi la nota <i>Da rivedere</i> e puoi reinviarla o duplicarla per modificarla."] ])
     + sec("Comunicazione e consegne",[
       ["Richieste dei fornitori","I fornitori ti contattano con richieste guidate (dubbi, materiale, ritardi, foto): aprile in <b>Richieste</b>, usa le <b>risposte rapide</b> o rispondi via email, poi segnale risolte."],
+      ["Il fornitore viene avvisato","Ogni risposta (e ogni esito di slittamento o approvazione consegna) fa partire <b>in automatico</b> un'email al fornitore con il testo e il <b>link diretto</b> alla richiesta, oltre alla notifica nel portale: anche chi usa solo la posta la vede e risponde con un clic. Puoi spegnere l'avviso con l'interruttore nella richiesta."],
       ["Slittamenti","Approvi o rifiuti le richieste di slittamento consegna; se approvi, la data si aggiorna con storico e notifica."],
       ["Approvazione consegna","Quando il fornitore chiede di consegnare (<i>Richiesta di approvazione consegna</i>), la <b>approvi o rifiuti</b> dalle Richieste: solo dopo l'approvazione il fornitore può segnare la commessa come consegnata."],
       ["Ritardi","Le consegne superate sono in rosso: usa i filtri per stato e ritardi per dare priorità."] ]); }
@@ -2181,7 +2213,7 @@ function doPublish(jid){ const j=byId(STATE.jobs,jid); if(!j) return; j.stato="p
   notifyJob(j, j.visibility==="selezionati"?(j.invitati||[]):STATE.suppliers.map(s=>s.id));
   persist(); closeModal(); toast("Lavoro pubblicato","ok"); render(); }
 function notifyJob(j, supplierIds){
-  supplierIds.forEach(sid=>{ const usr=STATE.users.find(u=>u.supplierId===sid); if(usr) STATE.notifications.push({id:uid("n"),toUser:usr.id,ic:"bolt",txt:"Nuovo lavoro: "+j.title,sub:j.code+" · "+fmtMoney(j.budget),jobId:j.id,at:new Date().toISOString().slice(0,16),read:false}); });
+  supplierIds.forEach(sid=>{ notifySupplier(sid,{ic:"bolt",txt:"Nuovo lavoro: "+j.title,sub:j.code+" · "+fmtMoney(j.budget),jobId:j.id}); });
 }
 function copyText(txt){ if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(()=>toast("Copiato negli appunti","ok"),()=>toast("Copia non riuscita","warn")); else toast("Copia non supportata su questo dispositivo","warn"); }
 // corpo personalizzato per un singolo fornitore dell'invio massivo: intro comune + SUO link diretto
@@ -2357,8 +2389,7 @@ function applyDateChange(j, newDate, motivo, byRole, byUser){
   if(!newDate || newDate===j.dataRientro) return false;
   j.storicoDate=j.storicoDate||[]; j.storicoDate.push({from:j.dataRientro,to:newDate,by:byUser,byRole,at:new Date().toISOString().slice(0,16),motivo:motivo||"",tipo:byRole==="fornitore"?"slittamento":"modifica"});
   j.dataRientro=newDate;
-  const usr=STATE.users.find(u=>u.supplierId===j.assegnatoA);
-  if(usr) STATE.notifications.push({id:uid("n"),toUser:usr.id,ic:"calendar",txt:"Rientro aggiornato: "+fmtDate(newDate),sub:j.code+" — "+j.title,jobId:j.id,at:new Date().toISOString().slice(0,16),read:false});
+  notifySupplier(j.assegnatoA,{ic:"calendar",txt:"Rientro aggiornato: "+fmtDate(newDate),sub:j.code+" — "+j.title,jobId:j.id});
   return true;
 }
 // Modifica date lato Righi: rientro (con storico+notifica) + inizio stimato e consegna cliente (diretti)
@@ -2375,16 +2406,19 @@ function doEditDate(jid){ const j=byId(STATE.jobs,jid); const d=$("#ed-date")?$(
 function resolveSlip(rid, approve){ const r=byId(STATE.requests,rid); if(!r) return; const j=byId(STATE.jobs,r.jobId); const u=currentUser();
   r.stato="chiusa"; r.esito=approve?"approvato":"rifiutato"; r.read=true;
   if(approve && j){ applyDateChange(j, r.dataProposta, "Slittamento approvato", "fornitore", r.supplierId); }
-  else { const usr=STATE.users.find(x=>x.supplierId===r.supplierId); if(usr) STATE.notifications.push({id:uid("n"),toUser:usr.id,ic:"x",txt:"Slittamento non approvato",sub:(j?j.code+" — "+j.title:""),jobId:r.jobId,at:new Date().toISOString().slice(0,16),read:false}); }
-  persist(); closeModal(); toast(approve?"Slittamento approvato · consegna aggiornata":"Slittamento rifiutato","ok"); render();
+  else { notifySupplier(r.supplierId,{ic:"x",txt:"Slittamento non approvato",sub:(j?j.code+" — "+j.title:""),jobId:r.jobId}); }
+  const esito=approve?("Slittamento APPROVATO: il nuovo rientro e' "+fmtDate(r.dataProposta)):"Slittamento NON approvato: il rientro resta "+fmtDate(j?j.dataRientro:null);
+  const sent=wantReplyEmail()?sendEmailNow(reqReplyEmail(r,esito,"Abbiamo deciso sulla sua richiesta")):false;
+  persist(); closeModal(); toast((approve?"Slittamento approvato · consegna aggiornata":"Slittamento rifiutato")+(sent?" · fornitore avvisato via email":""),"ok"); render();
 }
 // Caposquadra: approva/rifiuta la richiesta di consegna del fornitore
 function resolveConsegna(rid, approve){ const r=byId(STATE.requests,rid); if(!r) return; const j=byId(STATE.jobs,r.jobId); const u=currentUser();
   r.stato="chiusa"; r.esito=approve?"approvato":"rifiutato"; r.read=true;
   if(approve && j) j.consegnaApprovata={da:u.id, at:new Date().toISOString().slice(0,16)};
-  const usr=STATE.users.find(x=>x.supplierId===r.supplierId);
-  if(usr) STATE.notifications.push({id:uid("n"),toUser:usr.id,ic:approve?"check":"x",txt:approve?"Consegna approvata: puoi consegnare":"Consegna non approvata",sub:(j?j.code+" — "+j.title:""),jobId:r.jobId,at:new Date().toISOString().slice(0,16),read:false});
-  persist(); closeModal(); toast(approve?"Consegna approvata":"Consegna non approvata","ok"); render();
+  notifySupplier(r.supplierId,{ic:approve?"check":"x",txt:approve?"Consegna approvata: puoi consegnare":"Consegna non approvata",sub:(j?j.code+" — "+j.title:""),jobId:r.jobId});
+  const esito=approve?"Consegna APPROVATA: puo' procedere con la riconsegna del quadro.":"Consegna NON approvata: attenda indicazioni dal caposquadra.";
+  const sent=wantReplyEmail()?sendEmailNow(reqReplyEmail(r,esito,"Abbiamo deciso sulla sua richiesta")):false;
+  persist(); closeModal(); toast((approve?"Consegna approvata":"Consegna non approvata")+(sent?" · fornitore avvisato via email":""),"ok"); render();
 }
 // Fornitore: richiede l'approvazione a consegnare (va al caposquadra della commessa)
 function reqConsegna(jid){ const u=currentUser(); const j=byId(STATE.jobs,jid); if(!j||j.assegnatoA!==u.supplierId) return;
@@ -2410,7 +2444,7 @@ function doNotify(jid){ const j=byId(STATE.jobs,jid); const ids=[...App.notifySe
   if(wantEmail) emailJobToSuppliers(j, ids);
 }
 function doAssign(jid,sid){ const j=byId(STATE.jobs,jid); const s=supplier(sid); j.assegnatoA=sid; j.stato="assegnato"; j.assegnatoAt=todayISO();
-  const usr=STATE.users.find(u=>u.supplierId===sid); if(usr) STATE.notifications.push({id:uid("n"),toUser:usr.id,ic:"check",txt:"Commessa assegnata: "+j.title,sub:j.code,jobId:j.id,at:new Date().toISOString().slice(0,16),read:false});
+  notifySupplier(sid,{ic:"check",txt:"Commessa assegnata: "+j.title,sub:j.code,jobId:j.id});
   STATE.responses.filter(r=>r.jobId===jid).forEach(r=>r.read=true);
   persist(); closeModal(); toast("Assegnato a "+s.name,"ok"); render();
 }
@@ -2462,7 +2496,7 @@ function doOptimalAssign(){
   const at=new Date().toISOString().slice(0,16);
   r.proposal.forEach(e=>{ const j=byId(STATE.jobs,e.jid); if(!j||j.stato!=="pubblicato") return;
     j.assegnatoA=e.sid; j.stato="assegnato"; j.assegnatoAt=todayISO();
-    const usr=STATE.users.find(u=>u.supplierId===e.sid); if(usr) STATE.notifications.push({id:uid("n"),toUser:usr.id,ic:"check",txt:"Commessa assegnata: "+j.title,sub:j.code,jobId:j.id,at,read:false});
+    notifySupplier(e.sid,{ic:"check",txt:"Commessa assegnata: "+j.title,sub:j.code,jobId:j.id});
     STATE.responses.filter(rr=>rr.jobId===e.jid).forEach(rr=>rr.read=true);
   });
   const n=r.proposal.length; App._optimal=null; persist(); closeModal(); toast(n+" commesse assegnate in modo ottimo","ok"); render();
@@ -2568,6 +2602,7 @@ document.addEventListener("click",e=>{
     case "doQuickReq": doQuickReq(el.dataset.job); break;
     case "notifyPick": openNotifyPick(el.dataset.job); break;
     case "toggleNotifyEmail": App.notifyEmail=!App.notifyEmail; el.classList.toggle("on"); break;
+    case "toggleReplyEmail": App.replyEmail=!wantReplyEmail(); el.classList.toggle("on"); break;
     case "doNotify": doNotify(el.dataset.job); break;
     case "assignPick": openAssignPick(el.dataset.job); break;
     case "confirmAssign": { const j=byId(STATE.jobs,el.dataset.job); const s=supplier(el.dataset.sup); if(!j||!s) break;

@@ -107,6 +107,42 @@ riconosciuto e non vede gli altri. In produzione questo diventa l'invio
 firmato**. (Un eventuale link *senza* identità — condiviso a mano — è solo un
 ripiego: porta alla schermata di accesso, poi apre comunque la commessa.)
 
+### 1-ter. Avviso automatico sulle risposte (il fornitore non deve "andare a vedere")
+
+Un fornitore poco avvezzo al portale non scopre da solo che è arrivata una
+risposta: va **spinto** (push), non lasciato a controllare. Ogni evento che lo
+riguarda genera quindi **due** consegne:
+
+1. **notifica in app** (campanella) — sempre;
+2. **email di avviso** con il testo della risposta e il **magic link** alla
+   richiesta: un clic e risponde nel portale.
+
+Eventi che devono far scattare l'avviso: risposta rapida del caposquadra, esito
+di uno **slittamento**, esito dell'**approvazione a consegnare**, assegnazione
+commessa, cambio della data di rientro.
+
+Nel client l'email si apre già compilata nel programma di posta (il browser non
+può spedire da solo). In produzione l'invio è **server-side e realmente
+automatico**: un worker sulla tabella eventi manda e-mail (e, volendo,
+WhatsApp/push) con il token personale del destinatario.
+
+```
+notifications(id uuid pk, user_id uuid fk users, kind text, txt text, sub text,
+              job_id uuid null, request_id uuid null, read bool default false,
+              created_at timestamptz)
+-- coda di consegna multicanale: una riga per canale, con retry
+notification_delivery(id uuid pk, notification_id uuid fk notifications,
+              channel text check in ('email','push','whatsapp'),
+              status text check in ('pending','sent','failed'), attempts int default 0,
+              magic_link_id uuid null fk magic_links,   -- token personale incluso nel messaggio
+              sent_at timestamptz null, error text null)
+```
+
+Regole: **un solo destinatario per messaggio** (mai indirizzi in chiaro di
+altri); *rate-limit*/raggruppamento per non inondare chi riceve molti eventi in
+sequenza; **preferenze per fornitore** (email sì/no, orari); e la notifica in app
+resta comunque la fonte di verità, anche se il canale esterno fallisce.
+
 ## 2. Modello dati (Postgres)
 
 Il portale è **per-entità** (non whole-document): i lavori sono oggetti condivisi
