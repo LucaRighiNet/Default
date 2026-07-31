@@ -25,10 +25,10 @@ Due tipi di account, un solo meccanismo di login:
 
 - **Righi interno** (`role = 'righi'`): ufficio subappalti e caposquadra.
 - **Fornitore** (`role = 'fornitore'`, legato a un `supplier_id`): il referente
-  del terzista accreditato.
+  del fornitore accreditato.
 
 Login consigliato: **e-mail OTP / magic link** (attrito minimo, niente password
-da gestire per i terzisti) + eventuale SSO per gli interni Righi.
+da gestire per i fornitori) + eventuale SSO per gli interni Righi.
 Accreditamento fornitore = creazione di `supplier` + invito che genera un
 `user(role='fornitore')` collegato. Un caposquadra è un `user(role='righi')` con
 flag `caposquadra`.
@@ -46,7 +46,7 @@ suppliers(id uuid pk, name text, citta text, accredited bool, specialties text[]
           attivo bool default true,                      -- fornitore attualmente attivo (dal file Mappatura)
           costo_orario numeric, cablatori numeric, risorse_dedicate text,  -- €/h, cablatori totali, risorse dedicate a Righi
           note text)
--- Preferenza di utilizzo per OTL (caposquadra): % con cui ciascun OTL usa il terzista.
+-- Preferenza di utilizzo per OTL (caposquadra): % con cui ciascun OTL usa il fornitore.
 supplier_pref(supplier_id uuid fk suppliers, capo_id uuid fk users, perc int, primary key(supplier_id,capo_id))
 ```
 
@@ -186,7 +186,7 @@ Attivare **Row Level Security** su tutte le tabelle. Regole chiave:
   restano al responsabile.
 - **Campi riservati Righi**: `ore_stimate` non va mai esposto ai fornitori — usare
   una **view** dedicata (o column-level privileges) per il lato fornitore che non
-  includa la colonna. Le ore alimentano il carico terzisti (somma per fornitore ×
+  includa la colonna. Le ore alimentano il carico fornitori (somma per fornitore ×
   mese di consegna), calcolabile lato server con una view aggregata.
 
 ## 4-bis. Import massivo ed export ERP
@@ -228,7 +228,7 @@ un lavoro `selezionati` né una bozza altrui.
 Il client crea già un record `notifiche` per ogni evento (nuovo lavoro,
 assegnazione, richiesta, slittamento, avanzamento, cambio data). Il backend lo
 **propaga sui canali** con una pipeline unica e idempotente, così l'avviso
-arriva dove il terzista già lavora e senza doppioni.
+arriva dove il fornitore già lavora e senza doppioni.
 
 - **Realtime** su `jobs`, `risposte`, `richieste`, `notifiche`: bacheca fornitore
   e dashboard Righi si aggiornano da sole (nessun refresh manuale).
@@ -253,7 +253,7 @@ notification_outbox(id uuid pk, notifica_id uuid fk notifiche, user_id uuid, can
 - **Web Push** (browser/PWA): chiavi **VAPID**, `PushSubscription` salvata in
   `notification_channels`. Payload compatto → deep-link alla commessa. È il canale
   a costo zero e già coerente col service worker del prototipo.
-- **WhatsApp** (dove il terzista vive): **WhatsApp Business Cloud API** (Meta) o
+- **WhatsApp** (dove il fornitore vive): **WhatsApp Business Cloud API** (Meta) o
   Twilio. Servono **template approvati** per i messaggi *business-initiated*
   (es. "Nuovo lavoro {codice} — {tipologia} — consegna {data}. Apri: {link}").
   Numeri in formato **E.164**, opt-in registrato (`verified_at`). Le risposte del

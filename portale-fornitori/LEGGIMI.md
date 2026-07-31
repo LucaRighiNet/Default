@@ -1,6 +1,6 @@
 # Portale Fornitori Righi
 
-Portale per mettere in comunicazione **Righi** e i suoi **fornitori terzisti**
+Portale per mettere in comunicazione **Righi** e i suoi **fornitori**
 sui lavori di subappalto di manodopera: **cablaggio e costruzione di quadri
 elettrici** (automazione, distribuzione, potenza).
 
@@ -44,9 +44,9 @@ Righi e il lato fornitore per vedere entrambe le prospettive.
   fornitore, solo ritardi), **ordinamento** e paginazione; in alternativa la
   **bacheca Kanban**. Apri una scheda per pubblicare, **notificare**, **assegnare**.
 - **Ore stimate di produzione**: campo **riservato a Righi** (mai visibile al
-  fornitore) su ogni commessa; alimenta il **carico terzisti** — nella scheda
+  fornitore) su ogni commessa; alimenta il **carico fornitori** — nella scheda
   **Fornitori** un **istogramma** mostra, per il mese scelto, le ore attive di
-  ogni terzista rispetto alla sua **capacità** (barre ordinate per carico, linea
+  ogni fornitore rispetto alla sua **capacità** (barre ordinate per carico, linea
   di capacità, semaforo *sotto capacità / quasi saturo / oltre capacità*); il
   toggle **Tabella** dà la vista multi-mese e la somma per fornitore.
 - **Nuovo lavoro**: form a input guidati (tipologia, settore, **lavorazioni
@@ -61,7 +61,7 @@ Righi e il lato fornitore per vedere entrambe le prospettive.
 - **Esporta ordini (ERP)**: da Commesse esporti in **CSV** gli ordini accettati
   (fornitore, importo, ore, consegna…) per l'emissione ordine in amministrazione.
 - **Richieste** e anagrafica **Fornitori** accreditati (con contatto **email**):
-  con **Nuovo fornitore** accrediti un terzista (specializzazioni, settori, zona,
+  con **Nuovo fornitore** accrediti un fornitore (specializzazioni, settori, zona,
   capacità, certificazioni, attrezzature, preferenze OTL) che entra subito in
   suggerimenti, mappa e carico; tocca il nome per aprire la **scheda** con le
   metriche. Dalla scheda, il **responsabile di produzione** può **Modifica
@@ -70,7 +70,7 @@ Righi e il lato fornitore per vedere entrambe le prospettive.
 
 **Ruoli e accessi (lato Righi)**
 - **Responsabile di produzione**: vede **tutte** le commesse, pubblica, assegna,
-  importa/esporta, governa il carico dei terzisti e **approva** le commesse
+  importa/esporta, governa il carico dei fornitori e **approva** le commesse
   proposte dai capisquadra.
 - **Caposquadra**: vede in Dashboard e Commesse **solo i progetti che segue** e
   le relative richieste. Può **proporre un nuovo lavoro**, che invia al
@@ -104,7 +104,7 @@ guidate con foto, profilo e metriche) e include una sezione **domande frequenti*
 guidata, risposta) genera una **notifica in app**; dove serve comunicare fuori
 dal portale è disponibile l'**email precompilata** (destinatario, oggetto e
 corpo pronti) verso fornitori e caposquadra. Quando l'email è rivolta a **più
-fornitori** i destinatari vanno in **copia nascosta (Ccn)**: ogni terzista non
+fornitori** i destinatari vanno in **copia nascosta (Ccn)**: ogni fornitore non
 vede gli indirizzi degli altri. L'invio automatico lato server è la naturale
 evoluzione (vedi `BACKEND.md`).
 
@@ -146,7 +146,7 @@ cliente**. Le prime due sono **visibili anche al fornitore**; la **consegna al
 cliente è riservata a Righi** e non compare mai lato fornitore. Gli **alert di
 ritardo** si basano sulle date operative del fornitore — *inizio in ritardo*
 (assegnata ma non avviata oltre l'inizio stimato) e *rientro in ritardo* (oltre
-la data di rientro) — **mai** sulla consegna al cliente. Carico terzisti,
+la data di rientro) — **mai** sulla consegna al cliente. Carico fornitori,
 puntualità e ordinamento seguono la data di **rientro**. A queste si aggiunge la
 **data di pubblicazione** (quando la commessa è pubblicata ai fornitori),
 impostata **in automatico** e **riservata a Righi** (sostituisce la vecchia
@@ -158,21 +158,21 @@ caposquadra **approva/rifiuta** (se approvato sovrascrive il rientro e notifica)
 Righi può **modificare direttamente** rientro, inizio stimato e consegna al
 cliente. Ogni cambio di rientro resta nello **storico**.
 
-**Dati reali dei terzisti**: l'anagrafica è popolata dalla *Mappatura terzisti
-2026* — **54 terzisti** (di cui **28 attivi**, flag `attivo`), con **capacità
+**Dati reali dei fornitori**: l'anagrafica è popolata dalla *Mappatura fornitori
+2026* — **54 fornitori** (di cui **28 attivi**, flag `attivo`), con **capacità
 ore/mese**, **cablatori**, **risorse dedicate a Righi**, **costo orario**,
 **contatti**, note e — dato chiave — la **percentuale di utilizzo preferenziale
 per ciascun OTL/caposquadra**. I dati mancanti nel file (tipologie, ingombro,
 attrezzature, sede per alcuni) sono "non specificati" e completabili in app;
 dove le note lo permettono sono dedotti.
 
-**Assegnazione intelligente**: in assegnazione il portale ordina i terzisti per
+**Assegnazione intelligente**: in assegnazione il portale ordina i fornitori per
 idoneità combinando la **preferenza dell'OTL della commessa** (la % del file:
 chi ha % più alta per quel caposquadra sale in classifica), specializzazione,
 settore, certificazioni, **limite di spazio** (con avviso "**spazio
 insufficiente**" se la commessa indica l'ingombro previsto), **attrezzature**,
 **capacità libera** nel mese, **costo** e **puntualità**. Concorrono **solo i
-terzisti attivi**; i sovraccarichi sono segnalati e il **semaforo**
+fornitori attivi**; i sovraccarichi sono segnalati e il **semaforo**
 verde/giallo/rosso anticipa i ritardi. Per evitare click accidentali, l'azione
 **Assegna** chiede sempre una **conferma** ("Assegnare la commessa X a Y?")
 prima di procedere.
@@ -186,7 +186,7 @@ rispettando le **ore libere per fornitore e mese di rientro**, e presenta la
 tocco** (materiale, cablaggio, collaudo, pronto).
 
 **Mappa fornitori** (in *Fornitori → Mappa*): pin colorati per carico del mese
-su tutto il **Nord-Centro Italia** (i terzisti sono accreditabili in oltre 35
+su tutto il **Nord-Centro Italia** (i fornitori sono accreditabili in oltre 35
 città, dal Piemonte alle Marche); tocca un pin per scheda e capacità libera. Da
 caposquadra evidenzia le **zone già presidiate** per accorpare i lavori e ridurre
 le trasferte.
@@ -206,7 +206,7 @@ assegnare con accettazioni, per **mese di rientro**, il portale risolve un
 capacità = ore libere) e ne calcola il **taglio minimo**: dice **quante ore di
 domanda non sono collocabili** e **quali fornitori sono il vincolo** (saturi e
 determinanti). Se lo scoglio non è la capacità ma lo **spazio/le accettazioni**,
-lo segnala. Serve a decidere dove **aumentare capacità o accreditare** terzisti.
+lo segnala. Serve a decidere dove **aumentare capacità o accreditare** fornitori.
 
 **Lato Fornitore**
 - **Bacheca**: i lavori proposti da Righi con le **lavorazioni** previste; **fai
@@ -225,7 +225,7 @@ lo segnala. Serve a decidere dove **aumentare capacità o accreditare** terzisti
 
 **Nuovo utente / accesso**: dalla schermata di accesso o dal menu *cambia
 utente* si crea un nuovo accesso scegliendo il **ruolo** (responsabile,
-OTL/caposquadra o fornitore collegato a un terzista).
+OTL/caposquadra o fornitore collegato a un fornitore).
 
 ## Struttura
 

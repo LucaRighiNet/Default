@@ -1,7 +1,7 @@
 # Portale Fornitori Righi — Piano di prodotto
 
 > Prototipo per mettere in comunicazione **Righi** (committente) e i suoi
-> **fornitori terzisti** su lavori di manodopera a progetto: cablaggio e
+> **fornitori** su lavori di manodopera a progetto: cablaggio e
 > costruzione di quadri elettrici (automazione, distribuzione, potenza).
 
 ## 1. Posizionamento — perché è diverso dai portali fornitori "classici"
@@ -36,7 +36,7 @@ Di conseguenza il prodotto è progettato attorno a due driver:
 |---|---|
 | **Righi — Ufficio Subappalti** | Pubblica i lavori, sceglie la visibilità, notifica i fornitori, valuta le accettazioni, assegna la commessa, monitora ritardi e richieste. |
 | **Caposquadra Righi** | Figura di riferimento che segue la commessa; riceve le richieste guidate dei fornitori (dubbi tecnici, mancanza materiale, ritardi…). |
-| **Fornitore terzista** | Vede i lavori proposti, fa domande o accetta la proposta, gestisce le commesse acquisite e contatta il caposquadra con richieste guidate. |
+| **Fornitore fornitore** | Vede i lavori proposti, fa domande o accetta la proposta, gestisce le commesse acquisite e contatta il caposquadra con richieste guidate. |
 
 ## 3. Modello dominio (MVP)
 
@@ -81,7 +81,7 @@ Di conseguenza il prodotto è progettato attorno a due driver:
   pubblica** o **rimanda** con nota (stato *Da approvare*, mai visibile ai
   fornitori); vede inoltre il **carico di tutti i fornitori**.
 - **Ore stimate di produzione**: campo riservato a Righi su ogni commessa, usato
-  per il **carico terzisti** — **istogramma** delle ore attive vs capacità per
+  per il **carico fornitori** — **istogramma** delle ore attive vs capacità per
   fornitore (mese selezionabile, semaforo sotto/quasi/oltre capacità, linea di
   capacità) con toggle **Tabella** multi-mese.
 - **Import massivo** delle commesse da Excel/CSV (template incluso) ed **export
@@ -122,8 +122,8 @@ Di conseguenza il prodotto è progettato attorno a due driver:
   bloccata, così Righi controlla sempre l'ultimo passo.
 - **Gestione accessi**: creazione di un **nuovo utente** dal menu di accesso
   (ruolo **responsabile**, **OTL/caposquadra** o **fornitore** collegato a un
-  terzista dell'anagrafica); i capisquadra creati entrano subito come referenti.
-- **Dati reali (Mappatura terzisti 2026)**: 54 terzisti (28 attivi, flag
+  fornitore dell'anagrafica); i capisquadra creati entrano subito come referenti.
+- **Dati reali (Mappatura fornitori 2026)**: 54 fornitori (28 attivi, flag
   `attivo`) con capacità ore/mese, cablatori, risorse dedicate, costo orario,
   contatti, note e **% di utilizzo preferenziale per OTL/caposquadra**.
 - **Assegnazione intelligente**: anagrafica categorizzata (specializzazioni,
@@ -134,7 +134,7 @@ Di conseguenza il prodotto è progettato attorno a due driver:
   segnalazione **"spazio insufficiente"** e il **semaforo salute commessa**.
 - **Avanzamento a un tocco** lato fornitore (materiale → cablaggio → collaudo →
   pronto), notificato a Righi.
-- **Mappa fornitori** (SVG offline) su **Nord-Centro Italia** (terzisti
+- **Mappa fornitori** (SVG offline) su **Nord-Centro Italia** (fornitori
   accreditabili in oltre 35 città, dal Piemonte alle Marche): pin colorati per
   carico, click per scheda e capacità libera; per il caposquadra evidenzia le
   zone già presidiate (ottimizzazione trasporti).
@@ -190,7 +190,7 @@ Prioritizzate per impatto sui due driver (meno testo, più velocità).
 
 ### Fase 1 — Comunicazione a bassissimo attrito
 - **Notifiche push reali** (Web Push) + canale **WhatsApp/e-mail** verso fornitori
-  e caposquadra: la richiesta guidata arriva dove il terzista già lavora.
+  e caposquadra: la richiesta guidata arriva dove il fornitore già lavora.
 - **Richieste con foto**: allega uno scatto dal cantiere invece di descrivere a
   parole (mancanza materiale, dubbio su morsettiera…).
 - **Risposte rapide del caposquadra** a template ("Procedi", "Ti richiamo",
@@ -198,7 +198,7 @@ Prioritizzate per impatto sui due driver (meno testo, più velocità).
 
 ### Fase 2 — Velocità di assegnazione
 - **Auto-matching fornitori** per tipologia + settore + disponibilità: alla
-  creazione del lavoro il portale propone già i terzisti giusti da invitare.
+  creazione del lavoro il portale propone già i fornitori giusti da invitare.
 - **Lavori da template**: duplica una commessa tipo e cambia solo layout/date.
 - **Accettazione con un tocco** e **firma leggera** della proposta (e-sign).
 - **Countdown assegnazione**: SLA visivo su quanto un lavoro resta senza risposta.
