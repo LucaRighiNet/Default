@@ -803,6 +803,10 @@ function supplierUserId(sid){ if(!supplier(sid)) return null;
 function notifySupplier(sid, o){ const to=supplierUserId(sid); if(!to) return null;
   const n={id:uid("n"),toUser:to,ic:o.ic||"bell",txt:o.txt,sub:o.sub||"",jobId:o.jobId||null,at:new Date().toISOString().slice(0,16),read:false};
   STATE.notifications.push(n); return n; }
+// Notifica il caposquadra di riferimento della commessa (avvio produzione, consegna...)
+function notifyCapoJob(j, txt, ic){ const cu=STATE.users.find(x=>x.righiRole==="caposquadra"&&x.capoId===j.capoId); if(!cu) return null;
+  const n={id:uid("n"),toUser:cu.id,ic:ic||"bell",txt,sub:j.code+" — "+j.title,jobId:j.id,at:new Date().toISOString().slice(0,16),read:false};
+  STATE.notifications.push(n); return n; }
 // Email di avviso al fornitore su una richiesta, col link diretto alla richiesta stessa:
 // chi vive nella posta riceve la risposta e ci clicca sopra per rispondere nel portale.
 function reqReplyEmail(r, testo, titolo){
@@ -1807,6 +1811,9 @@ function openJobModal(jid){
       const cand=resp.filter(r=>r.tipo==="accettazione");
       footer=`<div class="btn-row"><button class="btn ghost" data-act="notifyPick" data-job="${j.id}">${icon("bell","sm")} Notifica fornitori</button>
         ${cand.length?`<button class="btn accent" data-act="assignPick" data-job="${j.id}">${icon("check")} Assegna (${cand.length})</button>`:`<span class="pill plain" style="align-self:center">In attesa di accettazioni</span>`}</div>`;
+    } else if(j.stato==="consegnato"){
+      // chiusura della pratica: e' lo stato finale, prima mancava il modo di arrivarci
+      footer=`<div class="btn-row"><button class="btn accent" data-act="closeJob" data-job="${j.id}">${icon("check")} Chiudi la pratica</button></div>`;
     } else if(["assegnato","in_corso"].includes(j.stato)){
       footer=`<div class="btn-row">${s?`<button class="btn ghost" data-act="emailJobSup" data-job="${j.id}">${icon("mail","sm")} Email fornitore</button>`:""}<button class="btn ghost" data-act="editDate" data-job="${j.id}">${icon("calendar","sm")} Modifica data</button><button class="btn" data-act="setStato" data-job="${j.id}" data-s="consegnato">Segna consegnato</button></div>`;
     }
@@ -2130,9 +2137,9 @@ function openGuide(){ const u=currentUser(); const isR=u.role==="righi"; const c
       stJob("da_approvare","Un caposquadra l'ha proposta e aspetta il tuo via libera: la <b>approvi</b> (passa a Da assegnare) oppure la <b>rimandi</b> con una nota."),
       stJob("pubblicato","Pubblicata e visibile ai fornitori: raccoglie le accettazioni. Chi accetta compare in <i>Da valutare</i>, pronto per l'assegnazione."),
       stJob("assegnato","Affidata a un fornitore. Da qui valgono le <b>date operative</b> (inizio stimato e rientro) e i relativi alert di ritardo."),
-      stJob("in_corso","La produzione è partita: il fornitore ha iniziato ad aggiornare l'avanzamento."),
+      stJob("in_corso","La produzione è partita: la commessa ci passa da sola al <b>primo aggiornamento di avanzamento</b> del fornitore."),
       stJob("consegnato","Il quadro finito è rientrato in Righi."),
-      stJob("chiuso","Pratica completata e archiviata.") ],
+      stJob("chiuso","Pratica archiviata: dalla commessa consegnata premi <b>Chiudi la pratica</b>. Esce dalle attive e resta consultabile col filtro <i>Chiuse</i>.") ],
       "È lo stesso badge colorato che vedi sulla bacheca e in cima a ogni commessa.")
     + sec("Pubblicare un lavoro",[
       ["Componi la commessa","Da <b>Nuovo lavoro</b> imposti titolo, tipologia, settore, <b>lavorazioni industrializzate</b> (multi-scelta), budget, ore stimate, date, caposquadra e alleghi il <b>layout</b> per la quotazione."],
@@ -2155,7 +2162,7 @@ function openGuide(){ const u=currentUser(); const isR=u.role==="righi"; const c
       stJob("da_approvare","Inviata al responsabile: aspetta il suo via libera. Se la <b>rimanda</b>, la ritrovi con la nota <i>Da rivedere</i> e puoi correggerla e reinviarla."),
       stJob("pubblicato","Approvata e pubblicata ai fornitori: sta raccogliendo le accettazioni."),
       stJob("assegnato","Il responsabile l'ha affidata a un fornitore: da qui la segui."),
-      stJob("in_corso","Produzione in corso: il fornitore aggiorna l'avanzamento."),
+      stJob("in_corso","Produzione in corso: ci entra da sola quando il fornitore segna il primo avanzamento."),
       stJob("consegnato","Quadro finito rientrato in Righi.") ],
       "È lo stesso badge colorato che vedi in Dashboard e in cima a ogni commessa.")
     + sec("Le tue commesse",[
@@ -2458,8 +2465,7 @@ function reqConsegna(jid){ const u=currentUser(); const j=byId(STATE.jobs,jid); 
 function deliverJob(jid){ const u=currentUser(); const j=byId(STATE.jobs,jid); if(!j||j.assegnatoA!==u.supplierId) return;
   if(!j.consegnaApprovata){ toast("Serve prima l'approvazione del caposquadra","warn"); return; }
   j.stato="consegnato"; j.avanzamento="pronto"; if(!j.dataRientroEff) j.dataRientroEff=todayISO();
-  const capoUser=STATE.users.find(x=>x.righiRole==="caposquadra"&&x.capoId===j.capoId);
-  if(capoUser) STATE.notifications.push({id:uid("n"),toUser:capoUser.id,ic:"check",txt:"Commessa consegnata: "+j.title,sub:j.code,jobId:jid,at:new Date().toISOString().slice(0,16),read:false});
+  notifyCapoJob(j,"Commessa consegnata: "+j.title,"check");
   persist(); closeModal(); toast("Commessa consegnata","ok"); render();
 }
 function doNotify(jid){ const j=byId(STATE.jobs,jid); const ids=[...App.notifySel];
@@ -2526,9 +2532,18 @@ function doOptimalAssign(){
   });
   const n=r.proposal.length; App._optimal=null; persist(); closeModal(); toast(n+" commesse assegnate in modo ottimo","ok"); render();
 }
+// Chiude la pratica: stato finale, dalla consegna all'archivio.
+function closeJob(jid){ const j=byId(STATE.jobs,jid); const u=currentUser();
+  if(!j||j.stato!=="consegnato"||!u||u.role!=="righi") return;
+  j.stato="chiuso"; j.chiusaAt=todayISO(); j.chiusaDa=u.id;
+  persist(); closeModal(); toast("Pratica chiusa e archiviata","ok"); render();
+}
 function setStato(jid,st){ const j=byId(STATE.jobs,jid); j.stato=st; if(st==="consegnato"&&!j.dataRientroEff) j.dataRientroEff=todayISO(); persist(); closeModal(); toast("Stato aggiornato: "+STATI[st].label,"ok"); render(); }
 function setAvanzamento(jid, step){ const u=currentUser(); const j=byId(STATE.jobs,jid); if(!j||!u.supplierId||j.assegnatoA!==u.supplierId) return;
   j.avanzamento=step; j.avanzamentoAt=new Date().toISOString().slice(0,16); j.avanzamentoBy=u.id;
+  // il primo avanzamento segna l'avvio della produzione: la commessa passa "in corso"
+  // (cosi' decade anche l'alert di "inizio in ritardo", che vale solo per chi non ha ancora iniziato)
+  if(j.stato==="assegnato"){ j.stato="in_corso"; notifyCapoJob(j,"Produzione avviata: "+j.title,"bolt"); }
   STATE.responses.push({id:uid("r"),jobId:jid,supplierId:u.supplierId,tipo:"avanzamento",testo:AVANZAMENTO[step].label,at:j.avanzamentoAt,from:"fornitore",read:false});
   persist(); closeModal(); toast("Avanzamento: "+AVANZAMENTO[step].label,"ok"); render();
 }
@@ -2637,6 +2652,11 @@ document.addEventListener("click",e=>{
         backAct:"assignPick", backData:{job:el.dataset.job} });
       break; }
     case "assign": doAssign(el.dataset.job, el.dataset.sup); break;
+    case "closeJob": { const j=byId(STATE.jobs,el.dataset.job); if(!j) break;
+      openConfirm({title:"Chiudere la pratica?", kind:"accent",
+        body:`La commessa <b>${esc(j.code)}</b> passa in archivio: esce dalle commesse attive e dal conteggio in alto. Resta consultabile con il filtro <i>Chiuse</i>.`,
+        confirmLabel:`${icon("check","sm")} Sì, chiudi`, confirmAct:"doCloseJob", data:{job:j.id}}); break; }
+    case "doCloseJob": closeJob(el.dataset.job); break;
     case "optimalAssign": openOptimalAssign(); break;
     case "doOptimalAssign": doOptimalAssign(); break;
     case "setStato": setStato(el.dataset.job, el.dataset.s); break;

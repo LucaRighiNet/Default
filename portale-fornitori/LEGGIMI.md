@@ -88,8 +88,11 @@ resta scoperto: la commessa rimanda sempre a un'azione possibile.
 visibile ai fornitori) → **Da approvare** (proposta di un caposquadra in attesa
 del responsabile) → **Da assegnare** (pubblicata ai fornitori, raccoglie le
 accettazioni) → **Assegnato** (affidata a un fornitore: da qui valgono le date
-operative e gli alert di ritardo) → **In corso** (produzione avviata) →
-**Consegnato** (quadro finito rientrato in Righi) → **Chiuso** (archiviata). Il
+operative e gli alert di ritardo) → **In corso** (ci passa **da sola** al primo
+aggiornamento di avanzamento del fornitore, che avvisa il caposquadra) →
+**Consegnato** (quadro finito rientrato in Righi) → **Chiuso** (Righi preme
+**Chiudi la pratica**: esce dalle attive e resta consultabile col filtro
+*Chiuse*). Ogni passaggio ha chi lo compie: nessuno stato è irraggiungibile. Il
 badge colorato è lo stesso in bacheca, in cima a ogni commessa e nella guida in
 app, che ora **spiega ogni stato** in una sezione dedicata per ciascun ruolo (il
 fornitore la vede dalla sua prospettiva: *Proposta → In attesa di Righi →
@@ -104,9 +107,10 @@ guidate con foto, profilo e metriche) e include una sezione **domande frequenti*
 guidata, risposta) genera una **notifica in app**; dove serve comunicare fuori
 dal portale è disponibile l'**email precompilata** (destinatario, oggetto e
 corpo pronti) verso fornitori e caposquadra. Quando l'email è rivolta a **più
-fornitori** i destinatari vanno in **copia nascosta (Ccn)**: ogni fornitore non
-vede gli indirizzi degli altri. L'invio automatico lato server è la naturale
-evoluzione (vedi `BACKEND.md`).
+fornitori** non si usa una copia nascosta: si prepara **un messaggio personale
+per ciascuno**, con il **suo** link diretto e il **solo** suo indirizzo — ancora
+più riservato del Ccn, perché ogni email ha un unico destinatario. L'invio
+automatico lato server è la naturale evoluzione (vedi `BACKEND.md`).
 
 **Risposte al fornitore — avviso automatico**: quando Righi invia una **risposta
 rapida**, approva/rifiuta uno **slittamento** o l'**approvazione a consegnare**,
