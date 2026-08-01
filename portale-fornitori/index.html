@@ -794,8 +794,14 @@ function ensureSupplierUser(sid){ const s=supplier(sid); if(!s) return null;
   return u; }
 // Notifica in app al fornitore. Consegna GARANTITA: se il fornitore non ha ancora
 // un accesso al portale viene creato al volo (prima le notifiche andavano perse).
-function notifySupplier(sid, o){ const usr=ensureSupplierUser(sid); if(!usr) return null;
-  const n={id:uid("n"),toUser:usr.id,ic:o.ic||"bell",txt:o.txt,sub:o.sub||"",jobId:o.jobId||null,at:new Date().toISOString().slice(0,16),read:false};
+// Identificativo dell'accesso fornitore SENZA crearlo: si puo' notificare anche chi non
+// e' mai entrato nel portale. L'accesso nasce al primo magic link con lo STESSO
+// identificativo, quindi le notifiche sono gia' li' ad aspettarlo. (Crearli tutti in
+// anticipo riempirebbe di decine di voci la schermata di accesso.)
+function supplierUserId(sid){ if(!supplier(sid)) return null;
+  const u=STATE.users.find(x=>x.supplierId===sid); return u?u.id:("u_link_"+sid); }
+function notifySupplier(sid, o){ const to=supplierUserId(sid); if(!to) return null;
+  const n={id:uid("n"),toUser:to,ic:o.ic||"bell",txt:o.txt,sub:o.sub||"",jobId:o.jobId||null,at:new Date().toISOString().slice(0,16),read:false};
   STATE.notifications.push(n); return n; }
 // Email di avviso al fornitore su una richiesta, col link diretto alla richiesta stessa:
 // chi vive nella posta riceve la risposta e ci clicca sopra per rispondere nel portale.
@@ -838,11 +844,24 @@ function resolveMagicLink(){
 // in quel caso rileggiamo il link, ri-renderizziamo con la nuova identita' e apriamo il target.
 function onMagicHash(){ if(resolveMagicLink()){ render(); openDeepLinkTarget(); } }
 // dopo il render iniziale (o dopo login manuale col link generico): apre la commessa/richiesta del link
+// Il link apre SOLO cio' che l'utente ha diritto di vedere: un codice commessa
+// non e' una password, quindi va sempre verificato il permesso (un fornitore non
+// deve poter aprire la commessa di un altro nemmeno conoscendone il codice).
+function canSeeJob(u, j){ if(!u||!j) return false;
+  if(u.role!=="fornitore") return scopedJobs().some(x=>x.id===j.id);      // Righi: rispetta lo scope del caposquadra
+  return jobsForSupplier(u.supplierId).some(x=>x.id===j.id); }
+function canSeeReq(u, r){ if(!u||!r) return false;
+  if(u.role!=="fornitore") return scopedRequests().some(x=>x.id===r.id);
+  return r.supplierId===u.supplierId; }
 function openDeepLinkTarget(){ const d=App._deepLink; const u=currentUser(); if(!d||!u) return; App._deepLink=null;
-  if(d.req){ const r=byId(STATE.requests,d.req); if(r){ App.tab="richieste"; render(); openReqDetail(r.id); return; } }
-  if(d.code){ const j=STATE.jobs.find(x=>x.code===d.code); if(j){
-    App.tab = u.role!=="fornitore" ? "lavori" : (j.assegnatoA===u.supplierId ? "miei" : "bacheca");
-    render(); openJobModal(j.id); } }
+  if(d.req){ const r=byId(STATE.requests,d.req);
+    if(r && canSeeReq(u,r)){ App.tab="richieste"; render(); openReqDetail(r.id); return; }
+    if(r){ toast("Questa richiesta non e' visibile con il tuo accesso","warn"); return; } }
+  if(d.code){ const j=STATE.jobs.find(x=>x.code===d.code);
+    if(j && canSeeJob(u,j)){
+      App.tab = u.role!=="fornitore" ? "lavori" : (j.assegnatoA===u.supplierId ? "miei" : "bacheca");
+      render(); openJobModal(j.id); return; }
+    if(j) toast("Questa commessa non e' visibile con il tuo accesso","warn"); }
 }
 
 const byId = (arr,id)=> arr.find(x=>x.id===id);
@@ -1900,6 +1919,7 @@ function openAssignPick(jid){ const j=byId(STATE.jobs,jid);
 }
 function openReqDetail(rid){ const r=byId(STATE.requests,rid); if(!r) return;
   const u=currentUser(); const isRighi=u&&u.role==="righi"; if(isRighi){ r.read=true; persist(); }
+  App.replyEmail=true;   // l'avviso email vale per la singola richiesta: si riparte sempre da acceso
   const j=byId(STATE.jobs,r.jobId), s=supplier(r.supplierId), c=capo(r.capoId), t=REQ_TYPES[r.tipo];
   const isSlip=r.tipo==="slittamento"; const isConsegna=r.tipo==="collaudo"; const thread=r.risposte||[];
   const stateLabel = r.esito?(r.esito==='approvato'?'Approvato':'Rifiutato'):r.stato==='aperta'?'Inviata':r.stato==='presa'?'In carico':'Chiusa';
@@ -1932,8 +1952,13 @@ function sendQuickReply(rid, testo){ const r=byId(STATE.requests,rid); if(!r||!t
   if(r.stato==="aperta") r.stato="presa"; r.read=true;
   notifySupplier(r.supplierId,{ic:"mail",txt:"Risposta dal caposquadra: "+testo,sub:(byId(STATE.jobs,r.jobId)||{}).code,jobId:r.jobId});
   // il fornitore abituato alla posta va raggiunto anche li': email automatica col link diretto alla richiesta
-  const sent=wantReplyEmail()?sendEmailNow(reqReplyEmail(r,testo)):false;
-  persist(); toast(sent?"Risposta inviata · email di avviso al fornitore":"Risposta inviata","ok"); openReqDetail(rid);
+  const volevaEmail=wantReplyEmail(); const s0=supplier(r.supplierId);
+  const sent=volevaEmail?sendEmailNow(reqReplyEmail(r,testo)):false;
+  // mai silenzioso: se l'avviso non parte, l'operatore deve saperlo
+  const esito = sent ? " · email di avviso al fornitore"
+    : !volevaEmail ? " · avviso email disattivato"
+    : (!s0||!s0.email) ? " · nessuna email in anagrafica: solo notifica nel portale" : "";
+  persist(); toast("Risposta inviata"+esito, sent||!volevaEmail?"ok":"warn"); openReqDetail(rid);
 }
 function openReqFoto(rid){ const r=byId(STATE.requests,rid); if(!r||!r.foto) return;
   openModal(`${modalHead("Foto allegata")}<img src="${r.foto}" style="width:100%;border-radius:10px;border:1px solid var(--line)" alt="foto della richiesta"><div class="btn-row" style="margin-top:12px"><button class="btn ghost block" data-act="reqDetail" data-id="${rid}">Torna alla richiesta</button></div>`);

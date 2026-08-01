@@ -120,8 +120,16 @@ di posta (basta premere Invia); in produzione parte da sola lato server.
 
 **Consegna delle notifiche garantita**: le notifiche ai fornitori venivano perse
 se il fornitore non aveva ancora un accesso al portale (solo alcuni sono
-pre-creati nella demo). Ora l'accesso viene creato al volo, quindi assegnazioni,
-risposte, cambi data ed esiti arrivano **sempre** al destinatario.
+pre-creati nella demo). Ora la notifica viene **indirizzata comunque**, senza
+creare accessi in anticipo: l'accesso nasce quando il fornitore entra con il suo
+link e trova le notifiche **già lì ad aspettarlo**. Così assegnazioni, risposte,
+cambi data ed esiti arrivano **sempre**, e la schermata di accesso resta pulita.
+
+**Il link non è una scorciatoia ai permessi**: un codice commessa non è una
+password. Aprendo un link, il portale verifica sempre che quell'utente abbia il
+diritto di vedere quella commessa (o quella richiesta): un fornitore **non** può
+aprire il lavoro di un altro nemmeno conoscendone il codice, e riceve un avviso
+esplicito invece del contenuto.
 
 **Link diretto al portale (magic link)**: ogni email contiene, nel corpo, un
 **link che apre il portale già identificati e direttamente sulla pagina finale**

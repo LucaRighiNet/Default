@@ -87,6 +87,12 @@ usato**, imposta il cookie di sessione per `user_id`, marca `used_at`, poi **302
 verso la pagina profonda (`/commesse/<code>` o `/richieste/<id>`) con il box risposta
 già pronto.
 
+**Il token identifica, non autorizza.** Dopo aver riconosciuto l'utente dal token,
+il server deve comunque verificare che *quell'utente* possa vedere *quella*
+risorsa (le stesse regole RLS della sezione 3): un codice commessa non è un
+segreto, quindi non deve mai bastare a mostrare il contenuto. Il client applica
+già questo controllo prima di aprire il bersaglio del link.
+
 Regole di sicurezza (il link **è** una credenziale al portatore):
 
 - **Solo HTTPS**; non loggare mai l'URL completo; `Referrer-Policy: no-referrer` così
