@@ -144,7 +144,7 @@ main{max-width:1180px;margin:0 auto;padding:16px calc(var(--sar) + 14px) calc(va
 .map-svg .pin:hover circle{stroke:var(--ink)}
 .map-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--ink-soft);padding:10px 2px 0}
 .map-legend i{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:5px;vertical-align:middle}
-/* istogramma carico terzisti (barre di capacità) */
+/* istogramma carico fornitori (barre di capacità) */
 .loadchart{display:flex;flex-direction:column;gap:11px;margin-top:8px}
 .loadrow-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:12.5px;margin-bottom:3px}
 .loadrow-h b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -503,6 +503,7 @@ const IC = {
   upload:'<path d="M12 15V4m0 0 4 4m-4-4-4 4M5 19h14"/>',
   download:'<path d="M12 4v11m0 0 4-4m-4 4-4-4M5 20h14"/>',
   copy:'<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/>',
+  link:'<path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/>',
 };
 function icon(n,cls){ return '<svg class="svg-ic '+(cls||'')+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(IC[n]||'')+'</svg>'; }
 const LOGO = '<svg class="logomark" viewBox="0 0 48 48" fill="none" aria-hidden="true"><path d="M39 11.5 A19 19 0 1 0 39 36.5" stroke="currentColor" stroke-width="4.6" stroke-linecap="round"/></svg>';
@@ -646,13 +647,13 @@ const CITY = {
   "Firenze":[43.77,11.25,"Toscana"], "Prato":[43.88,11.10,"Toscana"], "Arezzo":[43.46,11.88,"Toscana"],
   // Piemonte
   "Torino":[45.07,7.69,"Piemonte"],
-  // Sedi reali dei terzisti (Romagna e dintorni)
+  // Sedi reali dei fornitori (Romagna e dintorni)
   "Borello":[43.99,12.16,"Romagna"], "San Piero in Bagno":[43.83,11.98,"Romagna"], "Sarsina":[43.92,12.14,"Romagna"],
   "Sant'Arcangelo":[44.06,12.45,"Romagna"], "Conselice":[44.51,11.83,"Romagna"], "Perticara":[43.87,12.27,"Romagna"],
   "Fusignano":[44.47,11.96,"Romagna"], "Mercatello sul Metauro":[43.65,12.34,"Marche"], "Righi":[44.14,12.24,"Romagna"]
 };
 const RIGHI_HQ = {name:"Righi Solutions", citta:"Cesena", lat:44.14, lng:12.24};
-/* ==== Dati reali terzisti/OTL (da Mappatura 2026) ==== */
+/* ==== Dati reali fornitori/OTL (da Mappatura 2026) ==== */
 const SEED_CAPI=[{"id": "cs1", "name": "Davis Casadei", "tel": ""}, {"id": "cs2", "name": "Enea Matteucci", "tel": ""}, {"id": "cs3", "name": "Gianni Gregori", "tel": ""}, {"id": "cs4", "name": "Smeraldi (TQM)", "tel": ""}, {"id": "cs5", "name": "Alex Foschi", "tel": ""}, {"id": "cs6", "name": "Luca Chiaruttini", "tel": ""}];
 const SEED_SUPPLIERS=[{"id": "f1", "name": "AB CODE", "attivo": false, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 300, "cablatori": 2, "risorseDedicate": null, "costoOrario": 20, "referente": "", "email": null, "note": "Non fanno quadri di potenza e quadri grandi che debbano essere movimentati con muletto o carro ponte (hanno la possibilità di movimentare solo quadri a mano)", "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "s", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f2", "name": "AEG", "attivo": true, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 300, "cablatori": 6, "risorseDedicate": 2, "costoOrario": 25, "referente": "", "email": "commerciale@aegsnc.it", "note": null, "preferenze": {"cs1": 10, "cs2": 0, "cs3": 10, "cs4": 60, "cs5": 20, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f3", "name": "AME CABLAGGI", "attivo": false, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 300, "cablatori": 2, "risorseDedicate": null, "costoOrario": null, "referente": "", "email": null, "note": null, "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f4", "name": "AMPERE X", "attivo": true, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 300, "cablatori": 3, "risorseDedicate": 2, "costoOrario": 23, "referente": "", "email": "info@amperex.it", "note": null, "preferenze": {"cs1": 20, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 80, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f5", "name": "BE SYSTEM SNC DI BARCHI ENRICO & C", "attivo": false, "accredited": true, "citta": "San Piero in Bagno", "zona": "Romagna", "lat": 43.83, "lng": 11.98, "capacitaMese": 600, "cablatori": 4, "risorseDedicate": 4, "costoOrario": 15, "referente": "", "email": null, "note": "CHIUSO", "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f6", "name": "CABAS", "attivo": false, "accredited": true, "citta": "Bologna", "zona": "Bologna", "lat": 44.49, "lng": 11.34, "capacitaMese": 0, "cablatori": null, "risorseDedicate": "VARIABILE", "costoOrario": 15, "referente": "", "email": null, "note": "FORNITORE NUOVO 2018 IN FASE DI TEST", "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f7", "name": "CMP", "attivo": true, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 200, "cablatori": null, "risorseDedicate": 1, "costoOrario": null, "referente": "", "email": "cmpelettronica@libero.it", "note": "SOLO LAVORAZIONI A CONSUNTIVO C/O NS. SEDE", "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 30, "cs5": 70, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f8", "name": "DM ELETTROTECNICA SNC", "attivo": true, "accredited": true, "citta": "Sarsina", "zona": "Romagna", "lat": 43.92, "lng": 12.14, "capacitaMese": 900, "cablatori": 7, "risorseDedicate": 5, "costoOrario": 24, "referente": "", "email": "elettrotecnicadm@alice.it", "note": "Esperienza su tutte le tipologia di quadri", "preferenze": {"cs1": 15, "cs2": 0, "cs3": 25, "cs4": 40, "cs5": 20, "cs6": 0}, "specialties": ["automazione", "distribuzione", "potenza"], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f9", "name": "DPM", "attivo": true, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 350, "cablatori": 6, "risorseDedicate": 2, "costoOrario": 25, "referente": "", "email": "commerciale@dpmservicesrl.it", "note": null, "preferenze": {"cs1": 0, "cs2": 0, "cs3": 10, "cs4": 0, "cs5": 70, "cs6": 20}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f10", "name": "DUE‑DI ELETTROTECNICA", "attivo": false, "accredited": true, "citta": "Perticara", "zona": "Romagna", "lat": 43.87, "lng": 12.27, "capacitaMese": 3000, "cablatori": 20, "risorseDedicate": null, "costoOrario": 25, "referente": "", "email": null, "note": "Potenza/MCC", "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": ["potenza"], "settori": [], "dimensioneMax": "l", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f11", "name": "DUEMME SNC", "attivo": true, "accredited": true, "citta": "Bologna", "zona": "Bologna", "lat": 44.49, "lng": 11.34, "capacitaMese": 200, "cablatori": 6, "risorseDedicate": 1.5, "costoOrario": 28, "referente": "", "email": "m.querze@duemmesnc.net", "note": null, "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 100, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f12", "name": "DV AUTOMAZIONI", "attivo": true, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 250, "cablatori": 7, "risorseDedicate": 1.5, "costoOrario": 25, "referente": "", "email": "giovanni.donnini@dvautomazioni.com", "note": null, "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 100, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f13", "name": "EDI", "attivo": false, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 450, "cablatori": 3, "risorseDedicate": 2, "costoOrario": 15, "referente": "", "email": null, "note": null, "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f14", "name": "EESI", "attivo": true, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 300, "cablatori": 4, "risorseDedicate": 2, "costoOrario": 24, "referente": "", "email": "e.e.s.i.dv@gmail.com", "note": null, "preferenze": {"cs1": 60, "cs2": 25, "cs3": 15, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f15", "name": "ELEKTRA", "attivo": true, "accredited": true, "citta": "Conselice", "zona": "Romagna", "lat": 44.51, "lng": 11.83, "capacitaMese": 350, "cablatori": 6, "risorseDedicate": 2, "costoOrario": 26, "referente": "", "email": "marco@impiantielektra.it", "note": null, "preferenze": {"cs1": 0, "cs2": 0, "cs3": 80, "cs4": 0, "cs5": 20, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f16", "name": "ELETTRIC TEAM", "attivo": false, "accredited": true, "citta": "Sant'Arcangelo", "zona": "Romagna", "lat": 44.06, "lng": 12.45, "capacitaMese": 900, "cablatori": 6, "risorseDedicate": null, "costoOrario": 22, "referente": "", "email": null, "note": "Per i trasporti, consegna materiale a carico nostro, riconsegna quadro a carico loro", "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f17", "name": "ELETTROTECH S.A.S.", "attivo": false, "accredited": true, "citta": "Borello", "zona": "Romagna", "lat": 43.99, "lng": 12.16, "capacitaMese": 450, "cablatori": 3, "risorseDedicate": null, "costoOrario": 20, "referente": "", "email": null, "note": "Nuova tariffa da marzo 2023 (prima 18h)", "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f18", "name": "ELETTROTECNICA LIVERANI", "attivo": true, "accredited": true, "citta": "Forlì", "zona": "Romagna", "lat": 44.22, "lng": 12.04, "capacitaMese": 200, "cablatori": 8, "risorseDedicate": 1, "costoOrario": 26, "referente": "", "email": "info@elettrotecnicaliverani.it", "note": "Potenza/MCC + all'evenienza anche quadri a lotti", "preferenze": {"cs1": 0, "cs2": 0, "cs3": 10, "cs4": 70, "cs5": 20, "cs6": 0}, "specialties": ["potenza"], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f19", "name": "ELLEVI", "attivo": false, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 0, "cablatori": null, "risorseDedicate": null, "costoOrario": 22, "referente": "", "email": null, "note": "Costi di trasporto a carico loro", "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f20", "name": "ER LUX", "attivo": false, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 750, "cablatori": 5, "risorseDedicate": null, "costoOrario": null, "referente": "", "email": null, "note": null, "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f21", "name": "EST AUTOMAZIONE", "attivo": true, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 200, "cablatori": null, "risorseDedicate": null, "costoOrario": 28, "referente": "", "email": null, "note": null, "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 100}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f22", "name": "F.A.G.M SYSTEM", "attivo": false, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 600, "cablatori": 4, "risorseDedicate": null, "costoOrario": 22, "referente": "", "email": null, "note": null, "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f23", "name": "FERRARA IMPIANTI", "attivo": false, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 750, "cablatori": 5, "risorseDedicate": null, "costoOrario": 25, "referente": "", "email": null, "note": "Nuova tariffa da marzo 2023 (prima 19€h)", "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f24", "name": "FT", "attivo": false, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 600, "cablatori": 4, "risorseDedicate": null, "costoOrario": null, "referente": "", "email": null, "note": null, "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f25", "name": "GKM", "attivo": true, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 500, "cablatori": 3, "risorseDedicate": 3, "costoOrario": null, "referente": "", "email": "kenanakpolat88@gmail.com", "note": "SOLO LAVORAZIONI A CONSUNTIVO C/O SEDE DI GERENZANO + aggiunta costi pasti a parte", "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 100}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f26", "name": "GROUP SYSTEM", "attivo": false, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 0, "cablatori": null, "risorseDedicate": null, "costoOrario": 25, "referente": "", "email": null, "note": null, "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f27", "name": "GUERCINI IMPIANTI", "attivo": false, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 150, "cablatori": 1, "risorseDedicate": null, "costoOrario": null, "referente": "", "email": null, "note": "Fanno quadri, BM, ingegneria e software. Lavorano con GD e Iema", "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f28", "name": "ICEE", "attivo": true, "accredited": true, "citta": "Faenza", "zona": "Romagna", "lat": 44.29, "lng": 11.88, "capacitaMese": 300, "cablatori": 4, "risorseDedicate": 2, "costoOrario": 24, "referente": "", "email": "paolo@icee-it.com", "note": "FORNITORE NUOVO 2018", "preferenze": {"cs1": 0, "cs2": 0, "cs3": 30, "cs4": 0, "cs5": 70, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f29", "name": "IMP.EL", "attivo": true, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 200, "cablatori": null, "risorseDedicate": 1, "costoOrario": 25, "referente": "", "email": "dmartelli@impelimola.it", "note": null, "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 100}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f30", "name": "LUMA SISTEM", "attivo": true, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 200, "cablatori": 1, "risorseDedicate": 1, "costoOrario": 20, "referente": "", "email": "lumasistem@gmail.com", "note": "Costi di trasporto a carico loro", "preferenze": {"cs1": 0, "cs2": 100, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f31", "name": "MARALDI", "attivo": true, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 200, "cablatori": 1, "risorseDedicate": 1, "costoOrario": null, "referente": "", "email": "luigi.maraldi77@gmail.com", "note": "SOLO LAVORAZIONI A CONSUNTIVO C/O NS. SEDE", "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 100, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f32", "name": "NORDELETTRICA IMPIANTI SRL", "attivo": false, "accredited": true, "citta": "Fusignano", "zona": "Romagna", "lat": 44.47, "lng": 11.96, "capacitaMese": 0, "cablatori": null, "risorseDedicate": "VARIABILE", "costoOrario": 25, "referente": "", "email": null, "note": "AL MOMENTO NON UTILIZZATO", "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f33", "name": "NOVATEC", "attivo": true, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 250, "cablatori": null, "risorseDedicate": 1.5, "costoOrario": 28, "referente": "", "email": "danilofilippone@novatecsrl.it", "note": null, "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 100}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f34", "name": "NOWATT", "attivo": true, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 350, "cablatori": null, "risorseDedicate": 2, "costoOrario": 23, "referente": "", "email": "info@nowatt.it", "note": null, "preferenze": {"cs1": 40, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 60, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f35", "name": "PF EUROIMPIANTI", "attivo": false, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 1500, "cablatori": 10, "risorseDedicate": null, "costoOrario": 20, "referente": "", "email": null, "note": "Costi di trasporto a carico loro", "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f36", "name": "POLAR", "attivo": false, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 0, "cablatori": null, "risorseDedicate": null, "costoOrario": null, "referente": "", "email": null, "note": "Costi di trasporto a carico loro", "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f37", "name": "POWER di Mercatello sul Metauro (PU)", "attivo": true, "accredited": true, "citta": "Mercatello sul Metauro", "zona": "Marche", "lat": 43.65, "lng": 12.34, "capacitaMese": 300, "cablatori": null, "risorseDedicate": 2, "costoOrario": 28, "referente": "", "email": "mario.muscinelli@power-srl.com", "note": null, "preferenze": {"cs1": 0, "cs2": 100, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f38", "name": "QUADRI SYSTEM", "attivo": true, "accredited": true, "citta": "Faenza", "zona": "Romagna", "lat": 44.29, "lng": 11.88, "capacitaMese": 350, "cablatori": 4, "risorseDedicate": 2, "costoOrario": 26, "referente": "", "email": "marco@impiantielektra.it", "note": null, "preferenze": {"cs1": 0, "cs2": 0, "cs3": 80, "cs4": 0, "cs5": 20, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f39", "name": "ROMAN LUCAKOVIC", "attivo": false, "accredited": true, "citta": "Borello", "zona": "Romagna", "lat": 43.99, "lng": 12.16, "capacitaMese": 600, "cablatori": 4, "risorseDedicate": 4, "costoOrario": 15, "referente": "", "email": null, "note": "CHIUSO", "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f40", "name": "SANTI MIRCO", "attivo": true, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 200, "cablatori": null, "risorseDedicate": 1, "costoOrario": null, "referente": "", "email": "mirco.santi75@gmail.com", "note": "SOLO LAVORAZIONI A CONSUNTIVO C/O NS. SEDE", "preferenze": {"cs1": 0, "cs2": 100, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f41", "name": "SAVIO ASSEMBLAGGI", "attivo": false, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 75, "cablatori": 0.5, "risorseDedicate": null, "costoOrario": 18, "referente": "", "email": null, "note": "Non fanno quadri di potenza e quadri grandi che debbano essere movimentati con muletto o carro ponte (hanno la possibilità di movimentare solo quadri a mano)", "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "s", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f42", "name": "SCE", "attivo": false, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 1200, "cablatori": 8, "risorseDedicate": 2, "costoOrario": 18, "referente": "", "email": null, "note": "Costi di trasporto a carico loro", "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f43", "name": "SEIA", "attivo": true, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 200, "cablatori": null, "risorseDedicate": 1, "costoOrario": null, "referente": "", "email": "seia.automazioni@libero.it", "note": null, "preferenze": {"cs1": 0, "cs2": 0, "cs3": 50, "cs4": 0, "cs5": 50, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f44", "name": "SINTEC", "attivo": true, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 300, "cablatori": null, "risorseDedicate": 2, "costoOrario": 27, "referente": "", "email": "info@sintecelectronic.it", "note": "Trasporto a carico loro", "preferenze": {"cs1": 100, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f45", "name": "SOEL", "attivo": false, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 450, "cablatori": 3, "risorseDedicate": null, "costoOrario": 20, "referente": "", "email": null, "note": "Costi di trasporto a carico loro", "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f46", "name": "SOIMEL", "attivo": false, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 450, "cablatori": 3, "risorseDedicate": null, "costoOrario": null, "referente": "", "email": null, "note": null, "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f47", "name": "STEVE ELETTRO SYSTEM", "attivo": true, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 450, "cablatori": null, "risorseDedicate": 3, "costoOrario": 24, "referente": "", "email": "uff.direzione@steveelettrosystem.com", "note": "Trasporto a carico loro", "preferenze": {"cs1": 0, "cs2": 0, "cs3": 60, "cs4": 0, "cs5": 40, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f48", "name": "SYSTEM AP", "attivo": true, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 600, "cablatori": null, "risorseDedicate": 4, "costoOrario": 25, "referente": "", "email": "mimmo.systemap@gmail.com", "note": null, "preferenze": {"cs1": 0, "cs2": 10, "cs3": 0, "cs4": 0, "cs5": 90, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f49", "name": "SYSTEMS & SOLUTIONS", "attivo": false, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 750, "cablatori": 5, "risorseDedicate": null, "costoOrario": 22, "referente": "", "email": null, "note": null, "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f50", "name": "TECNO LUCE", "attivo": false, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 1800, "cablatori": 12, "risorseDedicate": null, "costoOrario": 32, "referente": "", "email": null, "note": null, "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "l", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f51", "name": "TECNOQUADRI", "attivo": true, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 400, "cablatori": 30, "risorseDedicate": 3, "costoOrario": 25, "referente": "", "email": "f.mellini@tecnoquadri-srl.it", "note": null, "preferenze": {"cs1": 80, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 20, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "l", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f52", "name": "TEKNO 4", "attivo": false, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 2250, "cablatori": 15, "risorseDedicate": null, "costoOrario": 34, "referente": "", "email": null, "note": null, "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "l", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f53", "name": "VACCARI", "attivo": true, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 350, "cablatori": null, "risorseDedicate": 2, "costoOrario": 30, "referente": "", "email": "m.gardin@sigersrl.com", "note": null, "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 100, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f54", "name": "VERNOCCHI FABIO", "attivo": true, "accredited": true, "citta": "Righi", "zona": "Romagna", "lat": 44.14, "lng": 12.24, "capacitaMese": 200, "cablatori": 1, "risorseDedicate": 1, "costoOrario": null, "referente": "", "email": "fabioverno@tiscali.it", "note": "SOLO LAVORAZIONI A CONSUNTIVO C/O NS. SEDE", "preferenze": {"cs1": 100, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}];
 
@@ -728,10 +729,10 @@ function seed(){
   const active=jobs.filter(j=>j.assegnatoA&&(j.stato==="assegnato"||j.stato==="in_corso"));
   const genTypes=["dubbio","materiale","sopralluogo","collaudo","altro"];
   for(let i=0;i<10;i++){ const j=active[Math.floor(rng()*active.length)]; const tp=pick(genTypes);
-    requests.push({id:uid("q"),jobId:j.id,supplierId:j.assegnatoA,tipo:tp,testo:tp==="materiale"?"Mancano alcuni morsetti sezionabili.":tp==="dubbio"?"Siglatura morsetti non chiara sul foglio 4.":"",at:dISO(-Math.floor(rng()*3))+"T"+(8+i)+":30",stato:i<6?"aperta":"presa",capoId:j.capoId,from:"fornitore",read:i>=6}); }
+    requests.push({id:"qs"+requests.length,jobId:j.id,supplierId:j.assegnatoA,tipo:tp,testo:tp==="materiale"?"Mancano alcuni morsetti sezionabili.":tp==="dubbio"?"Siglatura morsetti non chiara sul foglio 4.":"",at:dISO(-Math.floor(rng()*3))+"T"+(8+i)+":30",stato:i<6?"aperta":"presa",capoId:j.capoId,from:"fornitore",read:i>=6}); }
   // richieste di slittamento aperte (da approvare)
   for(let i=0;i<3;i++){ const j=active[Math.floor(rng()*active.length)]; if(!j) continue;
-    requests.push({id:uid("q"),jobId:j.id,supplierId:j.assegnatoA,tipo:"slittamento",testo:"Ritardo nella fornitura del materiale dal nostro fornitore.",dataProposta:addDays(j.dataRientro,7+Math.floor(rng()*7)),esito:null,at:dISO(-Math.floor(rng()*2))+"T10:1"+i,stato:"aperta",capoId:j.capoId,from:"fornitore",read:false}); }
+    requests.push({id:"qs"+requests.length,jobId:j.id,supplierId:j.assegnatoA,tipo:"slittamento",testo:"Ritardo nella fornitura del materiale dal nostro fornitore.",dataProposta:addDays(j.dataRientro,7+Math.floor(rng()*7)),esito:null,at:dISO(-Math.floor(rng()*2))+"T10:1"+i,stato:"aperta",capoId:j.capoId,from:"fornitore",read:false}); }
   // slittamenti già approvati in passato: storico sul RIENTRO (~15% delle commesse attive)
   active.filter(()=>rng()<0.15).forEach(j=>{ const orig=addDays(j.dataRientro,-(5+Math.floor(rng()*8))); j.dataRientroBase=orig;
     j.storicoDate.push({from:orig,to:j.dataRientro,byRole:"caposquadra",by:j.capoId,at:dISO(-(3+Math.floor(rng()*20))),motivo:"Slittamento concordato",tipo:"slittamento"}); });
@@ -770,6 +771,103 @@ let _mCache=new Map(), _mCacheVer=-1, _mCacheState=null;
 function metricsCache(){ if(_mCacheVer!==_stateVer || _mCacheState!==STATE){ _mCache.clear(); _mCacheVer=_stateVer; _mCacheState=STATE; } return _mCache; }
 function setSession(userId){ Session = userId?{userId}:null; try{ Storage.set(SESSKEY, JSON.stringify(Session)); }catch(e){} }
 
+/* ---- Link diretto (magic link) nelle email ------------------------------------
+   Porta il fornitore dentro al portale, gia' identificato, sulla commessa/richiesta
+   giusta: un clic dall'email e risponde nel portale (niente password nel prototipo).
+   In produzione il link porta un token firmato e a scadenza, verificato lato server
+   (vedi BACKEND.md). L'hash viene ripulito subito: nessuna identita' resta nell'URL. */
+function portalLink(params){
+  const base=(location.href||"").split("#")[0];
+  const q=Object.keys(params||{}).filter(k=>params[k]!=null&&params[k]!=="").map(k=>k+"="+encodeURIComponent(params[k]));
+  return base+(q.length?"#"+q.join("&"):"");
+}
+// corpo email standard con invito a rispondere nel portale + link diretto in evidenza
+function portalEmailBody(referente, contesto, link){
+  return "Buongiorno "+referente+",\n\n"+(contesto?contesto+"\n\n":"")
+    +"Puo' accedere al portale e rispondere direttamente qui (un clic, nessuna password):\n"+link
+    +"\n\nRighi Solutions — Ufficio Subappalti";
+}
+// garantisce un accesso fornitore per il fornitore del link (solo alcuni sono pre-creati)
+function ensureSupplierUser(sid){ const s=supplier(sid); if(!s) return null;
+  let u=STATE.users.find(x=>x.supplierId===sid);
+  if(!u){ u={id:"u_link_"+sid, name:s.name, role:"fornitore", supplierId:sid, email:s.email}; STATE.users.push(u); persist(); }
+  return u; }
+// Notifica in app al fornitore. Consegna GARANTITA: se il fornitore non ha ancora
+// un accesso al portale viene creato al volo (prima le notifiche andavano perse).
+// Identificativo dell'accesso fornitore SENZA crearlo: si puo' notificare anche chi non
+// e' mai entrato nel portale. L'accesso nasce al primo magic link con lo STESSO
+// identificativo, quindi le notifiche sono gia' li' ad aspettarlo. (Crearli tutti in
+// anticipo riempirebbe di decine di voci la schermata di accesso.)
+function supplierUserId(sid){ if(!supplier(sid)) return null;
+  const u=STATE.users.find(x=>x.supplierId===sid); return u?u.id:("u_link_"+sid); }
+function notifySupplier(sid, o){ const to=supplierUserId(sid); if(!to) return null;
+  const n={id:uid("n"),toUser:to,ic:o.ic||"bell",txt:o.txt,sub:o.sub||"",jobId:o.jobId||null,at:new Date().toISOString().slice(0,16),read:false};
+  STATE.notifications.push(n); return n; }
+// Notifica il caposquadra di riferimento della commessa (avvio produzione, consegna...)
+function notifyCapoJob(j, txt, ic){ const cu=STATE.users.find(x=>x.righiRole==="caposquadra"&&x.capoId===j.capoId); if(!cu) return null;
+  const n={id:uid("n"),toUser:cu.id,ic:ic||"bell",txt,sub:j.code+" — "+j.title,jobId:j.id,at:new Date().toISOString().slice(0,16),read:false};
+  STATE.notifications.push(n); return n; }
+// Email di avviso al fornitore su una richiesta, col link diretto alla richiesta stessa:
+// chi vive nella posta riceve la risposta e ci clicca sopra per rispondere nel portale.
+function reqReplyEmail(r, testo, titolo){
+  const s=supplier(r.supplierId); if(!s||!s.email) return null;
+  const j=byId(STATE.jobs,r.jobId); const tp=REQ_TYPES[r.tipo]||{label:"Richiesta"};
+  const contesto=(titolo||"Abbiamo risposto alla sua segnalazione")+" ("+tp.label+")"
+    +(j?" sulla commessa "+j.code+" — "+j.title:"")+":\n\n\""+testo+"\"";
+  return { to:s.email,
+    subject:"["+(j?j.code:"")+"] "+tp.label+" · risposta da Righi",
+    body:portalEmailBody(s.referente||s.name, contesto, portalLink({f:s.id,q:r.id,c:(j?j.code:null)})) };
+}
+// L'avviso via email al fornitore e' attivo per impostazione predefinita (si puo' spegnere per singola risposta)
+const wantReplyEmail = ()=> App.replyEmail!==false;
+// Invio AUTOMATICO dell'avviso: non apre il modale "Prepara email", consegna
+// direttamente al programma di posta gia' compilato (destinatario, oggetto, testo e link).
+// In produzione questo passaggio sparisce del tutto: invia il server (vedi BACKEND.md).
+function sendEmailNow(em){
+  if(!em||!em.to) return false;
+  App._email=em; App._lastSent={to:em.to, subject:em.subject, at:new Date().toISOString().slice(0,16)};
+  try{ const a=document.createElement("a"); a.href=mailto(em.to,em.subject,em.body); a.target="_blank"; a.rel="noopener";
+       a.style.display="none"; document.body.appendChild(a); a.click(); setTimeout(()=>a.remove(),0); }catch(e){ return false; }
+  return true;
+}
+// al boot: se l'URL ha #f=<fornitore>&c=<commessa> (o &q=<richiesta>), autentica e memorizza il target.
+// Ritorna true se il link ha cambiato la sessione o fissato un target (serve per ri-renderizzare).
+function resolveMagicLink(){
+  const h=(location.hash||"").replace(/^#/,""); if(!h) return false;
+  const p={}; h.split("&").forEach(kv=>{ const i=kv.indexOf("="); const k=i<0?kv:kv.slice(0,i), v=i<0?"":kv.slice(i+1); if(k){ try{ p[decodeURIComponent(k)]=decodeURIComponent(v); }catch(e){ p[k]=v; } } });
+  if(!(p.f||p.u||p.c||p.q)) return false;   // hash non nostro (es. anchor): non tocchiamo la sessione
+  try{ history.replaceState(null,"",(location.href||"").split("#")[0]); }catch(e){ try{ location.hash=""; }catch(_){} }
+  if(p.c||p.q) App._deepLink={ code:p.c||null, req:p.q||null };
+  // il link personale vince SEMPRE sulla sessione in corso: chi apre l'email deve entrare come se stesso
+  if(p.f){ const u=ensureSupplierUser(p.f); if(u){ setSession(u.id); return true; }
+    toast("Link non valido: fornitore non trovato","warn"); return !!App._deepLink; }
+  if(p.u && byId(STATE.users,p.u)){ setSession(p.u); return true; }          // link personale di un utente Righi (es. caposquadra)
+  return !!App._deepLink;
+}
+// L'hash puo' arrivare DOPO il boot (alcuni host impostano l'URL dell'iframe dopo il caricamento):
+// in quel caso rileggiamo il link, ri-renderizziamo con la nuova identita' e apriamo il target.
+function onMagicHash(){ if(resolveMagicLink()){ render(); openDeepLinkTarget(); } }
+// dopo il render iniziale (o dopo login manuale col link generico): apre la commessa/richiesta del link
+// Il link apre SOLO cio' che l'utente ha diritto di vedere: un codice commessa
+// non e' una password, quindi va sempre verificato il permesso (un fornitore non
+// deve poter aprire la commessa di un altro nemmeno conoscendone il codice).
+function canSeeJob(u, j){ if(!u||!j) return false;
+  if(u.role!=="fornitore") return scopedJobs().some(x=>x.id===j.id);      // Righi: rispetta lo scope del caposquadra
+  return jobsForSupplier(u.supplierId).some(x=>x.id===j.id); }
+function canSeeReq(u, r){ if(!u||!r) return false;
+  if(u.role!=="fornitore") return scopedRequests().some(x=>x.id===r.id);
+  return r.supplierId===u.supplierId; }
+function openDeepLinkTarget(){ const d=App._deepLink; const u=currentUser(); if(!d||!u) return; App._deepLink=null;
+  if(d.req){ const r=byId(STATE.requests,d.req);
+    if(r && canSeeReq(u,r)){ App.tab="richieste"; render(); openReqDetail(r.id); return; }
+    if(r){ toast("Questa richiesta non e' visibile con il tuo accesso","warn"); return; } }
+  if(d.code){ const j=STATE.jobs.find(x=>x.code===d.code);
+    if(j && canSeeJob(u,j)){
+      App.tab = u.role!=="fornitore" ? "lavori" : (j.assegnatoA===u.supplierId ? "miei" : "bacheca");
+      render(); openJobModal(j.id); return; }
+    if(j) toast("Questa commessa non e' visibile con il tuo accesso","warn"); }
+}
+
 const byId = (arr,id)=> arr.find(x=>x.id===id);
 const supplier = id => byId(STATE.suppliers,id);
 const capo = id => byId(STATE.capi,id);
@@ -794,7 +892,7 @@ function jobRequests(jid){ return graphIndex().reqByJob[jid]||[]; }     // lista
 function isCapo(u){ return !!(u && u.role==="righi" && u.righiRole==="caposquadra"); }
 function scopedJobs(){ const u=currentUser(); return isCapo(u)? STATE.jobs.filter(j=>j.capoId===u.capoId) : STATE.jobs; }
 function scopedRequests(){ const u=currentUser(); return isCapo(u)? STATE.requests.filter(r=>r.capoId===u.capoId) : STATE.requests; }
-/* ore stimate: carico attivo per terzista e mese di consegna (solo dati Righi) */
+/* ore stimate: carico attivo per fornitore e mese di consegna (solo dati Righi) */
 const MESI=["gen","feb","mar","apr","mag","giu","lug","ago","set","ott","nov","dic"];
 function monthKey(iso){ return (iso||"").slice(0,7); }
 function monthLabel(k){ if(!k) return "—"; const p=k.split("-"); return MESI[(+p[1])-1]+" '"+p[0].slice(2); }
@@ -930,7 +1028,7 @@ function healthDot(j){ const h=jobHealth(j); if(["done","draft"].includes(h.leve
 function prefFor(sup, capoId){ return (sup && sup.preferenze && capoId && sup.preferenze[capoId]) || 0; }
 function suggestSuppliers(job){ const mk=monthKey(keyDate(job)); const need=job.oreStimate||0;
   const needHv=job.tipologia==="potenza"; const needFood=/food|farmaceutico/i.test(job.settore);
-  // solo terzisti accreditati e ATTIVI concorrono all'assegnazione
+  // solo fornitori accreditati e ATTIVI concorrono all'assegnazione
   return STATE.suppliers.filter(s=>s.accredited&&s.attivo).map(s=>{ const m=supplierMetrics(s.id); let score=0; const reasons=[];
     // % di utilizzo preferenziale dell'OTL (caposquadra) della commessa — dal file Mappatura
     const pref=prefFor(s, job.capoId);
@@ -1313,7 +1411,7 @@ function viewNuovoLavoro(){
       <span class="hint">Serve a segnalare in assegnazione i fornitori con spazio insufficiente</span></div>
     <div class="row2">
       <div class="field"><label>Budget indicativo (€)</label><input class="inp" id="nl-budget" type="number" inputmode="numeric" placeholder="es. 8000" value="${d.budget||''}"></div>
-      <div class="field"><label>Ore stimate di produzione</label><input class="inp" id="nl-ore" type="number" inputmode="numeric" placeholder="es. 120" value="${d.ore||''}"><span class="hint">Riservato Righi · alimenta il carico dei terzisti</span></div>
+      <div class="field"><label>Ore stimate di produzione</label><input class="inp" id="nl-ore" type="number" inputmode="numeric" placeholder="es. 120" value="${d.ore||''}"><span class="hint">Riservato Righi · alimenta il carico dei fornitori</span></div>
     </div>
     <div class="field"><label>Caposquadra di riferimento</label>
       <select class="inp" id="nl-capo" ${capo_?"disabled":""}>${STATE.capi.map(c=>`<option value="${c.id}" ${d.capoId===c.id?'selected':''}>${esc(c.name)}</option>`).join("")}</select>${capo_?`<span class="hint">Sei tu il caposquadra di questa commessa</span>`:""}</div>
@@ -1504,7 +1602,7 @@ function viewAnalisi(){ const u=currentUser(); const capo_=isCapo(u);
   return `<div class="view-head"><div><h2>Analisi</h2><p>${capo_?"Le commesse che segui":"Tutte le commesse"} · aggiornato ${fmtDate(todayISO())}</p></div></div>
   <div class="card" style="margin-bottom:14px">
     <div class="sect-t">${icon("bolt","sm")} Collo di bottiglia della capacità</div>
-    <p class="chart-note">Analisi <b>max-flow / min-cut</b> sulle commesse da assegnare (con accettazioni), per mese di rientro: quante ore di domanda <b>non sono collocabili</b> nella capacità libera e <b>quali fornitori</b> sono il vincolo. Serve a decidere dove aumentare capacità o accreditare nuovi terzisti.</p>
+    <p class="chart-note">Analisi <b>max-flow / min-cut</b> sulle commesse da assegnare (con accettazioni), per mese di rientro: quante ore di domanda <b>non sono collocabili</b> nella capacità libera e <b>quali fornitori</b> sono il vincolo. Serve a decidere dove aumentare capacità o accreditare nuovi fornitori.</p>
     ${chartBottleneck()}
   </div>
   <div class="card" style="margin-bottom:14px">
@@ -1529,7 +1627,7 @@ function viewAnalisi(){ const u=currentUser(); const capo_=isCapo(u);
 function viewFornitori(){
   const mode=App.fornMode||"lista"; const canManage=!isCapo(currentUser());
   const nAtt=STATE.suppliers.filter(s=>s.attivo).length; const filt=App.fornAttivi||"attivi";
-  const head=`<div class="view-head"><div><h2>Fornitori accreditati</h2><p><b>${nAtt}</b> attivi su ${STATE.suppliers.length} terzisti · carico, specializzazioni e mappa</p></div>
+  const head=`<div class="view-head"><div><h2>Fornitori accreditati</h2><p><b>${nAtt}</b> attivi su ${STATE.suppliers.length} fornitori · carico, specializzazioni e mappa</p></div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
       ${canManage?`<button class="btn accent" data-act="newSup">${icon("plus")} Nuovo fornitore</button>`:""}
       <div class="seg"><button class="${mode==='lista'?'on':''}" data-act="fornMode" data-m="lista">${icon("list","sm")} Elenco</button><button class="${mode==='mappa'?'on':''}" data-act="fornMode" data-m="mappa">${icon("building","sm")} Mappa</button></div>
@@ -1539,7 +1637,7 @@ function viewFornitori(){
   return head+`
   <div class="card" style="margin-bottom:14px">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px">
-      <div class="sect-t" style="margin:0">${icon("clock2","sm")} Carico terzisti — ore attive vs capacità</div>
+      <div class="sect-t" style="margin:0">${icon("clock2","sm")} Carico fornitori — ore attive vs capacità</div>
       <div class="seg"><button class="${cview==='grafico'?'on':''}" data-act="caricoView" data-m="grafico">Grafico</button><button class="${cview==='tabella'?'on':''}" data-act="caricoView" data-m="tabella">Tabella</button></div>
     </div>
     ${cview==='grafico'?`<div class="filt-row" style="margin-bottom:6px">${mesi.map(m=>`<button class="chip sm ${cmk===m?'on':''}" data-act="caricoMonth" data-mk="${m}">${monthLabel(m)}</button>`).join("")}</div>${caricoChartHtml(cmk)}`:caricoMatrixHtml()}
@@ -1713,6 +1811,9 @@ function openJobModal(jid){
       const cand=resp.filter(r=>r.tipo==="accettazione");
       footer=`<div class="btn-row"><button class="btn ghost" data-act="notifyPick" data-job="${j.id}">${icon("bell","sm")} Notifica fornitori</button>
         ${cand.length?`<button class="btn accent" data-act="assignPick" data-job="${j.id}">${icon("check")} Assegna (${cand.length})</button>`:`<span class="pill plain" style="align-self:center">In attesa di accettazioni</span>`}</div>`;
+    } else if(j.stato==="consegnato"){
+      // chiusura della pratica: e' lo stato finale, prima mancava il modo di arrivarci
+      footer=`<div class="btn-row"><button class="btn accent" data-act="closeJob" data-job="${j.id}">${icon("check")} Chiudi la pratica</button></div>`;
     } else if(["assegnato","in_corso"].includes(j.stato)){
       footer=`<div class="btn-row">${s?`<button class="btn ghost" data-act="emailJobSup" data-job="${j.id}">${icon("mail","sm")} Email fornitore</button>`:""}<button class="btn ghost" data-act="editDate" data-job="${j.id}">${icon("calendar","sm")} Modifica data</button><button class="btn" data-act="setStato" data-job="${j.id}" data-s="consegnato">Segna consegnato</button></div>`;
     }
@@ -1790,7 +1891,7 @@ function openQuickReq(jid){ const j=byId(STATE.jobs,jid), c=capo(j.capoId); App.
     <div class="sect-t" style="margin-top:12px">Tipo di richiesta</div>
     <div class="chips" id="qr-types">${Object.entries(REQ_TYPES).map(([k,v])=>`<button class="chip sm" data-qrtype="${k}">${v.label}</button>`).join("")}</div>
     <div class="field hide" id="qr-slip" style="margin-top:12px"><label>Nuova data di rientro proposta</label><input class="inp" id="qr-date" type="date" value="${addDays(j.dataRientro,10)}"><span class="hint">Rientro attuale: ${fmtDate(j.dataRientro)} — lo slittamento va approvato da Righi.</span></div>
-    <div class="field" style="margin-top:12px"><label>Dettaglio (facoltativo)</label><textarea class="inp" id="qr-note" placeholder="Poche parole bastano…"></textarea></div>
+    <div class="field" style="margin-top:12px"><label id="qr-note-lbl">Dettaglio (facoltativo)</label><textarea class="inp" id="qr-note" placeholder="Poche parole bastano…"></textarea></div>
     <div class="field"><label>Foto (facoltativa) — meglio di mille parole</label>
       <div id="qr-foto-prev"></div>
       <label class="btn ghost sm" style="cursor:pointer">${icon("doc","sm")} Allega/scatta foto<input type="file" id="qr-foto" accept="image/*" capture="environment" class="hide"></label></div>
@@ -1816,7 +1917,7 @@ function openAssignPick(jid){ const j=byId(STATE.jobs,jid);
   const cand=jobResponses(j.id).filter(r=>r.tipo==="accettazione").sort((a,b)=>((sMap[b.supplierId]||{}).score||0)-((sMap[a.supplierId]||{}).score||0));
   const capoN=(capo(j.capoId)||{}).name||"—";
   openModal(`${modalHead("Assegna — "+esc(j.code))}
-    <p class="muted" style="font-size:13px;margin-top:0"><b>${esc(j.code)}</b> — ${esc(j.title)}<br>${cand.length} ${cand.length===1?'fornitore ha':'fornitori hanno'} accettato, ordinati per idoneità. OTL: <b>${esc(capoN)}</b> (i terzisti con preferenza più alta per lui salgono).${j.ingombro?` Ingombro richiesto: <b>${DIMENSIONI[j.ingombro].short}</b>.`:''}</p>
+    <p class="muted" style="font-size:13px;margin-top:0"><b>${esc(j.code)}</b> — ${esc(j.title)}<br>${cand.length} ${cand.length===1?'fornitore ha':'fornitori hanno'} accettato, ordinati per idoneità. OTL: <b>${esc(capoN)}</b> (i fornitori con preferenza più alta per lui salgono).${j.ingombro?` Ingombro richiesto: <b>${DIMENSIONI[j.ingombro].short}</b>.`:''}</p>
     <div class="rowlist">${cand.map(r=>{const s=supplier(r.supplierId); const sg=sMap[r.supplierId]||{}; const noFit=j.ingombro&&sg.spazioOk===false;
       return `<div class="lrow ${noFit?'row-warn':''}"><span class="avatar sm" style="background:${colorFor(s.id)}">${initials(s.name)}</span>
       <span class="gr"><b>${esc(s.name)}${sg.pref>0?` <span class="pill brand">pref. OTL ${sg.pref}%</span>`:''}${(sg.reasons&&sg.reasons.includes("puntuale"))?' <span class="pill ok">puntuale</span>':''}${r.firma?' <span class="pill ok">firmato</span>':''}${noFit?' <span class="pill danger">spazio insufficiente</span>':''}</b><span class="s">offerta ${fmtMoney(r.importo)}${s.costoOrario?' · '+s.costoOrario+' €/h':''} · libere ${sg.free!=null?sg.free+'h':'—'}${sg.overload?' · <span style="color:var(--danger)">sovraccarico</span>':''}${sg.puntualita!=null?' · punt '+sg.puntualita+'%':''}</span><span class="s">${icon("building","sm")} ${s.dimensioneMax?esc(DIMENSIONI[s.dimensioneMax].short):'—'}${(s.attrezzature&&s.attrezzature.length)?' · '+attrLabels(s.attrezzature).map(esc).join(', '):''}</span></span>
@@ -1825,6 +1926,7 @@ function openAssignPick(jid){ const j=byId(STATE.jobs,jid);
 }
 function openReqDetail(rid){ const r=byId(STATE.requests,rid); if(!r) return;
   const u=currentUser(); const isRighi=u&&u.role==="righi"; if(isRighi){ r.read=true; persist(); }
+  App.replyEmail=true;   // l'avviso email vale per la singola richiesta: si riparte sempre da acceso
   const j=byId(STATE.jobs,r.jobId), s=supplier(r.supplierId), c=capo(r.capoId), t=REQ_TYPES[r.tipo];
   const isSlip=r.tipo==="slittamento"; const isConsegna=r.tipo==="collaudo"; const thread=r.risposte||[];
   const stateLabel = r.esito?(r.esito==='approvato'?'Approvato':'Rifiutato'):r.stato==='aperta'?'Inviata':r.stato==='presa'?'In carico':'Chiusa';
@@ -1842,6 +1944,7 @@ function openReqDetail(rid){ const r=byId(STATE.requests,rid); if(!r) return;
     ${isRighi?`
       <div class="divide"></div><div class="sect-t">${icon("send","sm")} Risposta rapida</div>
       <div class="chips">${QUICK_REPLIES.map(q=>`<button class="chip sm" data-act="quickReply" data-id="${rid}" data-txt="${esc(q)}">${esc(q)}</button>`).join("")}</div>
+      <div class="toggle-row"><button class="switch ${wantReplyEmail()?'on':''}" data-act="toggleReplyEmail" aria-label="avviso email"></button><div class="gr"><b>Avviso automatico via email</b><span>${s&&s.email?`Alla risposta parte in automatico l'email a ${esc(s.email)} con il <b>link diretto</b> a questa richiesta: il fornitore ci clicca e risponde nel portale.`:`Questo fornitore non ha un'email in anagrafica: riceve solo la notifica nel portale.`}</span></div></div>
       <div class="btn-row" style="margin-top:12px">
         ${s?`<button class="btn ghost" data-act="emailReq" data-id="${rid}">${icon("mail","sm")} Email</button>`:""}
         ${isSlip
@@ -1854,8 +1957,15 @@ function openReqDetail(rid){ const r=byId(STATE.requests,rid); if(!r) return;
 function sendQuickReply(rid, testo){ const r=byId(STATE.requests,rid); if(!r||!testo) return; const u=currentUser();
   r.risposte=r.risposte||[]; r.risposte.push({da:"righi", testo, at:new Date().toISOString().slice(0,16), byUser:u.id});
   if(r.stato==="aperta") r.stato="presa"; r.read=true;
-  const usr=STATE.users.find(x=>x.supplierId===r.supplierId); if(usr) STATE.notifications.push({id:uid("n"),toUser:usr.id,ic:"mail",txt:"Risposta dal caposquadra: "+testo,sub:(byId(STATE.jobs,r.jobId)||{}).code,jobId:r.jobId,at:new Date().toISOString().slice(0,16),read:false});
-  persist(); toast("Risposta inviata","ok"); openReqDetail(rid);
+  notifySupplier(r.supplierId,{ic:"mail",txt:"Risposta dal caposquadra: "+testo,sub:(byId(STATE.jobs,r.jobId)||{}).code,jobId:r.jobId});
+  // il fornitore abituato alla posta va raggiunto anche li': email automatica col link diretto alla richiesta
+  const volevaEmail=wantReplyEmail(); const s0=supplier(r.supplierId);
+  const sent=volevaEmail?sendEmailNow(reqReplyEmail(r,testo)):false;
+  // mai silenzioso: se l'avviso non parte, l'operatore deve saperlo
+  const esito = sent ? " · email di avviso al fornitore"
+    : !volevaEmail ? " · avviso email disattivato"
+    : (!s0||!s0.email) ? " · nessuna email in anagrafica: solo notifica nel portale" : "";
+  persist(); toast("Risposta inviata"+esito, sent||!volevaEmail?"ok":"warn"); openReqDetail(rid);
 }
 function openReqFoto(rid){ const r=byId(STATE.requests,rid); if(!r||!r.foto) return;
   openModal(`${modalHead("Foto allegata")}<img src="${r.foto}" style="width:100%;border-radius:10px;border:1px solid var(--line)" alt="foto della richiesta"><div class="btn-row" style="margin-top:12px"><button class="btn ghost block" data-act="reqDetail" data-id="${rid}">Torna alla richiesta</button></div>`);
@@ -1907,9 +2017,9 @@ function openNewUser(){ const d=App.userDraft={role:"fornitore"};
       <div class="seg">${roleBtn("fornitore","Fornitore")}${roleBtn("caposquadra","OTL / Caposquadra")}${roleBtn("responsabile","Responsabile")}</div></div>
     <div class="field"><label>Nome</label><input class="inp" id="nu-name" placeholder="es. Mario Rossi"></div>
     <div class="field"><label>Email (facoltativa)</label><input class="inp" id="nu-email" type="email" placeholder="nome@righinet.com"></div>
-    <div class="field" id="nu-forn"><label>Terzista collegato</label>
+    <div class="field" id="nu-forn"><label>Fornitore collegato</label>
       <select class="inp" id="nu-sup">${STATE.suppliers.filter(s=>s.attivo).map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join("")}</select>
-      <span class="hint">L'accesso fornitore vedrà solo le commesse di questo terzista</span></div>
+      <span class="hint">L'accesso fornitore vedrà solo le commesse di questo fornitore</span></div>
     <p class="muted" id="nu-hint" style="font-size:12px">Il <b>fornitore</b> vede la sua bacheca e le sue commesse; l'<b>OTL/caposquadra</b> propone lavori e segue le sue commesse; il <b>responsabile</b> vede e governa tutto.</p>
     <button class="btn accent block" data-act="doCreateUser">${icon("check")} Crea accesso</button>`);
 }
@@ -1918,7 +2028,7 @@ function createUser(){ const role=(App.userDraft&&App.userDraft.role)||"fornitor
   if(!name){ toast("Inserisci il nome","warn"); $("#nu-name").focus(); return; }
   const p=name.split(/\s+/); const autoMail=(slug(p[0])[0]||"x")+"."+slug(p[p.length-1])+"@righinet.com";
   const u={ id:uid("u"), name, email:email||autoMail };
-  if(role==="fornitore"){ const sid=$("#nu-sup")?$("#nu-sup").value:""; if(!sid){ toast("Scegli il terzista collegato","warn"); return; }
+  if(role==="fornitore"){ const sid=$("#nu-sup")?$("#nu-sup").value:""; if(!sid){ toast("Scegli il fornitore collegato","warn"); return; }
     u.role="fornitore"; u.supplierId=sid; }
   else if(role==="caposquadra"){ const cid=uid("cs"); STATE.capi.push({id:cid,name,tel:"",email:u.email});
     u.role="righi"; u.righiRole="caposquadra"; u.capoId=cid; u.ruolo="OTL / Caposquadra"; }
@@ -1978,7 +2088,7 @@ function openNewSupplier(){
   if(isCapo(currentUser())){ toast("Solo il responsabile di produzione può accreditare un fornitore","warn"); return; }
   const d=App.supDraft={ name:"",citta:"Cesena",referente:"",email:"",specialties:[],settori:[],certificazioni:[],attrezzature:[],dimensioneMax:"m",capacitaMese:1000,attivo:true,preferenze:{} };
   openModal(`${modalHead("Nuovo fornitore")}
-    <p class="muted" style="font-size:13px;margin-top:0">Accredita un terzista: i dati alimentano suggerimenti di assegnazione, mappa e carico.</p>
+    <p class="muted" style="font-size:13px;margin-top:0">Accredita un fornitore: i dati alimentano suggerimenti di assegnazione, mappa e carico.</p>
     ${supplierFormFields(d)}
     <button class="btn accent block" data-act="createSup">${icon("check")} Accredita fornitore</button>`);
 }
@@ -1997,7 +2107,7 @@ function openEditSupplier(sid){
     attivo:s.attivo, note:s.note, preferenze:Object.assign({}, s.preferenze||{}),
     specialties:(s.specialties||[]).slice(), settori:(s.settori||[]).slice(), certificazioni:(s.certificazioni||[]).slice(), attrezzature:(s.attrezzature||[]).slice() };
   openModal(`${modalHead("Modifica fornitore")}
-    <p class="muted" style="font-size:13px;margin-top:0">Aggiorna i dati del terzista: alimentano suggerimenti, mappa, carico e collo di bottiglia.</p>
+    <p class="muted" style="font-size:13px;margin-top:0">Aggiorna i dati del fornitore: alimentano suggerimenti, mappa, carico e collo di bottiglia.</p>
     ${supplierFormFields(d)}
     <button class="btn accent block" data-act="saveSup" data-sup="${sid}">${icon("check")} Salva modifiche</button>`);
 }
@@ -2016,11 +2126,24 @@ function openGuide(){ const u=currentUser(); const isR=u.role==="righi"; const c
   const step=(n,t,d)=>`<div class="lrow" style="align-items:flex-start"><span class="ic" style="font-weight:700">${n}</span><span class="gr"><b>${t}</b><span class="s" style="white-space:normal">${d}</span></span></div>`;
   const sec=(t,items)=>`<div class="guide-sec"><div class="guide-sec-t">${t}</div><div class="rowlist">${items.map((it,i)=>step(i+1,it[0],it[1])).join("")}</div></div>`;
   const faq=(items)=>`<div class="guide-sec"><div class="guide-sec-t">Domande frequenti</div>${items.map(([q,a])=>`<div class="faq"><b>${q}</b><span>${a}</span></div>`).join("")}</div>`;
+  // Riga "stato -> significato" con lo stesso badge colorato che si vede nell'app
+  const stRow=(pill,label,meaning)=>`<div style="display:flex;gap:10px;align-items:baseline;padding:7px 0;border-top:1px solid var(--line)"><span style="flex:0 0 116px"><span class="pill ${pill} lg">${label}</span></span><span style="white-space:normal;font-size:13px;line-height:1.5;color:var(--ink-soft)">${meaning}</span></div>`;
+  const stJob=(k,meaning)=>stRow(STATI[k].pill,STATI[k].label,meaning);   // badge preso da STATI (coerente con la bacheca)
+  const stateSec=(t,rows,note)=>`<div class="guide-sec"><div class="guide-sec-t">${t}</div><div>${rows.join("")}</div>${note?`<p class="muted" style="font-size:12px;margin:8px 0 0">${note}</p>`:""}</div>`;
   let title, intro, body;
   if(isR && !capo_){ title="Responsabile di produzione"; intro="Come pubblicare i lavori, approvare le proposte dei capisquadra, assegnare e governare i subappalti.";
-    body = sec("Pubblicare un lavoro",[
+    body = stateSec("Gli stati della commessa",[
+      stJob("bozza","In preparazione: non è ancora visibile ai fornitori. La crei tu o entra dall'import massivo."),
+      stJob("da_approvare","Un caposquadra l'ha proposta e aspetta il tuo via libera: la <b>approvi</b> (passa a Da assegnare) oppure la <b>rimandi</b> con una nota."),
+      stJob("pubblicato","Pubblicata e visibile ai fornitori: raccoglie le accettazioni. Chi accetta compare in <i>Da valutare</i>, pronto per l'assegnazione."),
+      stJob("assegnato","Affidata a un fornitore. Da qui valgono le <b>date operative</b> (inizio stimato e rientro) e i relativi alert di ritardo."),
+      stJob("in_corso","La produzione è partita: la commessa ci passa da sola al <b>primo aggiornamento di avanzamento</b> del fornitore."),
+      stJob("consegnato","Il quadro finito è rientrato in Righi."),
+      stJob("chiuso","Pratica archiviata: dalla commessa consegnata premi <b>Chiudi la pratica</b>. Esce dalle attive e resta consultabile col filtro <i>Chiuse</i>.") ],
+      "È lo stesso badge colorato che vedi sulla bacheca e in cima a ogni commessa.")
+    + sec("Pubblicare un lavoro",[
       ["Componi la commessa","Da <b>Nuovo lavoro</b> imposti titolo, tipologia, settore, <b>lavorazioni industrializzate</b> (multi-scelta), budget, ore stimate, date, caposquadra e alleghi il <b>layout</b> per la quotazione."],
-      ["Fornitori suggeriti","Scegliendo <i>solo selezionati</i>, il portale ti propone i terzisti più adatti per specializzazione, capacità libera e puntualità: invitali con un tocco o usa <i>Invita i primi 3</i>."],
+      ["Fornitori suggeriti","Scegliendo <i>solo selezionati</i>, il portale ti propone i fornitori più adatti per specializzazione, capacità libera e puntualità: invitali con un tocco o usa <i>Invita i primi 3</i>."],
       ["Import massivo","In alternativa carichi molte commesse insieme da Excel/CSV (scarica il template): entrano come bozze."],
       ["Pubblica","Pubblichi a tutti o ai selezionati; con l'email attiva prepari anche l'avviso ai fornitori."] ])
     + sec("Approvare le proposte dei capisquadra",[
@@ -2029,20 +2152,29 @@ function openGuide(){ const u=currentUser(); const isR=u.role==="righi"; const c
     + sec("Assegnare e governare",[
       ["Valuta le accettazioni","Chi accetta compare in <i>Da valutare</i>; ogni accettazione è <b>firmata</b> dal fornitore. Assegna al migliore (ordinati per idoneità)."],
       ["Ciclo vita e ritardi","Aggiorni la data (con storico), segui l'avanzamento del fornitore e vedi i ritardi in rosso con il semaforo predittivo."],
-      ["Anagrafica fornitori","In <b>Fornitori</b> premi <b>Nuovo fornitore</b> per accreditare un terzista (specializzazioni, settori, zona, capacità, certificazioni): entra subito nei suggerimenti, nella mappa e nel carico. Tocca il nome di un fornitore per aprirne la scheda con le metriche."],
-      ["Carico e Analisi","L'istogramma in Fornitori mostra il carico ore per terzista e mese; in <b>Analisi</b> hai consegne per mese, pipeline, salute, puntualità e mix."],
+      ["Anagrafica fornitori","In <b>Fornitori</b> premi <b>Nuovo fornitore</b> per accreditare un fornitore (specializzazioni, settori, zona, capacità, certificazioni): entra subito nei suggerimenti, nella mappa e nel carico. Tocca il nome di un fornitore per aprirne la scheda con le metriche."],
+      ["Carico e Analisi","L'istogramma in Fornitori mostra il carico ore per fornitore e mese; in <b>Analisi</b> hai consegne per mese, pipeline, salute, puntualità e mix."],
       ["Esporta per l'ERP","Da Commesse esporti gli ordini accettati in CSV per l'emissione ordine in amministrazione."],
       ["Duplica","Da ogni commessa puoi crearne una nuova identica cambiando solo layout e date."] ]); }
   else if(isR && capo_){ title="Caposquadra"; intro="Come seguire le tue commesse, proporne di nuove per l'approvazione e restare in contatto con i fornitori.";
-    body = sec("Le tue commesse",[
+    body = stateSec("Gli stati della commessa",[
+      stJob("bozza","La stai preparando: è solo tua, non ancora inviata."),
+      stJob("da_approvare","Inviata al responsabile: aspetta il suo via libera. Se la <b>rimanda</b>, la ritrovi con la nota <i>Da rivedere</i> e puoi correggerla e reinviarla."),
+      stJob("pubblicato","Approvata e pubblicata ai fornitori: sta raccogliendo le accettazioni."),
+      stJob("assegnato","Il responsabile l'ha affidata a un fornitore: da qui la segui."),
+      stJob("in_corso","Produzione in corso: ci entra da sola quando il fornitore segna il primo avanzamento."),
+      stJob("consegnato","Quadro finito rientrato in Righi.") ],
+      "È lo stesso badge colorato che vedi in Dashboard e in cima a ogni commessa.")
+    + sec("Le tue commesse",[
       ["Vista filtrata","In Dashboard e Commesse vedi solo i lavori di cui sei caposquadra di riferimento."],
-      ["Carico di tutti i fornitori","In <b>Fornitori</b> vedi l'istogramma del carico di <b>tutti</b> i terzisti: utile per capire chi è libero prima di proporre un lavoro."] ])
+      ["Carico di tutti i fornitori","In <b>Fornitori</b> vedi l'istogramma del carico di <b>tutti</b> i fornitori: utile per capire chi è libero prima di proporre un lavoro."] ])
     + sec("Proporre un nuovo lavoro",[
       ["Compila","Da <b>Nuovo lavoro</b> prepari la commessa come il responsabile (tipologia, lavorazioni, layout, date…). Il caposquadra di riferimento sei tu."],
       ["Invia per approvazione","Non pubblichi direttamente: premi <b>Invia per approvazione</b>. Il responsabile la verifica e la pubblica ai fornitori."],
       ["Segui l'esito","La commessa resta tra le tue con stato <b>Da approvare</b>. Se il responsabile la rimanda, vedi la nota <i>Da rivedere</i> e puoi reinviarla o duplicarla per modificarla."] ])
     + sec("Comunicazione e consegne",[
       ["Richieste dei fornitori","I fornitori ti contattano con richieste guidate (dubbi, materiale, ritardi, foto): aprile in <b>Richieste</b>, usa le <b>risposte rapide</b> o rispondi via email, poi segnale risolte."],
+      ["Il fornitore viene avvisato","Ogni risposta (e ogni esito di slittamento o approvazione consegna) fa partire <b>in automatico</b> un'email al fornitore con il testo e il <b>link diretto</b> alla richiesta, oltre alla notifica nel portale: anche chi usa solo la posta la vede e risponde con un clic. Puoi spegnere l'avviso con l'interruttore nella richiesta."],
       ["Slittamenti","Approvi o rifiuti le richieste di slittamento consegna; se approvi, la data si aggiorna con storico e notifica."],
       ["Approvazione consegna","Quando il fornitore chiede di consegnare (<i>Richiesta di approvazione consegna</i>), la <b>approvi o rifiuti</b> dalle Richieste: solo dopo l'approvazione il fornitore può segnare la commessa come consegnata."],
       ["Ritardi","Le consegne superate sono in rosso: usa i filtri per stato e ritardi per dare priorità."] ]); }
@@ -2060,6 +2192,11 @@ function openGuide(){ const u=currentUser(); const isR=u.role==="righi"; const c
       ["Avanzamento a un tocco","Dal dettaglio aggiorni lo stato con un tocco, in ordine: <i>materiale ricevuto, cablaggio, collaudo, pronto al ritiro</i>. Righi vede subito a che punto sei."],
       ["Consegna con approvazione","Quando il lavoro è pronto premi <b>Pronto alla consegna — chiedi approvazione</b>: il caposquadra la approva e solo allora compare <b>Segna consegnato</b>. Senza approvazione <b>non puoi consegnare</b>."],
       ["Consegna in ritardo","Se una consegna è vicina o superata è evidenziata: comunica per tempo (vedi sotto) per concordare una nuova data."] ])
+    + stateSec("Gli stati che vedi",[
+      stRow("info","Proposta","È sulla tua bacheca: puoi <b>accettarla</b> o fare una domanda. Non vedi le bozze né i lavori affidati ad altri."),
+      stRow("warn","In attesa di Righi","Hai accettato e firmato: ora decide Righi, che assegna la commessa. Ricevi una notifica quando lo fa."),
+      stRow("ok","Assegnata a te","Righi ti ha affidato il lavoro: aggiorni l'avanzamento (materiale, cablaggio, collaudo, pronto) e a fine lavoro <b>chiedi l'approvazione a consegnare</b>."),
+      stRow("brand","Consegnata","Hai riconsegnato il quadro finito a Righi.") ])
     + sec("4 · Comunica con il caposquadra",[
       ["Richieste guidate","Da <b>Richieste guidate</b> scegli la commessa e il tipo di richiesta (dubbio tecnico, mancanza materiale, segnalazione ritardo, chiarimento layout/sopralluogo, pronto per collaudo/ritiro): niente testo libero, la notifica arriva subito al caposquadra."],
       ["Allega una foto","Puoi allegare una <b>foto</b> dal cantiere (es. una morsettiera o un materiale mancante) invece di descriverla a parole."],
@@ -2108,27 +2245,49 @@ function doPublish(jid){ const j=byId(STATE.jobs,jid); if(!j) return; j.stato="p
   notifyJob(j, j.visibility==="selezionati"?(j.invitati||[]):STATE.suppliers.map(s=>s.id));
   persist(); closeModal(); toast("Lavoro pubblicato","ok"); render(); }
 function notifyJob(j, supplierIds){
-  supplierIds.forEach(sid=>{ const usr=STATE.users.find(u=>u.supplierId===sid); if(usr) STATE.notifications.push({id:uid("n"),toUser:usr.id,ic:"bolt",txt:"Nuovo lavoro: "+j.title,sub:j.code+" · "+fmtMoney(j.budget),jobId:j.id,at:new Date().toISOString().slice(0,16),read:false}); });
+  supplierIds.forEach(sid=>{ notifySupplier(sid,{ic:"bolt",txt:"Nuovo lavoro: "+j.title,sub:j.code+" · "+fmtMoney(j.budget),jobId:j.id}); });
+}
+function copyText(txt){ if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(()=>toast("Copiato negli appunti","ok"),()=>toast("Copia non riuscita","warn")); else toast("Copia non supportata su questo dispositivo","warn"); }
+// corpo personalizzato per un singolo fornitore dell'invio massivo: intro comune + SUO link diretto
+function bulkPersonalBody(intro, sid, code){
+  return intro+"\n\nAccedi al portale e rispondi direttamente qui (un clic, nessuna password):\n"
+    +portalLink({f:sid,c:code})+"\n\nRighi Solutions — Ufficio Subappalti";
 }
 function emailJobToSuppliers(j, supplierIds){
-  const emails=supplierIds.map(id=>supplier(id)).filter(Boolean).map(s=>s.email);
-  if(!emails.length) return;
-  const body="Buongiorno,\n\nRighi Solutions propone un nuovo lavoro sul Portale Fornitori:\n\n"
+  const recips=supplierIds.map(id=>supplier(id)).filter(s=>s&&s.email).map(s=>({email:s.email,sid:s.id,name:s.name}));
+  if(!recips.length) return;
+  const intro="Buongiorno,\n\nRighi Solutions propone un nuovo lavoro sul Portale Fornitori:\n\n"
     +"Commessa: "+j.code+" — "+j.title+"\nTipologia: "+TIPOLOGIE[j.tipologia].label+"\nSettore: "+j.settore
-    +"\nBudget indicativo: "+fmtMoney(j.budget)+"\nInizio lavori stimato: "+fmtDate(j.dataInizioStimata)+"\nRientro in Righi richiesto: "+fmtDate(j.dataRientro)
-    +"\n\nAccedete al portale per visualizzare il layout e accettare o porre domande.\n\nRighi Solutions — Ufficio Subappalti";
-  openEmailModal(emails, "["+j.code+"] Nuovo lavoro: "+j.title, body);
+    +"\nBudget indicativo: "+fmtMoney(j.budget)+"\nInizio lavori stimato: "+fmtDate(j.dataInizioStimata)+"\nRientro in Righi richiesto: "+fmtDate(j.dataRientro);
+  openBulkEmailModal(recips, "["+j.code+"] Nuovo lavoro: "+j.title+" · rispondi nel portale", intro, j.code);
+}
+// Invio a più fornitori: un messaggio PERSONALE per ciascuno, col proprio link diretto (nessuno atterra sul login).
+// Ogni destinatario riceve solo il suo indirizzo — non vede gli altri.
+function openBulkEmailModal(recips, subject, intro, code){
+  App._emailBulk={subject, code, recips};
+  const rows=recips.map((r,i)=>`<div style="padding:8px 0;border-bottom:1px solid var(--line)">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="flex:1;word-break:break-all;font-size:13px">${esc(r.email)}</span>
+        <button class="btn ghost sm" data-act="bulkOpenOne" data-idx="${i}">${icon("mail","sm")} Apri</button>
+        <button class="btn ghost sm" data-act="bulkCopyOne" data-idx="${i}">${icon("copy","sm")} Copia</button>
+      </div>
+      <div style="font-size:11px;color:var(--accent-deep);word-break:break-all;margin-top:3px">${icon("link","sm")} link personale: ${esc(portalLink({f:r.sid,c:code}))}</div>
+    </div>`).join("");
+  openModal(`${modalHead("Prepara email ai fornitori")}
+    <div class="card leftbar" style="border-left:4px solid var(--ok);margin:0 0 10px;padding:8px 12px"><span style="font-size:12.5px;color:var(--ink-soft)">${icon("check","sm")} <b>${recips.length} messaggi personalizzati</b> — ogni fornitore riceve il <b>suo</b> link diretto (lo porta sulla commessa già riconosciuto, senza login) e non vede gli indirizzi degli altri.</span></div>
+    <div class="dl"><span class="k">Oggetto</span><span class="v">${esc(subject)}</span></div>
+    <div class="field"><label>Messaggio comune (a ciascuno viene aggiunto il suo link personale)</label><textarea class="inp" id="em-body" style="min-height:130px">${esc(intro)}</textarea></div>
+    <div class="sect-t" style="margin-top:6px">Destinatari — ognuno con il suo link diretto</div>
+    <div>${rows}</div>
+    <div class="btn-row" style="margin-top:12px">
+      <button class="btn accent" data-act="bulkCopyAll">${icon("copy","sm")} Copia tutti i messaggi</button>
+    </div>
+    <p class="muted" style="font-size:12px;margin:10px 0 0">Nel prototipo prepari qui i messaggi (uno per fornitore, ognuno col suo link). In produzione l'invio personalizzato è automatico lato server — vedi la Guida.</p>`);
 }
 function openEmailModal(to, subject, body){
-  const arr=(Array.isArray(to)?to:[to]).filter(Boolean); const blast=arr.length>1;
-  // più fornitori: copia nascosta (Ccn) — non devono vedere gli indirizzi degli altri
-  App._email = blast ? {to:"", bcc:arr, subject, body} : {to:arr[0]||"", subject, body};
-  const recipHtml = blast
-    ? `<div class="dl"><span class="k">Ccn (copia nascosta)</span><span class="v" style="word-break:break-all">${esc(arr.join(", "))}</span></div>
-       <div class="card leftbar" style="border-left:4px solid var(--ok);margin:2px 0 10px;padding:8px 12px"><span style="font-size:12.5px;color:var(--ink-soft)">${icon("check","sm")} <b>${arr.length} destinatari in copia nascosta</b> — ogni fornitore non vede gli indirizzi degli altri.</span></div>`
-    : `<div class="dl"><span class="k">A</span><span class="v" style="word-break:break-all">${esc(arr[0]||"")}</span></div>`;
+  App._email = {to:(Array.isArray(to)?to[0]:to)||"", subject, body};
   openModal(`${modalHead("Prepara email")}
-    ${recipHtml}
+    <div class="dl"><span class="k">A</span><span class="v" style="word-break:break-all">${esc(App._email.to)}</span></div>
     <div class="dl"><span class="k">Oggetto</span><span class="v">${esc(subject)}</span></div>
     <div class="field"><label>Messaggio</label><textarea class="inp" id="em-body" style="min-height:150px">${esc(body)}</textarea></div>
     <div class="btn-row">
@@ -2245,21 +2404,24 @@ function doAsk(jid){ const u=currentUser(); const t=$("#ask-t").value.trim(); if
 }
 function doQuickReq(jid){ const u=currentUser(); const j=byId(STATE.jobs,jid); if(!App.qr||!App.qr.tipo){ toast("Scegli il tipo di richiesta","warn"); return; }
   const note=$("#qr-note").value.trim(); const c=capo(j.capoId); const tp=REQ_TYPES[App.qr.tipo];
+  if(App.qr.tipo==="altro" && !note){ toast("Per \"Altro\" specifica meglio il problema o la richiesta","warn"); const n=$("#qr-note"); if(n) n.focus(); return; }
   const req={id:uid("q"),jobId:jid,supplierId:u.supplierId,tipo:App.qr.tipo,testo:note,at:new Date().toISOString().slice(0,16),stato:"aperta",capoId:j.capoId,from:"fornitore",read:false};
   if(App.qr.tipo==="slittamento"){ const d=$("#qr-date")?$("#qr-date").value:""; if(!d){ toast("Indica la nuova data proposta","warn"); return; } req.dataProposta=d; req.esito=null; }
   if(App.qr.foto) req.foto=App.qr.foto;
   STATE.requests.push(req);
   const wantEmail=App.qr.email; persist(); closeModal(); toast(App.qr.tipo==="slittamento"?"Richiesta di slittamento inviata":"Richiesta inviata al caposquadra","ok"); render();
-  if(wantEmail && c && c.email){ const body="Buongiorno "+c.name+",\n\nsegnalazione dal Portale Fornitori:\n\nCommessa: "+j.code+" — "+j.title+"\nTipo: "+tp.label+(req.dataProposta?("\nNuova data proposta: "+fmtDate(req.dataProposta)):"")+(note?("\nDettaglio: "+note):"")+"\nFornitore: "+(supplier(u.supplierId)||{}).name+"\n\nGrazie.";
-    openEmailModal(c.email, "["+j.code+"] "+tp.label, body); }
+  if(wantEmail && c && c.email){ const cu=STATE.users.find(x=>x.capoId===c.id);
+    const link=portalLink(cu?{u:cu.id,q:req.id,c:j.code}:{q:req.id,c:j.code});
+    const body="Buongiorno "+c.name+",\n\nsegnalazione dal Portale Fornitori:\n\nCommessa: "+j.code+" — "+j.title+"\nTipo: "+tp.label+(req.dataProposta?("\nNuova data proposta: "+fmtDate(req.dataProposta)):"")+(note?("\nDettaglio: "+note):"")+"\nFornitore: "+(supplier(u.supplierId)||{}).name
+      +"\n\nApri la richiesta nel portale e rispondi qui (un clic):\n"+link+"\n\nGrazie.";
+    openEmailModal(c.email, "["+j.code+"] "+tp.label+" · gestisci nel portale", body); }
 }
 // Cambio data di RIENTRO: registra storico, sovrascrive, notifica il fornitore
 function applyDateChange(j, newDate, motivo, byRole, byUser){
   if(!newDate || newDate===j.dataRientro) return false;
   j.storicoDate=j.storicoDate||[]; j.storicoDate.push({from:j.dataRientro,to:newDate,by:byUser,byRole,at:new Date().toISOString().slice(0,16),motivo:motivo||"",tipo:byRole==="fornitore"?"slittamento":"modifica"});
   j.dataRientro=newDate;
-  const usr=STATE.users.find(u=>u.supplierId===j.assegnatoA);
-  if(usr) STATE.notifications.push({id:uid("n"),toUser:usr.id,ic:"calendar",txt:"Rientro aggiornato: "+fmtDate(newDate),sub:j.code+" — "+j.title,jobId:j.id,at:new Date().toISOString().slice(0,16),read:false});
+  notifySupplier(j.assegnatoA,{ic:"calendar",txt:"Rientro aggiornato: "+fmtDate(newDate),sub:j.code+" — "+j.title,jobId:j.id});
   return true;
 }
 // Modifica date lato Righi: rientro (con storico+notifica) + inizio stimato e consegna cliente (diretti)
@@ -2276,16 +2438,19 @@ function doEditDate(jid){ const j=byId(STATE.jobs,jid); const d=$("#ed-date")?$(
 function resolveSlip(rid, approve){ const r=byId(STATE.requests,rid); if(!r) return; const j=byId(STATE.jobs,r.jobId); const u=currentUser();
   r.stato="chiusa"; r.esito=approve?"approvato":"rifiutato"; r.read=true;
   if(approve && j){ applyDateChange(j, r.dataProposta, "Slittamento approvato", "fornitore", r.supplierId); }
-  else { const usr=STATE.users.find(x=>x.supplierId===r.supplierId); if(usr) STATE.notifications.push({id:uid("n"),toUser:usr.id,ic:"x",txt:"Slittamento non approvato",sub:(j?j.code+" — "+j.title:""),jobId:r.jobId,at:new Date().toISOString().slice(0,16),read:false}); }
-  persist(); closeModal(); toast(approve?"Slittamento approvato · consegna aggiornata":"Slittamento rifiutato","ok"); render();
+  else { notifySupplier(r.supplierId,{ic:"x",txt:"Slittamento non approvato",sub:(j?j.code+" — "+j.title:""),jobId:r.jobId}); }
+  const esito=approve?("Slittamento APPROVATO: il nuovo rientro e' "+fmtDate(r.dataProposta)):"Slittamento NON approvato: il rientro resta "+fmtDate(j?j.dataRientro:null);
+  const sent=wantReplyEmail()?sendEmailNow(reqReplyEmail(r,esito,"Abbiamo deciso sulla sua richiesta")):false;
+  persist(); closeModal(); toast((approve?"Slittamento approvato · consegna aggiornata":"Slittamento rifiutato")+(sent?" · fornitore avvisato via email":""),"ok"); render();
 }
 // Caposquadra: approva/rifiuta la richiesta di consegna del fornitore
 function resolveConsegna(rid, approve){ const r=byId(STATE.requests,rid); if(!r) return; const j=byId(STATE.jobs,r.jobId); const u=currentUser();
   r.stato="chiusa"; r.esito=approve?"approvato":"rifiutato"; r.read=true;
   if(approve && j) j.consegnaApprovata={da:u.id, at:new Date().toISOString().slice(0,16)};
-  const usr=STATE.users.find(x=>x.supplierId===r.supplierId);
-  if(usr) STATE.notifications.push({id:uid("n"),toUser:usr.id,ic:approve?"check":"x",txt:approve?"Consegna approvata: puoi consegnare":"Consegna non approvata",sub:(j?j.code+" — "+j.title:""),jobId:r.jobId,at:new Date().toISOString().slice(0,16),read:false});
-  persist(); closeModal(); toast(approve?"Consegna approvata":"Consegna non approvata","ok"); render();
+  notifySupplier(r.supplierId,{ic:approve?"check":"x",txt:approve?"Consegna approvata: puoi consegnare":"Consegna non approvata",sub:(j?j.code+" — "+j.title:""),jobId:r.jobId});
+  const esito=approve?"Consegna APPROVATA: puo' procedere con la riconsegna del quadro.":"Consegna NON approvata: attenda indicazioni dal caposquadra.";
+  const sent=wantReplyEmail()?sendEmailNow(reqReplyEmail(r,esito,"Abbiamo deciso sulla sua richiesta")):false;
+  persist(); closeModal(); toast((approve?"Consegna approvata":"Consegna non approvata")+(sent?" · fornitore avvisato via email":""),"ok"); render();
 }
 // Fornitore: richiede l'approvazione a consegnare (va al caposquadra della commessa)
 function reqConsegna(jid){ const u=currentUser(); const j=byId(STATE.jobs,jid); if(!j||j.assegnatoA!==u.supplierId) return;
@@ -2300,8 +2465,7 @@ function reqConsegna(jid){ const u=currentUser(); const j=byId(STATE.jobs,jid); 
 function deliverJob(jid){ const u=currentUser(); const j=byId(STATE.jobs,jid); if(!j||j.assegnatoA!==u.supplierId) return;
   if(!j.consegnaApprovata){ toast("Serve prima l'approvazione del caposquadra","warn"); return; }
   j.stato="consegnato"; j.avanzamento="pronto"; if(!j.dataRientroEff) j.dataRientroEff=todayISO();
-  const capoUser=STATE.users.find(x=>x.righiRole==="caposquadra"&&x.capoId===j.capoId);
-  if(capoUser) STATE.notifications.push({id:uid("n"),toUser:capoUser.id,ic:"check",txt:"Commessa consegnata: "+j.title,sub:j.code,jobId:jid,at:new Date().toISOString().slice(0,16),read:false});
+  notifyCapoJob(j,"Commessa consegnata: "+j.title,"check");
   persist(); closeModal(); toast("Commessa consegnata","ok"); render();
 }
 function doNotify(jid){ const j=byId(STATE.jobs,jid); const ids=[...App.notifySel];
@@ -2311,7 +2475,7 @@ function doNotify(jid){ const j=byId(STATE.jobs,jid); const ids=[...App.notifySe
   if(wantEmail) emailJobToSuppliers(j, ids);
 }
 function doAssign(jid,sid){ const j=byId(STATE.jobs,jid); const s=supplier(sid); j.assegnatoA=sid; j.stato="assegnato"; j.assegnatoAt=todayISO();
-  const usr=STATE.users.find(u=>u.supplierId===sid); if(usr) STATE.notifications.push({id:uid("n"),toUser:usr.id,ic:"check",txt:"Commessa assegnata: "+j.title,sub:j.code,jobId:j.id,at:new Date().toISOString().slice(0,16),read:false});
+  notifySupplier(sid,{ic:"check",txt:"Commessa assegnata: "+j.title,sub:j.code,jobId:j.id});
   STATE.responses.filter(r=>r.jobId===jid).forEach(r=>r.read=true);
   persist(); closeModal(); toast("Assegnato a "+s.name,"ok"); render();
 }
@@ -2363,14 +2527,23 @@ function doOptimalAssign(){
   const at=new Date().toISOString().slice(0,16);
   r.proposal.forEach(e=>{ const j=byId(STATE.jobs,e.jid); if(!j||j.stato!=="pubblicato") return;
     j.assegnatoA=e.sid; j.stato="assegnato"; j.assegnatoAt=todayISO();
-    const usr=STATE.users.find(u=>u.supplierId===e.sid); if(usr) STATE.notifications.push({id:uid("n"),toUser:usr.id,ic:"check",txt:"Commessa assegnata: "+j.title,sub:j.code,jobId:j.id,at,read:false});
+    notifySupplier(e.sid,{ic:"check",txt:"Commessa assegnata: "+j.title,sub:j.code,jobId:j.id});
     STATE.responses.filter(rr=>rr.jobId===e.jid).forEach(rr=>rr.read=true);
   });
   const n=r.proposal.length; App._optimal=null; persist(); closeModal(); toast(n+" commesse assegnate in modo ottimo","ok"); render();
 }
+// Chiude la pratica: stato finale, dalla consegna all'archivio.
+function closeJob(jid){ const j=byId(STATE.jobs,jid); const u=currentUser();
+  if(!j||j.stato!=="consegnato"||!u||u.role!=="righi") return;
+  j.stato="chiuso"; j.chiusaAt=todayISO(); j.chiusaDa=u.id;
+  persist(); closeModal(); toast("Pratica chiusa e archiviata","ok"); render();
+}
 function setStato(jid,st){ const j=byId(STATE.jobs,jid); j.stato=st; if(st==="consegnato"&&!j.dataRientroEff) j.dataRientroEff=todayISO(); persist(); closeModal(); toast("Stato aggiornato: "+STATI[st].label,"ok"); render(); }
 function setAvanzamento(jid, step){ const u=currentUser(); const j=byId(STATE.jobs,jid); if(!j||!u.supplierId||j.assegnatoA!==u.supplierId) return;
   j.avanzamento=step; j.avanzamentoAt=new Date().toISOString().slice(0,16); j.avanzamentoBy=u.id;
+  // il primo avanzamento segna l'avvio della produzione: la commessa passa "in corso"
+  // (cosi' decade anche l'alert di "inizio in ritardo", che vale solo per chi non ha ancora iniziato)
+  if(j.stato==="assegnato"){ j.stato="in_corso"; notifyCapoJob(j,"Produzione avviata: "+j.title,"bolt"); }
   STATE.responses.push({id:uid("r"),jobId:jid,supplierId:u.supplierId,tipo:"avanzamento",testo:AVANZAMENTO[step].label,at:j.avanzamentoAt,from:"fornitore",read:false});
   persist(); closeModal(); toast("Avanzamento: "+AVANZAMENTO[step].label,"ok"); render();
 }
@@ -2391,7 +2564,7 @@ document.addEventListener("click",e=>{
   if(!el) return;
   if(el.hasAttribute("data-close-bg") && e.target===el){ closeModal(); return; }
   if(el.tagName==="A") return; // lascia procedere i mailto/tel
-  if(el.dataset.login){ setSession(el.dataset.login); App.tab=null; App.filters={q:"",stato:"",tipologia:"",settore:"",capo:"",fornitore:"",late:false}; App.fFilters={q:"",stato:""}; closeModal(); render(); return; }
+  if(el.dataset.login){ setSession(el.dataset.login); App.tab=null; App.filters={q:"",stato:"",tipologia:"",settore:"",capo:"",fornitore:"",late:false}; App.fFilters={q:"",stato:""}; closeModal(); render(); openDeepLinkTarget(); return; }
   if(el.dataset.tab && !el.dataset.act){ App.tab=el.dataset.tab; App.page=1; render(); window.scrollTo(0,0); return; }
 
   if(el.dataset.set){ const g=el.dataset.set; App.draft=App.draft||{}; App.draft[g]=el.dataset.v;
@@ -2399,7 +2572,8 @@ document.addEventListener("click",e=>{
     return; }
   if(el.dataset.toggle==="inv"){ App.draft=App.draft||{invitati:[]}; App.draft.invitati=App.draft.invitati||[];
     const id=el.dataset.v; const i=App.draft.invitati.indexOf(id); if(i<0) App.draft.invitati.push(id); else App.draft.invitati.splice(i,1); el.classList.toggle("on"); return; }
-  if(el.dataset.qrtype){ App.qr=App.qr||{}; App.qr.tipo=el.dataset.qrtype; $$("#qr-types .chip").forEach(c=>c.classList.remove("on","accent")); el.classList.add("on","accent"); const b=$("#qr-send"); if(b) b.disabled=false; const slip=$("#qr-slip"); if(slip) slip.classList.toggle("hide", el.dataset.qrtype!=="slittamento"); return; }
+  if(el.dataset.qrtype){ App.qr=App.qr||{}; App.qr.tipo=el.dataset.qrtype; $$("#qr-types .chip").forEach(c=>c.classList.remove("on","accent")); el.classList.add("on","accent"); const b=$("#qr-send"); if(b) b.disabled=false; const slip=$("#qr-slip"); if(slip) slip.classList.toggle("hide", el.dataset.qrtype!=="slittamento");
+    const isAltro=el.dataset.qrtype==="altro"; const lbl=$("#qr-note-lbl"); if(lbl) lbl.textContent=isAltro?"Dettaglio (obbligatorio)":"Dettaglio (facoltativo)"; const nt=$("#qr-note"); if(nt) nt.placeholder=isAltro?"Descrivi il problema o la richiesta…":"Poche parole bastano…"; return; }
   if(el.dataset.np){ const id=el.dataset.np; if(App.notifySel.has(id)) App.notifySel.delete(id); else App.notifySel.add(id); el.classList.toggle("on"); return; }
 
   if(el.dataset.job && !el.dataset.act){ openJobModal(el.dataset.job); return; }
@@ -2468,6 +2642,7 @@ document.addEventListener("click",e=>{
     case "doQuickReq": doQuickReq(el.dataset.job); break;
     case "notifyPick": openNotifyPick(el.dataset.job); break;
     case "toggleNotifyEmail": App.notifyEmail=!App.notifyEmail; el.classList.toggle("on"); break;
+    case "toggleReplyEmail": App.replyEmail=!wantReplyEmail(); el.classList.toggle("on"); break;
     case "doNotify": doNotify(el.dataset.job); break;
     case "assignPick": openAssignPick(el.dataset.job); break;
     case "confirmAssign": { const j=byId(STATE.jobs,el.dataset.job); const s=supplier(el.dataset.sup); if(!j||!s) break;
@@ -2477,6 +2652,11 @@ document.addEventListener("click",e=>{
         backAct:"assignPick", backData:{job:el.dataset.job} });
       break; }
     case "assign": doAssign(el.dataset.job, el.dataset.sup); break;
+    case "closeJob": { const j=byId(STATE.jobs,el.dataset.job); if(!j) break;
+      openConfirm({title:"Chiudere la pratica?", kind:"accent",
+        body:`La commessa <b>${esc(j.code)}</b> passa in archivio: esce dalle commesse attive e dal conteggio in alto. Resta consultabile con il filtro <i>Chiuse</i>.`,
+        confirmLabel:`${icon("check","sm")} Sì, chiudi`, confirmAct:"doCloseJob", data:{job:j.id}}); break; }
+    case "doCloseJob": closeJob(el.dataset.job); break;
     case "optimalAssign": openOptimalAssign(); break;
     case "doOptimalAssign": doOptimalAssign(); break;
     case "setStato": setStato(el.dataset.job, el.dataset.s); break;
@@ -2496,11 +2676,14 @@ document.addEventListener("click",e=>{
     case "rmAtt": App.draft.allegati=(App.draft.allegati||[]).filter(a=>a.id!==el.dataset.id); render(); break;
     case "openAtt": openAttachment(el.dataset.job, el.dataset.att); break;
     case "guide": openGuide(); break;
-    case "emailSup": { const s=supplier(el.dataset.sup); if(s) openEmailModal(s.email,"Righi Solutions — Portale Fornitori","Buongiorno "+s.referente+",\n\n"); break; }
-    case "emailJobSup": { const j=byId(STATE.jobs,el.dataset.job); const s=j&&supplier(j.assegnatoA); if(s) openEmailModal(s.email,"["+j.code+"] "+j.title,"Buongiorno "+s.referente+",\n\nin merito alla commessa "+j.code+" — "+j.title+".\n\n"); break; }
-    case "emailReq": { const rq=byId(STATE.requests,el.dataset.id); const j=rq&&byId(STATE.jobs,rq.jobId); const s=rq&&supplier(rq.supplierId); if(s) openEmailModal(s.email,"["+(j?j.code:"")+"] "+REQ_TYPES[rq.tipo].label,"Buongiorno "+s.referente+",\n\nin merito alla sua segnalazione ("+REQ_TYPES[rq.tipo].label+") sulla commessa "+(j?j.code:"")+".\n\n"); break; }
-    case "openEmailClient": { const em=App._email||{}; const bd=($("#em-body")||{}).value||em.body||""; const a=document.createElement("a"); a.href=mailto(em.to,em.subject,bd,null,em.bcc); a.target="_blank"; a.rel="noopener"; a.style.display="none"; document.body.appendChild(a); a.click(); setTimeout(()=>a.remove(),0); break; }
-    case "copyEmail": { const em=App._email||{}; const bd=($("#em-body")||{}).value||em.body||""; const dest=(em.bcc&&em.bcc.length)?("Ccn: "+em.bcc.join(", ")):("A: "+(em.to||"")); const txt=dest+"\nOggetto: "+em.subject+"\n\n"+bd; if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(()=>toast("Email copiata negli appunti","ok"),()=>toast("Copia non riuscita","warn")); else toast("Copia non supportata su questo dispositivo","warn"); break; }
+    case "emailSup": { const s=supplier(el.dataset.sup); if(s) openEmailModal(s.email,"Righi Solutions — Portale Fornitori · accedi e rispondi",portalEmailBody(s.referente,"",portalLink({f:s.id}))); break; }
+    case "emailJobSup": { const j=byId(STATE.jobs,el.dataset.job); const s=j&&supplier(j.assegnatoA); if(s) openEmailModal(s.email,"["+j.code+"] "+j.title+" · rispondi nel portale",portalEmailBody(s.referente,"In merito alla commessa "+j.code+" — "+j.title+".",portalLink({f:s.id,c:j.code}))); break; }
+    case "emailReq": { const rq=byId(STATE.requests,el.dataset.id); const j=rq&&byId(STATE.jobs,rq.jobId); const s=rq&&supplier(rq.supplierId); if(s) openEmailModal(s.email,"["+(j?j.code:"")+"] "+REQ_TYPES[rq.tipo].label+" · rispondi nel portale",portalEmailBody(s.referente,"In merito alla sua segnalazione ("+REQ_TYPES[rq.tipo].label+") sulla commessa "+(j?j.code:"")+".",portalLink({f:s.id,q:rq.id,c:(j?j.code:null)}))); break; }
+    case "openEmailClient": { const em=App._email||{}; const bd=($("#em-body")||{}).value||em.body||""; const a=document.createElement("a"); a.href=mailto(em.to,em.subject,bd); a.target="_blank"; a.rel="noopener"; a.style.display="none"; document.body.appendChild(a); a.click(); setTimeout(()=>a.remove(),0); break; }
+    case "copyEmail": { const em=App._email||{}; const bd=($("#em-body")||{}).value||em.body||""; copyText("A: "+(em.to||"")+"\nOggetto: "+em.subject+"\n\n"+bd); break; }
+    case "bulkOpenOne": { const bk=App._emailBulk||{}; const r=(bk.recips||[])[+el.dataset.idx]; if(!r) break; const intro=($("#em-body")||{}).value||""; const a=document.createElement("a"); a.href=mailto(r.email,bk.subject,bulkPersonalBody(intro,r.sid,bk.code)); a.target="_blank"; a.rel="noopener"; a.style.display="none"; document.body.appendChild(a); a.click(); setTimeout(()=>a.remove(),0); break; }
+    case "bulkCopyOne": { const bk=App._emailBulk||{}; const r=(bk.recips||[])[+el.dataset.idx]; if(!r) break; const intro=($("#em-body")||{}).value||""; copyText("A: "+r.email+"\nOggetto: "+bk.subject+"\n\n"+bulkPersonalBody(intro,r.sid,bk.code)); break; }
+    case "bulkCopyAll": { const bk=App._emailBulk||{}; const intro=($("#em-body")||{}).value||""; const txt=(bk.recips||[]).map(r=>"A: "+r.email+"\nOggetto: "+bk.subject+"\n\n"+bulkPersonalBody(intro,r.sid,bk.code)).join("\n\n----------------------------------------\n\n"); copyText(txt); break; }
     case "exportOrders": exportOrders(); break;
     case "dlTemplate": dlTemplate(); break;
   }
@@ -2542,7 +2725,12 @@ let _narrow = isNarrow(), _rzt=null;
 window.addEventListener("resize",()=>{ clearTimeout(_rzt); _rzt=setTimeout(()=>{ const n=isNarrow(); if(n!==_narrow){ _narrow=n; if(currentUser()) render(); } },200); });
 
 /* ============================ Boot ============================ */
+resolveMagicLink();   // #f=<fornitore>&c=<commessa>: autentica il fornitore dal link email
 render();
+openDeepLinkTarget(); // apre la commessa/richiesta indicata dal link
+// l'hash puo' comparire dopo il boot (host che impostano l'URL dell'iframe in un secondo momento)
+window.addEventListener("hashchange", onMagicHash);
+setTimeout(onMagicHash, 60); setTimeout(onMagicHash, 400);
 
 </script>
 </body>

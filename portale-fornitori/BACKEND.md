@@ -167,6 +167,7 @@ jobs(id uuid pk, code text unique, title text, tipologia text, settore text,
      assegnato_at date,                                   -- per metriche (lavori/mese, tempo risposta)
      avanzamento text,                                    -- materiale|cablaggio|collaudo|pronto|null (aggiornato dal fornitore)
      consegna_approvata jsonb null,                       -- {da, at} — se null il fornitore NON può consegnare (gate: serve ok del caposquadra)
+     chiusa_at date, chiusa_da uuid null fk users,        -- chiusura della pratica (stato finale 'chiuso'): solo lato Righi
      storico_date jsonb,                                  -- storico dei cambi di data_rientro (slittamenti/modifiche): [{from,to,by,byRole,at,motivo,tipo}]
      capo_id uuid fk users, descrizione text, visibility text check in ('tutti','selezionati'),
      stato text check in ('bozza','da_approvare','pubblicato','assegnato','in_corso','consegnato','chiuso'),

@@ -47,11 +47,20 @@ Di conseguenza il prodotto è progettato attorno a due driver:
 - **Lavorazioni industrializzate** (multi-selezione, visibili al fornitore):
   carpenteria esterna · foratura piastre · impostazione piastra con barre e canale
   · sbroglio fili · impostazione piastra con componenti
-- **Budget** indicativo, **data di richiesta**, **consegna desiderata**
+- **Budget** indicativo e **ore stimate** (le ore sono riservate a Righi)
+- **Tre date**: **inizio lavori stimato** e **rientro in Righi** (visibili al
+  fornitore) · **consegna al cliente** (riservata a Righi, mai esposta)
 - **Caposquadra** di riferimento
 - **Allegati**, con il **layout per la quotazione** in evidenza
 - **Visibilità**: *tutti* i fornitori accreditati · *solo selezionati*
-- **Stato**: bozza → pubblicato → assegnato → in corso → consegnato → chiuso
+- **Stato**: bozza → da approvare → da assegnare (pubblicato) → assegnato →
+  in corso → consegnato → chiuso
+
+Ogni passaggio di stato ha **chi lo compie**, così non restano stati
+irraggiungibili: il caposquadra *invia per approvazione*; il responsabile
+*approva e pubblica* (o rimanda); il responsabile *assegna*; il **primo
+avanzamento del fornitore** porta la commessa *in corso*; il fornitore *consegna*
+(solo dopo l'approvazione del caposquadra); Righi *chiude la pratica*.
 
 **Interazioni**
 
@@ -102,6 +111,30 @@ Di conseguenza il prodotto è progettato attorno a due driver:
   compone in una finestra dedicata (apri nel client / copia testo), senza
   interrompere l'app. Il **backend multicanale** (email transazionale
   automatica, Web Push, WhatsApp con opt-in) è dettagliato in `BACKEND.md` (Fase 1).
+- **Dall'email al portale in un clic (magic link)**: ogni email contiene un
+  **link personale** che apre il portale **già identificati e direttamente sulla
+  pagina finale** — la commessa da accettare, la richiesta a cui rispondere —
+  senza passare dal login. Serve a portare dentro anche chi lavora solo via
+  posta. Anche l'invio a **più fornitori** è personalizzato: un messaggio a testa
+  col **proprio** link e il solo proprio indirizzo (più riservato del Ccn, che
+  sostituisce). Il link **identifica ma non autorizza**: prima di aprire, il
+  portale verifica sempre il diritto di vedere quel contenuto, così un codice
+  commessa non diventa una scorciatoia ai permessi.
+- **Avviso automatico sulle risposte**: quando Righi manda una **risposta
+  rapida**, o decide su uno **slittamento** o sull'**approvazione a consegnare**,
+  al fornitore parte **da sola** l'email con il testo e il link diretto, oltre
+  alla notifica in app. Disattivabile sulla singola richiesta; l'esito è sempre
+  dichiarato (inviata / disattivata / nessuna email in anagrafica), mai silenzioso.
+- **Consegna delle notifiche garantita**: la notifica viene indirizzata anche a
+  un fornitore che non è mai entrato nel portale, **senza creargli un accesso in
+  anticipo**: l'accesso nasce al primo magic link e le notifiche sono già lì.
+- **Anagrafica fornitori modificabile** dal **responsabile di produzione**
+  (creazione e modifica scheda); il caposquadra consulta ma non modifica.
+- **Richieste guidate più utili**: con il tipo *Altro* la nota di testo diventa
+  **obbligatoria**, così una richiesta generica arriva sempre con una descrizione.
+- **Guida che spiega gli stati**: in ogni guida di ruolo una sezione dedicata
+  associa a ciascuno stato lo stesso badge colorato dell'app e il suo significato
+  (il fornitore la vede dalla sua prospettiva).
 - **Ritardi** evidenziati automaticamente (consegna superata su commessa attiva).
 - **Metriche fornitore** (visibili a Righi e al fornitore): puntualità, lavori/mese,
   carico ore, richieste sollevate, tasso di accettazione, tempo di risposta,
@@ -189,19 +222,28 @@ Patterns (badge/chip/pill), Elogic (B2B portal guide).
 Prioritizzate per impatto sui due driver (meno testo, più velocità).
 
 ### Fase 1 — Comunicazione a bassissimo attrito
-- **Notifiche push reali** (Web Push) + canale **WhatsApp/e-mail** verso fornitori
-  e caposquadra: la richiesta guidata arriva dove il fornitore già lavora.
-- **Richieste con foto**: allega uno scatto dal cantiere invece di descrivere a
-  parole (mancanza materiale, dubbio su morsettiera…).
-- **Risposte rapide del caposquadra** a template ("Procedi", "Ti richiamo",
-  "Uso alternativo OK") — thread senza tastiera.
+
+*Già realizzato nel prototipo*: **richieste con foto** dal cantiere, **risposte
+rapide** a template del caposquadra, **email di avviso automatica** su risposte
+ed esiti, con **link diretto** che riporta nel portale sul punto giusto.
+
+Resta da fare (richiede il server, vedi `BACKEND.md`):
+- **Invio realmente automatico** delle email lato server, con token personale
+  firmato e a scadenza al posto del link del prototipo.
+- **Notifiche push reali** (Web Push) e canale **WhatsApp** con opt-in: l'avviso
+  arriva dove il fornitore già lavora, non solo in posta.
+- **Risposta dall'email** (reply-to con parsing in ingresso): anche chi risponde
+  alla mail invece di cliccare il link rientra nel thread del portale.
 
 ### Fase 2 — Velocità di assegnazione
-- **Auto-matching fornitori** per tipologia + settore + disponibilità: alla
-  creazione del lavoro il portale propone già i fornitori giusti da invitare.
-- **Lavori da template**: duplica una commessa tipo e cambia solo layout/date.
-- **Accettazione con un tocco** e **firma leggera** della proposta (e-sign).
+
+*Già realizzato nel prototipo*: **auto-matching** dei fornitori in pubblicazione,
+**duplicazione** della commessa come template, **accettazione con firma leggera**,
+**assegnazione ottima** sul grafo bipartito e lettura del **collo di bottiglia**.
+
+Resta da fare:
 - **Countdown assegnazione**: SLA visivo su quanto un lavoro resta senza risposta.
+- **Riassegnazione assistita** quando un fornitore rinuncia o va oltre capacità.
 
 ### Fase 3 — Governo della commessa
 - **Milestone di consegna** (materiale pronto, cablaggio, collaudo, ritiro) con
