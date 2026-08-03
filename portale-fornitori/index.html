@@ -599,8 +599,19 @@ const REQ_TYPES = {
   ritardo:  {label:"Segnalazione ritardo", pill:"danger"},
   sopralluogo:{label:"Chiarimento layout / sopralluogo", pill:"brand"},
   collaudo: {label:"Richiesta di approvazione consegna", pill:"ok"},
+  extra:    {label:"Richiesta di extra", pill:"accent"},
   altro:    {label:"Altro", pill:""},
 };
+// Tipi di extra: lavorazione in piu' rispetto a quanto concordato all'accettazione.
+const EXTRA_TIPI = {
+  materiale:   "Materiale aggiuntivo",
+  lavorazione: "Lavorazione non prevista",
+  layout:      "Modifica del layout",
+  rilavorazione:"Rilavorazione",
+};
+// Oltre questa quota dell'importo concordato l'extra non lo approva il caposquadra
+// ma il responsabile di produzione (decisione che pesa sul valore della commessa).
+const EXTRA_SOGLIA_PERC = 10;
 // Avanzamento produzione (sotto-stato lato fornitore, un tocco)
 const AVANZAMENTO = { materiale:{label:"Materiale ricevuto"}, cablaggio:{label:"Cablaggio in corso"}, collaudo:{label:"In collaudo"}, pronto:{label:"Pronto al ritiro"} };
 const AVZ_ORDER = ["materiale","cablaggio","collaudo","pronto"];
@@ -896,18 +907,38 @@ function scopedRequests(){ const u=currentUser(); return isCapo(u)? STATE.reques
 const MESI=["gen","feb","mar","apr","mag","giu","lug","ago","set","ott","nov","dic"];
 function monthKey(iso){ return (iso||"").slice(0,7); }
 function monthLabel(k){ if(!k) return "—"; const p=k.split("-"); return MESI[(+p[1])-1]+" '"+p[0].slice(2); }
-function activeHours(sid){ return (graphIndex().jobsBySup[sid]||[]).filter(j=>["assegnato","in_corso"].includes(j.stato)).reduce((s,j)=>s+(j.oreStimate||0),0); }
+function activeHours(sid){ return (graphIndex().jobsBySup[sid]||[]).filter(j=>["assegnato","in_corso"].includes(j.stato)).reduce((s,j)=>s+jobOre(j),0); }
 function supplierMonthlyLoad(){ const map={}, months=new Set();
-  STATE.jobs.filter(j=>["assegnato","in_corso"].includes(j.stato)&&j.assegnatoA).forEach(j=>{ const k=monthKey(j.dataRientro); map[j.assegnatoA]=map[j.assegnatoA]||{}; map[j.assegnatoA][k]=(map[j.assegnatoA][k]||0)+(j.oreStimate||0); months.add(k); });
+  STATE.jobs.filter(j=>["assegnato","in_corso"].includes(j.stato)&&j.assegnatoA).forEach(j=>{ const k=monthKey(j.dataRientro); map[j.assegnatoA]=map[j.assegnatoA]||{}; map[j.assegnatoA][k]=(map[j.assegnatoA][k]||0)+jobOre(j); months.add(k); });
   return {map, months:[...months].sort()}; }
 // carico e capacità per mese di RIENTRO (scadenza operativa del fornitore)
-function monthLoad(sid, mk){ return (graphIndex().jobsBySup[sid]||[]).filter(j=>["assegnato","in_corso"].includes(j.stato)&&monthKey(j.dataRientro)===mk).reduce((s,j)=>s+(j.oreStimate||0),0); }
+function monthLoad(sid, mk){ return (graphIndex().jobsBySup[sid]||[]).filter(j=>["assegnato","in_corso"].includes(j.stato)&&monthKey(j.dataRientro)===mk).reduce((s,j)=>s+jobOre(j),0); }
 function freeCapacity(sid, mk){ const s=supplier(sid); if(!s) return 0; mk=mk||monthKey(todayISO()); return (s.capacitaMese||0) - monthLoad(sid, mk); }
 function loadRatio(sid, mk){ const s=supplier(sid); if(!s||!s.capacitaMese) return 1; mk=mk||monthKey(todayISO()); return monthLoad(sid, mk)/s.capacitaMese; }
 function daysBetween(a,b){ if(!a||!b) return null; return Math.round((new Date(b+"T12:00:00")-new Date(a+"T12:00:00"))/86400000); }
 // Metriche fornitore (calcolate, non memorizzate) — identiche lato Righi e lato fornitore
 // importo di una commessa per il fornitore: importo accettato, altrimenti budget
-function jobImporto(j){ if(!j) return 0; const acc=(graphIndex().respByJob[j.id]||[]).find(r=>r.supplierId===j.assegnatoA&&r.tipo==="accettazione"); return (acc&&acc.importo)||j.budget||0; }
+// importo concordato all'accettazione (senza extra); se non c'e' accettazione vale il budget
+function jobImportoBase(j){ if(!j) return 0; const acc=(graphIndex().respByJob[j.id]||[]).find(r=>r.supplierId===j.assegnatoA&&r.tipo==="accettazione"); return (acc&&acc.importo)||j.budget||0; }
+/* ---- Extra: lavorazioni in piu' rispetto all'accordo -------------------------
+   Nascono come richiesta guidata del fornitore, valgono solo se APPROVATE e da
+   quel momento fanno parte dell'importo della commessa. Le ore dell'extra sono
+   un dato Righi (mai esposto al fornitore) e rientrano in carico e capacita',
+   altrimenti la pianificazione si sfaserebbe in silenzio. */
+const jobExtraList = j => (j&&j.extra)||[];
+function extraApprovato(j){ return jobExtraList(j).reduce((s,e)=>s+(Number(e.importo)||0),0); }
+function extraOre(j){ return jobExtraList(j).reduce((s,e)=>s+(Number(e.ore)||0),0); }
+function jobOre(j){ return (j?(j.oreStimate||0):0) + extraOre(j); }
+// importo finale della commessa: concordato + extra approvati
+function jobImporto(j){ return jobImportoBase(j) + extraApprovato(j); }
+// soglia di escalation: oltre il 10% dell'importo concordato decide il responsabile
+function extraSoglia(j){ return Math.round(jobImportoBase(j)*EXTRA_SOGLIA_PERC/100); }
+function extraRichieste(jid){ return (graphIndex().reqByJob[jid]||[]).filter(r=>r.tipo==="extra"); }
+function extraAperti(jid){ return extraRichieste(jid).filter(r=>r.stato!=="chiusa"); }
+// chi puo' decidere questo extra: il caposquadra entro soglia, il responsabile sempre
+function canApproveExtra(u, r, j){ if(!u||u.role!=="righi"||!r) return false;
+  if(!isCapo(u)) return true;
+  return (Number(r.importo)||0) <= extraSoglia(j); }
 function supplierMetrics(sid){
   const cache=metricsCache(); const hit=cache.get(sid); if(hit) return hit;   // memo per versione di stato
   const gi=graphIndex();
@@ -932,7 +963,16 @@ function supplierMetrics(sid){
   const accs=(gi.respBySup[sid]||[]).filter(r=>r.tipo==="accettazione");      // adiacenza fornitore-risposte
   const respTimes=accs.map(a=>{ const j=gi.jobById[a.jobId]; return (j&&j.publishedAt)? daysBetween(j.publishedAt,(a.at||"").slice(0,10)) : null; }).filter(x=>x!=null&&x>=0);
   const tempoRisposta=respTimes.length? Math.round(respTimes.reduce((s,x)=>s+x,0)/respTimes.length*10)/10 : null;
+  // Extra: quanto spesso la commessa cresce rispetto a quanto concordato.
+  // Metrica oggettiva e uguale per Righi e fornitore (nessun giudizio, solo fatti).
+  const conExtra=jobs.filter(j=>jobExtraList(j).length);
+  const assegnate=jobs.filter(j=>j.assegnatoAt);
+  const quotaExtra=assegnate.length? Math.round(conExtra.length/assegnate.length*100) : null;
+  const baseTot=assegnate.reduce((sm,j)=>sm+jobImportoBase(j),0);
+  const extraTot=assegnate.reduce((sm,j)=>sm+extraApprovato(j),0);
+  const scostamento=baseTot? Math.round(extraTot/baseTot*1000)/10 : 0;   // % sul concordato
   const res={ puntualita, ritardoMedio, slittamenti, perMonth, months, takenTotal, perMeseAvg,
+    conExtra:conExtra.length, quotaExtra, extraTot, scostamento,
     richiestePerTipo, richiesteTot:reqs.length, tassoAccett, tempoRisposta,
     oreAttive:activeHours(sid), valoreAttivo, valoreConsegnato,
     commesseAttive:jobs.filter(j=>["assegnato","in_corso"].includes(j.stato)).length, consegnate:delivered.length };
@@ -958,6 +998,7 @@ function metricsCardHtml(sid, isRighi=true){ const m=supplierMetrics(sid);
     </div>
     <div class="metric-rows">
       <div><span class="muted">Ritardo medio rientri</span><b>${m.ritardoMedio?m.ritardoMedio+" gg":"nessuno"}</b></div>
+      <div><span class="muted">Extra approvati</span><b>${m.quotaExtra==null?"—":m.quotaExtra+"% delle commesse"}</b>${m.extraTot?`<span class="pill plain">${fmtMoney(m.extraTot)} · +${m.scostamento}% sul concordato</span>`:'<span class="pill plain">nessuno</span>'}</div>
       <div><span class="muted">Richieste sollevate</span><b>${m.richiesteTot}</b>${Object.entries(m.richiestePerTipo).map(([k,v])=>`<span class="pill plain">${REQ_TYPES[k]?REQ_TYPES[k].label:k}: ${v}</span>`).join("")}</div>
     </div>
     ${m.months.length?`<div class="spark" aria-hidden="true">${m.months.slice(-6).map(k=>`<span class="sbar" title="${monthLabel(k)}: ${m.perMonth[k]}" style="height:${Math.round(m.perMonth[k]/maxM*100)}%"></span>`).join("")}</div>
@@ -1778,6 +1819,21 @@ function openConfirm(o){
     </div>`);
 }
 
+// Riepilogo economico degli extra sulla commessa. Il fornitore vede gli importi
+// (e' il suo compenso); le ore restano un dato interno di Righi.
+function extraBlock(j, isRighi){
+  const list=jobExtraList(j); const aperti=extraAperti(j.id);
+  if(!list.length && !aperti.length) return "";
+  const base=jobImportoBase(j);
+  return `<div class="divide"></div><div class="sect-t">${icon("bolt","sm")} Extra sulla commessa</div>
+    ${list.map(e=>`<div class="lrow"><span class="ic ok">${icon("check","sm")}</span><span class="gr"><b>${esc(EXTRA_TIPI[e.tipo]||"Extra")} — ${fmtMoney(e.importo)}</b><span class="s">${esc(e.motivo||"")}${isRighi&&e.ore?" · "+e.ore+" h":""} · approvato il ${esc((e.at||"").replace("T"," "))}</span></span></div>`).join("")}
+    ${aperti.map(r=>`<div class="lrow" data-req="${r.id}"><span class="ic accent">${icon("clock","sm")}</span><span class="gr"><b>${esc(EXTRA_TIPI[r.extraTipo]||"Extra")} — ${fmtMoney(r.importo)}</b><span class="s">in attesa di decisione${isRighi&&(Number(r.importo)||0)>extraSoglia(j)?" · oltre il "+EXTRA_SOGLIA_PERC+"%: serve il responsabile":""}</span></span><span class="arw">${icon("chev")}</span></div>`).join("")}
+    <div class="row2" style="margin-top:8px">
+      <div class="dl"><span class="k">Importo concordato</span><span class="v">${fmtMoney(base)}</span></div>
+      <div class="dl"><span class="k">Extra approvati</span><span class="v">${fmtMoney(extraApprovato(j))}</span></div>
+    </div>
+    <div class="dl"><span class="k">Importo totale della commessa</span><span class="v" style="color:var(--accent-deep);font-size:16px">${fmtMoney(jobImporto(j))}</span></div>`;
+}
 function avanzamentoBlock(j, editable){
   if(!["assegnato","in_corso"].includes(j.stato)) return "";
   const cur=j.avanzamento?AVZ_ORDER.indexOf(j.avanzamento):-1;
@@ -1858,6 +1914,7 @@ function openJobModal(jid){
     ${isRighi&&s?`<div class="dl" style="margin-top:8px"><span class="k">Fornitore</span><span class="v">${esc(s.name)} · ${esc(s.citta)}</span></div>`:""}
     ${thread.length?`<div class="divide"></div><div class="sect-t">Conversazione</div><div class="thread">${thread.map(msgHtml).join("")}</div>`:""}
     ${(j.storicoDate&&j.storicoDate.length)?`<div class="divide"></div><div class="sect-t">${icon("calendar","sm")} Storico rientro</div><div class="rowlist">${j.storicoDate.slice().reverse().map(h=>`<div class="lrow" style="padding:8px 4px"><span class="ic ${h.tipo==='slittamento'?'accent':'info'}">${icon("calendar")}</span><span class="gr"><b>${fmtDate(h.from)} ${icon("chev","sm")} ${fmtDate(h.to)}</b><span class="s">${h.tipo==='slittamento'?'Slittamento':'Modifica'}${h.byRole?' · '+esc(h.byRole):''}${h.motivo?' · '+esc(h.motivo):''}</span></span></div>`).join("")}</div>`:""}
+    ${extraBlock(j, isRighi)}
     ${avanzamentoBlock(j, !isRighi && j.assegnatoA===u.supplierId)}
     ${isRighi&&reqs.length?`<div class="divide"></div><div class="sect-t">Richieste sulla commessa</div><div class="rowlist">${reqs.map(reqRow).join("")}</div>`:""}
     ${footer?`<div class="divide"></div>${footer}`:""}`);
@@ -1891,6 +1948,12 @@ function openQuickReq(jid){ const j=byId(STATE.jobs,jid), c=capo(j.capoId); App.
     <div class="sect-t" style="margin-top:12px">Tipo di richiesta</div>
     <div class="chips" id="qr-types">${Object.entries(REQ_TYPES).map(([k,v])=>`<button class="chip sm" data-qrtype="${k}">${v.label}</button>`).join("")}</div>
     <div class="field hide" id="qr-slip" style="margin-top:12px"><label>Nuova data di rientro proposta</label><input class="inp" id="qr-date" type="date" value="${addDays(j.dataRientro,10)}"><span class="hint">Rientro attuale: ${fmtDate(j.dataRientro)} — lo slittamento va approvato da Righi.</span></div>
+    <div class="hide" id="qr-extra" style="margin-top:12px">
+      <div class="field"><label>Tipo di extra</label>
+        <div class="chips" id="qr-extratipi">${Object.entries(EXTRA_TIPI).map(([k,v],i)=>`<button class="chip sm${i===0?' on accent':''}" data-act="qrExtraTipo" data-t="${k}">${esc(v)}</button>`).join("")}</div></div>
+      <div class="field"><label>Importo dell'extra (€)</label><input class="inp" id="qr-imp" type="number" min="1" step="10" inputmode="numeric" placeholder="es. 350">
+        <span class="hint">Importo concordato della commessa: <b>${fmtMoney(jobImportoBase(j))}</b>. Fino a ${fmtMoney(extraSoglia(j))} (${EXTRA_SOGLIA_PERC}%) decide il caposquadra, oltre serve il responsabile di produzione.</span></div>
+    </div>
     <div class="field" style="margin-top:12px"><label id="qr-note-lbl">Dettaglio (facoltativo)</label><textarea class="inp" id="qr-note" placeholder="Poche parole bastano…"></textarea></div>
     <div class="field"><label>Foto (facoltativa) — meglio di mille parole</label>
       <div id="qr-foto-prev"></div>
@@ -1928,13 +1991,23 @@ function openReqDetail(rid){ const r=byId(STATE.requests,rid); if(!r) return;
   const u=currentUser(); const isRighi=u&&u.role==="righi"; if(isRighi){ r.read=true; persist(); }
   App.replyEmail=true;   // l'avviso email vale per la singola richiesta: si riparte sempre da acceso
   const j=byId(STATE.jobs,r.jobId), s=supplier(r.supplierId), c=capo(r.capoId), t=REQ_TYPES[r.tipo];
-  const isSlip=r.tipo==="slittamento"; const isConsegna=r.tipo==="collaudo"; const thread=r.risposte||[];
+  const isSlip=r.tipo==="slittamento"; const isConsegna=r.tipo==="collaudo"; const isExtra=r.tipo==="extra"; const thread=r.risposte||[];
+  const soglia=isExtra&&j?extraSoglia(j):0; const puoDecidere=isExtra?canApproveExtra(u,r,j):isRighi;
   const stateLabel = r.esito?(r.esito==='approvato'?'Approvato':'Rifiutato'):r.stato==='aperta'?'Inviata':r.stato==='presa'?'In carico':'Chiusa';
   const statePill = r.esito==='approvato'?'ok':r.esito==='rifiutato'?'danger':r.stato==='aperta'?'warn':r.stato==='presa'?'info':'ok';
   openModal(`${modalHead(t.label)}
     ${isRighi?`<div class="dl"><span class="k">Fornitore</span><span class="v">${esc(s?s.name:'')}</span></div>`:""}
     <div class="dl"><span class="k">Commessa</span><span class="v">${esc(j?j.title:'')} · ${esc(j?j.code:'')}</span></div>
     <div class="dl"><span class="k">Caposquadra</span><span class="v">${esc(c?c.name:'—')}</span></div>
+    ${isExtra&&j?`<div class="row2">
+        <div class="dl"><span class="k">Importo concordato</span><span class="v">${fmtMoney(jobImportoBase(j))}</span></div>
+        <div class="dl"><span class="k">Extra richiesto</span><span class="v" style="color:var(--accent-deep)">${fmtMoney(r.importo)} <span class="soft" style="font-weight:400">(${jobImportoBase(j)?Math.round((r.importo/jobImportoBase(j))*100):0}%)</span></span></div>
+        <div class="dl"><span class="k">Tipo di extra</span><span class="v">${esc(EXTRA_TIPI[r.extraTipo]||'—')}</span></div>
+        <div class="dl"><span class="k">Importo se approvato</span><span class="v">${fmtMoney(jobImportoBase(j)+extraApprovato(j)+(r.esito?0:Number(r.importo)||0))}</span></div>
+      </div>
+      ${isRighi&&!r.esito?`<div class="card leftbar" style="border-left:4px solid var(--${(Number(r.importo)||0)>soglia?'warn':'ok'});margin:2px 0 10px;padding:8px 12px"><span style="font-size:12.5px;color:var(--ink-soft)">${icon((Number(r.importo)||0)>soglia?"bolt":"check","sm")} ${(Number(r.importo)||0)>soglia
+        ? `Sopra la soglia del ${EXTRA_SOGLIA_PERC}% (${fmtMoney(soglia)}): decide il <b>responsabile di produzione</b>.`
+        : `Entro la soglia del ${EXTRA_SOGLIA_PERC}% (${fmtMoney(soglia)}): pu&ograve; approvarlo il <b>caposquadra</b>.`}</span></div>`:""}`:""}
     ${isSlip&&j?`<div class="row2"><div class="dl"><span class="k">Rientro attuale</span><span class="v">${fmtDate(j.dataRientro)}</span></div><div class="dl"><span class="k">Data proposta</span><span class="v" style="color:var(--accent-deep)">${fmtDate(r.dataProposta)} <span class="soft" style="font-weight:400">(+${daysBetween(j.dataRientro,r.dataProposta)} gg)</span></span></div></div>`:""}
     <div class="dl"><span class="k">Ricevuta</span><span class="v">${esc((r.at||'').replace('T',' '))}</span></div>
     ${r.testo?`<div class="msg them" style="max-width:100%;margin:6px 0"><div>${esc(r.testo)}</div></div>`:""}
@@ -1947,7 +2020,13 @@ function openReqDetail(rid){ const r=byId(STATE.requests,rid); if(!r) return;
       <div class="toggle-row"><button class="switch ${wantReplyEmail()?'on':''}" data-act="toggleReplyEmail" aria-label="avviso email"></button><div class="gr"><b>Avviso automatico via email</b><span>${s&&s.email?`Alla risposta parte in automatico l'email a ${esc(s.email)} con il <b>link diretto</b> a questa richiesta: il fornitore ci clicca e risponde nel portale.`:`Questo fornitore non ha un'email in anagrafica: riceve solo la notifica nel portale.`}</span></div></div>
       <div class="btn-row" style="margin-top:12px">
         ${s?`<button class="btn ghost" data-act="emailReq" data-id="${rid}">${icon("mail","sm")} Email</button>`:""}
-        ${isSlip
+        ${isExtra
+          ? (r.stato!=="chiusa"
+              ? (puoDecidere
+                  ? `<button class="btn danger" data-act="rejectExtra" data-id="${rid}">Rifiuta</button><button class="btn accent" data-act="approveExtra" data-id="${rid}">${icon("check")} Approva l'extra</button>`
+                  : `<span class="pill warn lg">Oltre il ${EXTRA_SOGLIA_PERC}%: serve l'approvazione del responsabile</span>`)
+              : "")
+          : isSlip
           ? (r.stato!=="chiusa"?`<button class="btn danger" data-act="rejectSlip" data-id="${rid}">Rifiuta</button><button class="btn accent" data-act="approveSlip" data-id="${rid}">${icon("check")} Approva e sposta</button>`:"")
           : isConsegna
           ? (r.stato!=="chiusa"?`<button class="btn danger" data-act="rejectConsegna" data-id="${rid}">Rifiuta</button><button class="btn accent" data-act="approveConsegna" data-id="${rid}">${icon("check")} Approva consegna</button>`:"")
@@ -2152,6 +2231,7 @@ function openGuide(){ const u=currentUser(); const isR=u.role==="righi"; const c
     + sec("Assegnare e governare",[
       ["Valuta le accettazioni","Chi accetta compare in <i>Da valutare</i>; ogni accettazione è <b>firmata</b> dal fornitore. Assegna al migliore (ordinati per idoneità)."],
       ["Ciclo vita e ritardi","Aggiorni la data (con storico), segui l'avanzamento del fornitore e vedi i ritardi in rosso con il semaforo predittivo."],
+      ["Extra (lavorazioni in più)","Il fornitore chiede un <b>extra</b> con importo e motivo. Entro il <b>${EXTRA_SOGLIA_PERC}%</b> dell'importo concordato lo approva il caposquadra; <b>oltre serve la tua approvazione</b>. Approvando puoi <b>cambiare l'importo</b>, indicare le <b>ore aggiuntive</b> (entrano nel carico) e spostare il rientro. L'extra approvato entra nell'importo della commessa e nell'export per l'ERP."],
       ["Anagrafica fornitori","In <b>Fornitori</b> premi <b>Nuovo fornitore</b> per accreditare un fornitore (specializzazioni, settori, zona, capacità, certificazioni): entra subito nei suggerimenti, nella mappa e nel carico. Tocca il nome di un fornitore per aprirne la scheda con le metriche."],
       ["Carico e Analisi","L'istogramma in Fornitori mostra il carico ore per fornitore e mese; in <b>Analisi</b> hai consegne per mese, pipeline, salute, puntualità e mix."],
       ["Esporta per l'ERP","Da Commesse esporti gli ordini accettati in CSV per l'emissione ordine in amministrazione."],
@@ -2176,6 +2256,7 @@ function openGuide(){ const u=currentUser(); const isR=u.role==="righi"; const c
       ["Richieste dei fornitori","I fornitori ti contattano con richieste guidate (dubbi, materiale, ritardi, foto): aprile in <b>Richieste</b>, usa le <b>risposte rapide</b> o rispondi via email, poi segnale risolte."],
       ["Il fornitore viene avvisato","Ogni risposta (e ogni esito di slittamento o approvazione consegna) fa partire <b>in automatico</b> un'email al fornitore con il testo e il <b>link diretto</b> alla richiesta, oltre alla notifica nel portale: anche chi usa solo la posta la vede e risponde con un clic. Puoi spegnere l'avviso con l'interruttore nella richiesta."],
       ["Slittamenti","Approvi o rifiuti le richieste di slittamento consegna; se approvi, la data si aggiorna con storico e notifica."],
+      ["Extra entro soglia","Puoi approvare gli extra fino al <b>${EXTRA_SOGLIA_PERC}%</b> dell'importo concordato: sopra quella soglia la richiesta resta a te visibile ma decide il <b>responsabile di produzione</b>. Approvando indichi anche le <b>ore aggiuntive</b>, così il carico del fornitore resta veritiero."],
       ["Approvazione consegna","Quando il fornitore chiede di consegnare (<i>Richiesta di approvazione consegna</i>), la <b>approvi o rifiuti</b> dalle Richieste: solo dopo l'approvazione il fornitore può segnare la commessa come consegnata."],
       ["Ritardi","Le consegne superate sono in rosso: usa i filtri per stato e ritardi per dare priorità."] ]); }
   else { title="Fornitore"; intro="Tutto quello che ti serve per lavorare con Righi: vedere le proposte, quotare, accettare, seguire le commesse e restare in contatto con il caposquadra.";
@@ -2201,6 +2282,7 @@ function openGuide(){ const u=currentUser(); const isR=u.role==="righi"; const c
       ["Richieste guidate","Da <b>Richieste guidate</b> scegli la commessa e il tipo di richiesta (dubbio tecnico, mancanza materiale, segnalazione ritardo, chiarimento layout/sopralluogo, pronto per collaudo/ritiro): niente testo libero, la notifica arriva subito al caposquadra."],
       ["Allega una foto","Puoi allegare una <b>foto</b> dal cantiere (es. una morsettiera o un materiale mancante) invece di descriverla a parole."],
       ["Chiedi uno slittamento","Se non arrivi in tempo, invia una <b>richiesta di slittamento</b> con la nuova data proposta: il caposquadra la approva e la consegna si aggiorna."],
+      ["Chiedi un extra","Se serve una lavorazione non prevista (materiale in più, modifica del layout, rilavorazione) invia una <b>richiesta di extra</b> con <b>importo</b> e una breve descrizione: senza descrizione non è valutabile. Righi la approva, la rifiuta o conferma un importo diverso — la decisione ti arriva con la motivazione, e l'extra approvato si somma all'importo della commessa. <b>Gli extra vanno chiusi prima dell'approvazione a consegnare</b>, così non restano conti aperti a lavoro finito."],
       ["Risposte rapide","Il caposquadra può risponderti con messaggi pronti (es. <i>Procedi</i>, <i>Ti richiamo</i>): li vedi nella conversazione della richiesta."] ])
     + sec("5 · Profilo, metriche e avvisi",[
       ["Il tuo profilo","In <b>Profilo</b> vedi come sei accreditato: specializzazioni, settori, certificazioni e zona. Sono i dati che Righi usa per proporti i lavori giusti."],
@@ -2388,9 +2470,9 @@ function importJobsCSV(text){
 function exportOrders(){
   const jobs=scopedJobs().filter(j=>["assegnato","in_corso","consegnato"].includes(j.stato)&&j.assegnatoA);
   if(!jobs.length){ toast("Nessun ordine accettato da esportare","warn"); return; }
-  const rows=[["commessa","titolo","tipologia","settore","fornitore","referente","email_fornitore","importo_eur","ore","data_inizio_stimata","data_rientro","data_rientro_base","data_rientro_effettiva","data_consegna_cliente","n_slittamenti","avanzamento","caposquadra","stato"]];
-  jobs.forEach(j=>{ const s=supplier(j.assegnatoA)||{}; const acc=jobResponses(j.id).find(r=>r.supplierId===j.assegnatoA&&r.tipo==="accettazione");
-    rows.push([j.code,j.title,TIPOLOGIE[j.tipologia].label,j.settore,s.name||"",s.referente||"",s.email||"",(acc&&acc.importo)?acc.importo:(j.budget||""),j.oreStimate||"",j.dataInizioStimata||"",j.dataRientro||"",j.dataRientroBase||j.dataRientro||"",j.dataRientroEff||"",j.dataConsegna||"",(j.storicoDate||[]).length,j.avanzamento?AVANZAMENTO[j.avanzamento].label:"",(capo(j.capoId)||{}).name||"",STATI[j.stato].label]); });
+  const rows=[["commessa","titolo","tipologia","settore","fornitore","referente","email_fornitore","importo_base_eur","extra_approvati_eur","importo_finale_eur","ore","data_inizio_stimata","data_rientro","data_rientro_base","data_rientro_effettiva","data_consegna_cliente","n_slittamenti","avanzamento","caposquadra","stato"]];
+  jobs.forEach(j=>{ const s=supplier(j.assegnatoA)||{};
+    rows.push([j.code,j.title,TIPOLOGIE[j.tipologia].label,j.settore,s.name||"",s.referente||"",s.email||"",jobImportoBase(j),extraApprovato(j),jobImporto(j),jobOre(j)||"",j.dataInizioStimata||"",j.dataRientro||"",j.dataRientroBase||j.dataRientro||"",j.dataRientroEff||"",j.dataConsegna||"",(j.storicoDate||[]).length,j.avanzamento?AVANZAMENTO[j.avanzamento].label:"",(capo(j.capoId)||{}).name||"",STATI[j.stato].label]); });
   downloadFile("ordini_accettati_righi.csv", toCSV(rows)); toast(jobs.length+" ordini esportati (CSV per ERP)","ok");
 }
 function doAccept(jid){ const u=currentUser(); const s=supplier(u.supplierId); const imp=$("#acc-imp").value; const note=$("#acc-note").value.trim();
@@ -2404,15 +2486,18 @@ function doAsk(jid){ const u=currentUser(); const t=$("#ask-t").value.trim(); if
 }
 function doQuickReq(jid){ const u=currentUser(); const j=byId(STATE.jobs,jid); if(!App.qr||!App.qr.tipo){ toast("Scegli il tipo di richiesta","warn"); return; }
   const note=$("#qr-note").value.trim(); const c=capo(j.capoId); const tp=REQ_TYPES[App.qr.tipo];
-  if(App.qr.tipo==="altro" && !note){ toast("Per \"Altro\" specifica meglio il problema o la richiesta","warn"); const n=$("#qr-note"); if(n) n.focus(); return; }
+  if((App.qr.tipo==="altro"||App.qr.tipo==="extra") && !note){ toast(App.qr.tipo==="extra"?"Descrivi la lavorazione in piu': serve per valutarla":"Per \"Altro\" specifica meglio il problema o la richiesta","warn"); const n=$("#qr-note"); if(n) n.focus(); return; }
   const req={id:uid("q"),jobId:jid,supplierId:u.supplierId,tipo:App.qr.tipo,testo:note,at:new Date().toISOString().slice(0,16),stato:"aperta",capoId:j.capoId,from:"fornitore",read:false};
   if(App.qr.tipo==="slittamento"){ const d=$("#qr-date")?$("#qr-date").value:""; if(!d){ toast("Indica la nuova data proposta","warn"); return; } req.dataProposta=d; req.esito=null; }
+  if(App.qr.tipo==="extra"){ const imp=Number(($("#qr-imp")||{}).value||0);
+    if(!(imp>0)){ toast("Indica l'importo dell'extra","warn"); const n=$("#qr-imp"); if(n) n.focus(); return; }
+    req.importo=imp; req.extraTipo=App.qr.extraTipo||Object.keys(EXTRA_TIPI)[0]; req.esito=null; }
   if(App.qr.foto) req.foto=App.qr.foto;
   STATE.requests.push(req);
-  const wantEmail=App.qr.email; persist(); closeModal(); toast(App.qr.tipo==="slittamento"?"Richiesta di slittamento inviata":"Richiesta inviata al caposquadra","ok"); render();
+  const wantEmail=App.qr.email; persist(); closeModal(); toast(App.qr.tipo==="slittamento"?"Richiesta di slittamento inviata":App.qr.tipo==="extra"?"Richiesta di extra inviata":"Richiesta inviata al caposquadra","ok"); render();
   if(wantEmail && c && c.email){ const cu=STATE.users.find(x=>x.capoId===c.id);
     const link=portalLink(cu?{u:cu.id,q:req.id,c:j.code}:{q:req.id,c:j.code});
-    const body="Buongiorno "+c.name+",\n\nsegnalazione dal Portale Fornitori:\n\nCommessa: "+j.code+" — "+j.title+"\nTipo: "+tp.label+(req.dataProposta?("\nNuova data proposta: "+fmtDate(req.dataProposta)):"")+(note?("\nDettaglio: "+note):"")+"\nFornitore: "+(supplier(u.supplierId)||{}).name
+    const body="Buongiorno "+c.name+",\n\nsegnalazione dal Portale Fornitori:\n\nCommessa: "+j.code+" — "+j.title+"\nTipo: "+tp.label+(req.dataProposta?("\nNuova data proposta: "+fmtDate(req.dataProposta)):"")+(req.importo?("\nExtra richiesto: "+fmtMoney(req.importo)+" ("+EXTRA_TIPI[req.extraTipo]+")"):"")+(note?("\nDettaglio: "+note):"")+"\nFornitore: "+(supplier(u.supplierId)||{}).name
       +"\n\nApri la richiesta nel portale e rispondi qui (un clic):\n"+link+"\n\nGrazie.";
     openEmailModal(c.email, "["+j.code+"] "+tp.label+" · gestisci nel portale", body); }
 }
@@ -2443,8 +2528,55 @@ function resolveSlip(rid, approve){ const r=byId(STATE.requests,rid); if(!r) ret
   const sent=wantReplyEmail()?sendEmailNow(reqReplyEmail(r,esito,"Abbiamo deciso sulla sua richiesta")):false;
   persist(); closeModal(); toast((approve?"Slittamento approvato · consegna aggiornata":"Slittamento rifiutato")+(sent?" · fornitore avvisato via email":""),"ok"); render();
 }
+/* ---- Extra: decisione di Righi -------------------------------------------
+   L'approvazione puo' rinegoziare l'importo (caso reale piu' frequente), registra
+   le ore in piu' (dato Righi, entra in carico e capacita') e, se serve, sposta il
+   rientro riusando lo storico date. Il rifiuto lascia l'importo invariato. */
+function openApproveExtra(rid){ const r=byId(STATE.requests,rid); if(!r||r.tipo!=="extra") return;
+  const j=byId(STATE.jobs,r.jobId); const u=currentUser();
+  if(!canApproveExtra(u,r,j)){ toast("Oltre la soglia: serve il responsabile di produzione","warn"); return; }
+  openModal(`${modalHead("Approva l'extra")}
+    <div class="dl"><span class="k">Commessa</span><span class="v">${esc(j?j.title:"")} · ${esc(j?j.code:"")}</span></div>
+    <div class="dl"><span class="k">Richiesto dal fornitore</span><span class="v">${fmtMoney(r.importo)} — ${esc(EXTRA_TIPI[r.extraTipo]||"")}</span></div>
+    ${r.testo?`<div class="msg them" style="max-width:100%;margin:6px 0"><div>${esc(r.testo)}</div></div>`:""}
+    <div class="field"><label>Importo approvato (€)</label><input class="inp" id="ex-imp" type="number" min="0" step="10" value="${Number(r.importo)||0}">
+      <span class="hint">Puoi approvare un importo diverso da quello richiesto: al fornitore arriva la cifra che confermi qui.</span></div>
+    <div class="field"><label>Ore aggiuntive stimate (solo Righi)</label><input class="inp" id="ex-ore" type="number" min="0" step="1" value="0">
+      <span class="hint">Entrano nel carico del fornitore e nella capacità del mese: lasciandole a zero la pianificazione risulterebbe più libera di quanto è davvero.</span></div>
+    <div class="field"><label>Nuovo rientro (facoltativo)</label><input class="inp" id="ex-data" type="date" value="">
+      <span class="hint">Rientro attuale: ${fmtDate(j?j.dataRientro:null)}. Compila solo se l'extra sposta la riconsegna.</span></div>
+    <div class="btn-row">
+      <button class="btn ghost" data-act="reqDetail" data-id="${rid}">Annulla</button>
+      <button class="btn accent" data-act="doApproveExtra" data-id="${rid}">${icon("check")} Conferma approvazione</button>
+    </div>`);
+}
+function resolveExtra(rid, approve){ const r=byId(STATE.requests,rid); if(!r||r.tipo!=="extra") return;
+  const j=byId(STATE.jobs,r.jobId); const u=currentUser();
+  if(!canApproveExtra(u,r,j)){ toast("Oltre la soglia: serve il responsabile di produzione","warn"); return; }
+  let imp=Number(r.importo)||0, ore=0, nuovaData="";
+  if(approve){ imp=Number(($("#ex-imp")||{}).value||0); ore=Number(($("#ex-ore")||{}).value||0); nuovaData=($("#ex-data")||{}).value||"";
+    if(!(imp>0)){ toast("Indica l'importo approvato","warn"); return; } }
+  r.stato="chiusa"; r.esito=approve?"approvato":"rifiutato"; r.read=true; r.importoApprovato=approve?imp:0;
+  if(approve && j){
+    j.extra=j.extra||[];
+    j.extra.push({id:uid("ex"), reqId:r.id, tipo:r.extraTipo, importo:imp, ore, motivo:r.testo||"",
+      at:new Date().toISOString().slice(0,16), da:u.id});
+    if(nuovaData && nuovaData!==j.dataRientro) applyDateChange(j, nuovaData, "Extra approvato", "righi", u.id);
+  }
+  const esito = approve
+    ? "Extra APPROVATO per "+fmtMoney(imp)+(imp!==(Number(r.importo)||0)?" (richiesti "+fmtMoney(r.importo)+")":"")
+      +". Nuovo importo della commessa: "+fmtMoney(jobImporto(j))+"."
+    : "Extra NON approvato: l'importo della commessa resta "+fmtMoney(jobImporto(j))+".";
+  notifySupplier(r.supplierId,{ic:approve?"check":"x",txt:approve?"Extra approvato: "+fmtMoney(imp):"Extra non approvato",sub:(j?j.code+" — "+j.title:""),jobId:r.jobId});
+  const sent=wantReplyEmail()?sendEmailNow(reqReplyEmail(r,esito,"Abbiamo deciso sulla sua richiesta di extra")):false;
+  persist(); closeModal(); toast((approve?"Extra approvato · "+fmtMoney(imp):"Extra rifiutato")+(sent?" · fornitore avvisato via email":""),"ok"); render();
+}
 // Caposquadra: approva/rifiuta la richiesta di consegna del fornitore
 function resolveConsegna(rid, approve){ const r=byId(STATE.requests,rid); if(!r) return; const j=byId(STATE.jobs,r.jobId); const u=currentUser();
+  // gli extra si decidono PRIMA di autorizzare la consegna: a quadro rientrato
+  // discutere di soldi e' molto piu' difficile
+  if(approve && j){ const ap=extraAperti(j.id).filter(x=>x.id!==rid);
+    if(ap.length){ toast("Ci sono "+ap.length+" extra da decidere: vanno chiusi prima di autorizzare la consegna","warn"); return; } }
   r.stato="chiusa"; r.esito=approve?"approvato":"rifiutato"; r.read=true;
   if(approve && j) j.consegnaApprovata={da:u.id, at:new Date().toISOString().slice(0,16)};
   notifySupplier(r.supplierId,{ic:approve?"check":"x",txt:approve?"Consegna approvata: puoi consegnare":"Consegna non approvata",sub:(j?j.code+" — "+j.title:""),jobId:r.jobId});
@@ -2573,7 +2705,11 @@ document.addEventListener("click",e=>{
   if(el.dataset.toggle==="inv"){ App.draft=App.draft||{invitati:[]}; App.draft.invitati=App.draft.invitati||[];
     const id=el.dataset.v; const i=App.draft.invitati.indexOf(id); if(i<0) App.draft.invitati.push(id); else App.draft.invitati.splice(i,1); el.classList.toggle("on"); return; }
   if(el.dataset.qrtype){ App.qr=App.qr||{}; App.qr.tipo=el.dataset.qrtype; $$("#qr-types .chip").forEach(c=>c.classList.remove("on","accent")); el.classList.add("on","accent"); const b=$("#qr-send"); if(b) b.disabled=false; const slip=$("#qr-slip"); if(slip) slip.classList.toggle("hide", el.dataset.qrtype!=="slittamento");
-    const isAltro=el.dataset.qrtype==="altro"; const lbl=$("#qr-note-lbl"); if(lbl) lbl.textContent=isAltro?"Dettaglio (obbligatorio)":"Dettaglio (facoltativo)"; const nt=$("#qr-note"); if(nt) nt.placeholder=isAltro?"Descrivi il problema o la richiesta…":"Poche parole bastano…"; return; }
+    const isExtra=el.dataset.qrtype==="extra"; const ex=$("#qr-extra"); if(ex) ex.classList.toggle("hide", !isExtra);
+    if(isExtra && !App.qr.extraTipo) App.qr.extraTipo=Object.keys(EXTRA_TIPI)[0];
+    // per "Altro" e per gli extra il dettaglio serve davvero: senza, la richiesta non e' valutabile
+    const obbl=el.dataset.qrtype==="altro"||isExtra; const lbl=$("#qr-note-lbl"); if(lbl) lbl.textContent=obbl?"Dettaglio (obbligatorio)":"Dettaglio (facoltativo)";
+    const nt=$("#qr-note"); if(nt) nt.placeholder=isExtra?"Descrivi la lavorazione in piu' e perche' serve…":obbl?"Descrivi il problema o la richiesta…":"Poche parole bastano…"; return; }
   if(el.dataset.np){ const id=el.dataset.np; if(App.notifySel.has(id)) App.notifySel.delete(id); else App.notifySel.add(id); el.classList.toggle("on"); return; }
 
   if(el.dataset.job && !el.dataset.act){ openJobModal(el.dataset.job); return; }
@@ -2643,6 +2779,8 @@ document.addEventListener("click",e=>{
     case "notifyPick": openNotifyPick(el.dataset.job); break;
     case "toggleNotifyEmail": App.notifyEmail=!App.notifyEmail; el.classList.toggle("on"); break;
     case "toggleReplyEmail": App.replyEmail=!wantReplyEmail(); el.classList.toggle("on"); break;
+    case "qrExtraTipo": { App.qr=App.qr||{}; App.qr.extraTipo=el.dataset.t;
+      $$("#qr-extratipi .chip").forEach(c=>c.classList.remove("on","accent")); el.classList.add("on","accent"); break; }
     case "doNotify": doNotify(el.dataset.job); break;
     case "assignPick": openAssignPick(el.dataset.job); break;
     case "confirmAssign": { const j=byId(STATE.jobs,el.dataset.job); const s=supplier(el.dataset.sup); if(!j||!s) break;
@@ -2657,6 +2795,13 @@ document.addEventListener("click",e=>{
         body:`La commessa <b>${esc(j.code)}</b> passa in archivio: esce dalle commesse attive e dal conteggio in alto. Resta consultabile con il filtro <i>Chiuse</i>.`,
         confirmLabel:`${icon("check","sm")} Sì, chiudi`, confirmAct:"doCloseJob", data:{job:j.id}}); break; }
     case "doCloseJob": closeJob(el.dataset.job); break;
+    case "approveExtra": openApproveExtra(el.dataset.id); break;
+    case "doApproveExtra": resolveExtra(el.dataset.id, true); break;
+    case "rejectExtra": { const rq=byId(STATE.requests,el.dataset.id); if(!rq) break;
+      openConfirm({title:"Rifiutare l'extra?", kind:"danger",
+        body:`L'extra di <b>${fmtMoney(rq.importo)}</b> non verr&agrave; riconosciuto e l'importo della commessa resta invariato. Il fornitore viene avvisato.`,
+        confirmLabel:"S&igrave;, rifiuta", confirmAct:"doRejectExtra", data:{id:rq.id}, backAct:"reqDetail", backData:{id:rq.id}}); break; }
+    case "doRejectExtra": resolveExtra(el.dataset.id, false); break;
     case "optimalAssign": openOptimalAssign(); break;
     case "doOptimalAssign": doOptimalAssign(); break;
     case "setStato": setStato(el.dataset.job, el.dataset.s); break;

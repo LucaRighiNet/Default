@@ -112,6 +112,29 @@ per ciascuno**, con il **suo** link diretto e il **solo** suo indirizzo — anco
 più riservato del Ccn, perché ogni email ha un unico destinatario. L'invio
 automatico lato server è la naturale evoluzione (vedi `BACKEND.md`).
 
+**Extra (lavorazioni in più)**: se durante la produzione serve qualcosa che non
+era nell'accordo (materiale aggiuntivo, lavorazione non prevista, modifica del
+layout, rilavorazione), il fornitore invia una **richiesta di extra** con
+**importo** e una **descrizione obbligatoria** — senza descrizione non è
+valutabile. Righi la approva, la rifiuta oppure **conferma un importo diverso**
+(la contro-proposta è il caso più frequente). Regole:
+
+- **Soglia del 10%**: fino al 10% dell'importo concordato decide il
+  **caposquadra**; oltre serve il **responsabile di produzione**, così le
+  decisioni che pesano davvero sul valore della commessa restano centrali.
+- **Le ore contano**: approvando, Righi indica anche le **ore aggiuntive** (dato
+  riservato, mai esposto al fornitore). Entrano in **carico e capacità**: senza,
+  la pianificazione mostrerebbe più spazio libero di quanto ce n'è davvero. Se
+  l'extra sposta la riconsegna, si può aggiornare il **rientro** nello stesso
+  passaggio (con storico e notifica).
+- **Niente conti aperti a lavoro finito**: un extra ancora da decidere **blocca
+  l'approvazione a consegnare**. Si chiude prima, quando c'è ancora margine per
+  discuterne.
+- L'extra approvato entra nell'**importo della commessa** e nell'**export per
+  l'ERP**, che ora distingue `importo_base`, `extra_approvati` e
+  `importo_finale`. Nelle metriche compaiono **quota di commesse con extra** e
+  **scostamento dal concordato**: numeri oggettivi, uguali per Righi e fornitore.
+
 **Risposte al fornitore — avviso automatico**: quando Righi invia una **risposta
 rapida**, approva/rifiuta uno **slittamento** o l'**approvazione a consegnare**,
 il fornitore riceve *due* cose: la **notifica nel portale** e, in automatico,

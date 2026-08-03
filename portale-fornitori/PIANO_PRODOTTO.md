@@ -36,7 +36,7 @@ Di conseguenza il prodotto è progettato attorno a due driver:
 |---|---|
 | **Righi — Ufficio Subappalti** | Pubblica i lavori, sceglie la visibilità, notifica i fornitori, valuta le accettazioni, assegna la commessa, monitora ritardi e richieste. |
 | **Caposquadra Righi** | Figura di riferimento che segue la commessa; riceve le richieste guidate dei fornitori (dubbi tecnici, mancanza materiale, ritardi…). |
-| **Fornitore fornitore** | Vede i lavori proposti, fa domande o accetta la proposta, gestisce le commesse acquisite e contatta il caposquadra con richieste guidate. |
+| **Fornitore** | Vede i lavori proposti, fa domande o accetta la proposta, gestisce le commesse acquisite e contatta il caposquadra con richieste guidate. |
 
 ## 3. Modello dominio (MVP)
 
@@ -149,6 +149,12 @@ avanzamento del fornitore** porta la commessa *in corso*; il fornitore *consegna
 - **Ciclo di vita rientro**: richiesta di **slittamento** dal fornitore (nuova
   data di **rientro**) con approvazione del caposquadra (sovrascrive + storico +
   notifica) e **modifica diretta** delle date da Righi; storico completo dei cambi.
+- **Extra (lavorazioni in più)**: richiesta guidata del fornitore con importo,
+  tipo e descrizione obbligatoria; Righi approva, rifiuta o **riconosce un
+  importo diverso**. **Soglia al 10%** dell'importo concordato: sotto decide il
+  caposquadra, sopra il responsabile. Le **ore aggiuntive** (dato interno)
+  entrano in carico e capacità; gli extra aperti **bloccano l'approvazione a
+  consegnare**; l'importo finale e l'export ERP distinguono base ed extra.
 - **Consegna con approvazione (gate)**: il fornitore non chiude da solo — quando
   è pronto invia **Richiedi approvazione consegna** (richiesta al caposquadra);
   solo dopo l'ok compare **Segna consegnato**. Senza approvazione la consegna è

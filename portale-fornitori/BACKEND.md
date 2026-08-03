@@ -149,6 +149,26 @@ altri); *rate-limit*/raggruppamento per non inondare chi riceve molti eventi in
 sequenza; **preferenze per fornitore** (email sì/no, orari); e la notifica in app
 resta comunque la fonte di verità, anche se il canale esterno fallisce.
 
+### 1-quater. Extra: soglia di approvazione lato server
+
+L'extra e' una richiesta (`requests.tipo='extra'`) con `importo` e `extra_tipo`.
+La regola di chi puo' approvarlo **non puo' vivere solo nel client**: va imposta
+dal server, perche' decide di denaro.
+
+- soglia = **10%** dell'importo concordato della commessa (`EXTRA_SOGLIA_PERC`);
+- entro soglia puo' approvare il **caposquadra** della commessa; oltre, solo un
+  utente con ruolo **responsabile**;
+- l'approvazione puo' fissare un `importo_approvato` diverso da quello richiesto,
+  registra le `ore` (interne) e puo' spostare `data_rientro` con storico;
+- una commessa con extra `stato <> 'chiusa'` **non puo' ricevere l'approvazione a
+  consegnare**: il vincolo va replicato server-side, non solo nell'interfaccia.
+
+```
+requests( ... , importo numeric null,          -- extra richiesto dal fornitore
+              importo_approvato numeric null,  -- extra riconosciuto da Righi
+              extra_tipo text null check in ('materiale','lavorazione','layout','rilavorazione') )
+```
+
 ## 2. Modello dati (Postgres)
 
 Il portale è **per-entità** (non whole-document): i lavori sono oggetti condivisi
@@ -168,6 +188,9 @@ jobs(id uuid pk, code text unique, title text, tipologia text, settore text,
      avanzamento text,                                    -- materiale|cablaggio|collaudo|pronto|null (aggiornato dal fornitore)
      consegna_approvata jsonb null,                       -- {da, at} — se null il fornitore NON può consegnare (gate: serve ok del caposquadra)
      chiusa_at date, chiusa_da uuid null fk users,        -- chiusura della pratica (stato finale 'chiuso'): solo lato Righi
+     -- extra approvati (lavorazioni in piu'): importo del fornitore + ore interne Righi
+     -- l'importo finale della commessa e' importo_accettato + somma degli extra approvati
+     extra jsonb default '[]',                            -- [{id,reqId,tipo,importo,ore,motivo,at,da}] - 'ore' MAI esposto al fornitore
      storico_date jsonb,                                  -- storico dei cambi di data_rientro (slittamenti/modifiche): [{from,to,by,byRole,at,motivo,tipo}]
      capo_id uuid fk users, descrizione text, visibility text check in ('tutti','selezionati'),
      stato text check in ('bozza','da_approvare','pubblicato','assegnato','in_corso','consegnato','chiuso'),
