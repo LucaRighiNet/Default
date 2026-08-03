@@ -7,7 +7,13 @@ elettrici** (automazione, distribuzione, potenza).
 Non è un portale di qualifica fornitori né di approvvigionamento materiali: è un
 portale di **delega di lavori a progetto**, pensato per gare piccole e brevi
 (3–5 settimane), con due obiettivi di design — **ridurre il testo scritto** e
-**accelerare l'assegnazione**. Vedi [`PIANO_PRODOTTO.md`](PIANO_PRODOTTO.md).
+**accelerare l'assegnazione**.
+
+**Documento di riferimento**: [`SPECIFICHE.md`](SPECIFICHE.md) raccoglie in un
+unico posto le specifiche **funzionali, organizzative e tecniche**, con diagrammi
+di stato, di flusso e del modello dati. Vedi anche
+[`PIANO_PRODOTTO.md`](PIANO_PRODOTTO.md) (visione e roadmap) e
+[`BACKEND.md`](BACKEND.md) (contratto per il server).
 
 ## Avvio
 
