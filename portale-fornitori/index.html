@@ -522,6 +522,10 @@ function mailto(to, subject, body, cc, bcc){
 
 /* ============================ Storage ============================ */
 const KEY="righi_portale_v4", SESSKEY="righi_portale_sess_v4";
+// Versione del MODELLO dati. Va alzata quando cambia la forma dei dati: i dati
+// salvati con una versione precedente vengono rigenerati dal seed aggiornato,
+// altrimenti il browser continuerebbe a mostrare i dati vecchi con il codice nuovo.
+const DATA_VERSION = 5;
 function makeLocalAdapter(){ return {
   get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } },
   set(k,v){ try{ localStorage.setItem(k,v); }catch(e){} },
@@ -535,8 +539,10 @@ const Storage = (function(){
   return makeMemAdapter();
 })();
 const Store={
-  load(){ try{ const r=Storage.get(KEY); return r?JSON.parse(r):null; }catch(e){ return null; } },
-  save(state){ try{ Storage.set(KEY, JSON.stringify(state)); }catch(e){} Sync.notify&&Sync.notify(); },
+  load(){ try{ const r=Storage.get(KEY); if(!r) return null; const o=JSON.parse(r);
+    if(!o || o.__v!==DATA_VERSION) return null;         // modello diverso: si riparte dai dati aggiornati
+    return o; }catch(e){ return null; } },
+  save(state){ try{ if(state) state.__v=DATA_VERSION; Storage.set(KEY, JSON.stringify(state)); }catch(e){} Sync.notify&&Sync.notify(); },
 };
 
 /* ===================== Sync seam (RemoteAdapter) =====================
@@ -768,6 +774,13 @@ const PAGE=40;
    Invariante: stessi insiemi e stesso ordine del vecchio codice a scansione. */
 let _stateVer = 0;                                   // bumpato ad ogni mutazione persistita
 function persist(){ _stateVer++; Store.save(STATE); }
+// Riporta la demo ai dati iniziali della versione corrente: utile se il browser
+// conserva dati vecchi o se si vuole ripartire puliti dopo aver provato il portale.
+function resetDemoData(){ STATE=seed(); Session=null;
+  try{ Storage.set(SESSKEY, JSON.stringify(null)); }catch(e){}
+  persist(); App.tab=null; App.filters={q:"",stato:"",tipologia:"",settore:"",capo:"",fornitore:"",late:false};
+  closeModal(); toast("Dati dimostrativi ripristinati","ok"); render();
+}
 let _gi=null, _giVer=-1, _giState=null;
 function graphIndex(){
   if(_gi && _giVer===_stateVer && _giState===STATE) return _gi;   // valido finché lo stato non cambia
@@ -2086,6 +2099,9 @@ function openSwitch(){
         <span class="gr"><b>${esc(u.name)} ${cur?'<span class="pill brand" style="margin-left:4px">attuale</span>':''}</b><span class="muted">${u.role==='righi'?esc(u.ruolo):esc(s?s.name:'')}</span></span><span class="arw">${icon("chev")}</span></button>`;}).join("")}
     <button class="btn ghost block" style="margin-top:8px" data-act="newUser">${icon("plus","sm")} Nuovo utente / accesso</button>
     <div class="divide"></div>
+    <button class="btn ghost block" data-act="resetDemo">${icon("bolt","sm")} Ripristina dati dimostrativi</button>
+    <p class="muted" style="font-size:12px;margin:6px 0 0">Riporta la demo ai dati iniziali di questa versione: usalo se il browser mostra ancora dati di una versione precedente.</p>
+    <div class="divide"></div>
     <button class="btn danger block" data-act="logout">${icon("logout","sm")} Esci</button>`);
 }
 function openNewUser(){ const d=App.userDraft={role:"fornitore"};
@@ -2795,6 +2811,10 @@ document.addEventListener("click",e=>{
         body:`La commessa <b>${esc(j.code)}</b> passa in archivio: esce dalle commesse attive e dal conteggio in alto. Resta consultabile con il filtro <i>Chiuse</i>.`,
         confirmLabel:`${icon("check","sm")} Sì, chiudi`, confirmAct:"doCloseJob", data:{job:j.id}}); break; }
     case "doCloseJob": closeJob(el.dataset.job); break;
+    case "resetDemo": openConfirm({title:"Ripristinare i dati dimostrativi?", kind:"accent",
+      body:"Le commesse, le richieste e gli accessi tornano a quelli iniziali di questa versione. Le prove fatte finora su questo dispositivo vengono perse.",
+      confirmLabel:"S&igrave;, ripristina", confirmAct:"doResetDemo"}); break;
+    case "doResetDemo": resetDemoData(); break;
     case "approveExtra": openApproveExtra(el.dataset.id); break;
     case "doApproveExtra": resolveExtra(el.dataset.id, true); break;
     case "rejectExtra": { const rq=byId(STATE.requests,el.dataset.id); if(!rq) break;

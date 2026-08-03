@@ -30,6 +30,16 @@ portale di **delega di lavori a progetto**, pensato per gare piccole e brevi
 Con il bottone **"cambia utente"** in alto a destra passi al volo tra il lato
 Righi e il lato fornitore per vedere entrambe le prospettive.
 
+**Se vedi una versione vecchia**: il portale salva i dati **nel browser**, quindi
+un dispositivo che l'ha già usato può conservare i dati di una versione
+precedente. Ora il portale se ne accorge da solo (i dati hanno una **versione del
+modello**) e li **rigenera** quando l'app si aggiorna. In più, da *cambia utente*
+c'è **Ripristina dati dimostrativi** per tornare ai dati iniziali della versione
+corrente senza toccare le impostazioni del browser. Se apri il portale online da
+un link salvato nei preferiti, usa sempre l'indirizzo del portale e fai un
+**ricaricamento forzato** (`Ctrl+Shift+R`): un link "fotografato" in precedenza
+può servire una copia vecchia.
+
 ## Cosa puoi provare
 
 **Lato Righi**
