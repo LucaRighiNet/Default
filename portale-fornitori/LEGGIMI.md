@@ -11,7 +11,9 @@ portale di **delega di lavori a progetto**, pensato per gare piccole e brevi
 
 **Documento di riferimento**: [`SPECIFICHE.md`](SPECIFICHE.md) raccoglie in un
 unico posto le specifiche **funzionali, organizzative e tecniche**, con diagrammi
-di stato, di flusso e del modello dati. Vedi anche
+di stato, di flusso e del modello dati. Ne esiste anche la versione **Word**
+(`Specifiche_Portale_Fornitori_Righi.docx`), con copertina, indice e diagrammi
+come immagini, per la condivisione e la stampa. Vedi anche
 [`PIANO_PRODOTTO.md`](PIANO_PRODOTTO.md) (visione e roadmap) e
 [`BACKEND.md`](BACKEND.md) (contratto per il server).
 

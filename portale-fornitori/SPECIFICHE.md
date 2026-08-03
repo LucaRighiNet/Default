@@ -90,27 +90,26 @@ grandezza appropriata a chi guarda.
 Ogni transizione ha un attore che la compie: non esistono stati irraggiungibili.
 
 ```mermaid
-stateDiagram-v2
-    [*] --> Bozza: Righi crea / import CSV
-    Bozza --> DaApprovare: caposquadra invia per approvazione
-    Bozza --> DaAssegnare: responsabile pubblica
-    DaApprovare --> DaAssegnare: responsabile approva e pubblica
-    DaApprovare --> Bozza: responsabile rimanda con nota
-    DaAssegnare --> Assegnato: responsabile assegna a un fornitore
-    Assegnato --> InCorso: primo avanzamento del fornitore
-    InCorso --> Consegnato: fornitore consegna (serve autorizzazione)
-    Assegnato --> Consegnato: fornitore consegna (serve autorizzazione)
-    Consegnato --> Chiuso: Righi chiude la pratica
-    Chiuso --> [*]
+flowchart TD
+    START(( )) -->|Righi crea / import CSV| B[Bozza]
+    B -->|invia| DA[Da approvare]
+    DA -->|rimanda| B
+    B -->|il responsabile pubblica| DS[Da assegnare]
+    DA -->|il responsabile approva e pubblica| DS
+    DS -->|il responsabile assegna| AS[Assegnato]
+    AS -->|primo avanzamento del fornitore| IC[In corso]
+    AS -->|consegna autorizzata| CO[Consegnato]
+    IC -->|consegna autorizzata| CO
+    CO -->|Righi chiude la pratica| CH[Chiuso]
+    CH --> END(((Fine)))
 
-    note right of DaAssegnare
-        Raccoglie le accettazioni.
-        Visibile ai fornitori.
-    end note
-    note right of Assegnato
-        Da qui valgono le date operative
-        e gli alert di ritardo.
-    end note
+    style B fill:#F5F6FA,stroke:#7A8199
+    style DA fill:#F7EEDA,stroke:#B4791A
+    style DS fill:#E4EEF8,stroke:#2A6BB0
+    style AS fill:#E4F1EA,stroke:#2E7D53
+    style IC fill:#E8EAF2,stroke:#1E2748
+    style CO fill:#E8EAF2,stroke:#1E2748
+    style CH fill:#FFFFFF,stroke:#7A8199
 ```
 
 **Etichette in interfaccia**: lo stato interno `pubblicato` è mostrato come
