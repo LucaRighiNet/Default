@@ -10,7 +10,7 @@ const START = "/* ============================ Utility";
 const END   = "/* ============================ Render";
 const EXPORTS = ["STATE","App","isLate","isLateStart","isLateReturn","keyDate","lateDays","jobsForSupplier","filteredJobs","daysTo","relDays","fmtMoney","fmtDate",
                  "dISO","addDays","supplier","capo","byId","mailto","isCapo","activeHours","supplierMonthlyLoad","monthKey",
-                 "toCSV","parseCSV","isAssegnabile","qualifica","docStato","motivoBlocco","motivoRiserva","elencoDoc","docTipi","docTipiAttivi","docTipo","docKeys","docObbl","docBloccanti","docVisibileA","docPreavviso","docTipiSeed","DOC_STATI_KO","suggestEsclusi",
+                 "toCSV","parseCSV","isAssegnabile","qualifica","docStato","motivoBlocco","motivoRiserva","elencoDoc","isQhse","isResp","isCapo","canDocs","canProduzione","scadenzarioRighe","scadFiltra","SCAD_FILTRI","docTipi","docTipiAttivi","docTipo","docKeys","docObbl","docBloccanti","docVisibileA","docPreavviso","docTipiSeed","DOC_STATI_KO","suggestEsclusi",
                  "supplierMetrics","freeCapacity","monthLoad","daysBetween","jobHealth","suggestSuppliers",
                  "TIPOLOGIE","STATI","SETTORI","LAVORAZIONI","LAV_KEYS","parseLavorazioni","REQ_TYPES","AVANZAMENTO","CERT","QUICK_REPLIES","esc","uid",
                  "DIMENSIONI","ATTREZZATURE","fitsSpazio","supplier","jobResponses","jobRequests","graphIndex","maxflowMinCut","capacityBottleneck"];
@@ -445,6 +445,60 @@ r.ok("i motivi non nominano mai un documento riservato al fornitore", () => {
     assert(!S.motivoBlocco(s.id, false).includes(ris.label), "il fornitore non deve leggerne il nome");
     assert(/gestit\w+ da Righi/.test(S.motivoBlocco(s.id, false)), "il blocco va comunque spiegato");
   } finally { ris.bloccante = eraB; ris.obbl = eraO; ripristina(); }
+});
+/* ---- Profili di accesso lato Righi ---- */
+r.ok("i tre profili Righi sono distinti e mutuamente esclusivi", () => {
+  const resp = S.STATE.users.find(u => u.righiRole === "responsabile");
+  const capo = S.STATE.users.find(u => u.righiRole === "caposquadra");
+  const qhse = S.STATE.users.find(u => u.righiRole === "qhse");
+  assert(resp && capo && qhse, "il seed deve prevedere tutti e tre i profili");
+  for (const [u, nome] of [[resp, "responsabile"], [capo, "caposquadra"], [qhse, "qhse"]]) {
+    const flag = [S.isResp(u), S.isCapo(u), S.isQhse(u)].filter(Boolean).length;
+    assert.strictEqual(flag, 1, nome + ": deve corrispondere a un solo profilo");
+  }
+});
+r.ok("QHSE: governa i documenti, non le commesse", () => {
+  const qhse = S.STATE.users.find(u => u.righiRole === "qhse");
+  assert.strictEqual(S.canDocs(qhse), true, "il QHSE deve poter agire sui documenti");
+  assert.strictEqual(S.canProduzione(qhse), false, "il QHSE non deve governare le commesse");
+  assert.strictEqual(S.isResp(qhse), false, "il QHSE non è il responsabile di produzione");
+});
+r.ok("il responsabile di produzione resta apicale, il caposquadra fuori dai documenti", () => {
+  const resp = S.STATE.users.find(u => u.righiRole === "responsabile");
+  const capo = S.STATE.users.find(u => u.righiRole === "caposquadra");
+  assert.strictEqual(S.canDocs(resp), true, "il responsabile conserva l'accesso documentale");
+  assert.strictEqual(S.canProduzione(resp), true);
+  assert.strictEqual(S.canDocs(capo), false, "il caposquadra non tocca i documenti");
+  assert.strictEqual(S.canProduzione(capo), true, "il caposquadra resta nella produzione");
+});
+r.ok("il fornitore non rientra in nessun profilo Righi", () => {
+  const f = S.STATE.users.find(u => u.role === "fornitore");
+  assert.strictEqual(S.canDocs(f), false);
+  assert.strictEqual(S.canProduzione(f), false);
+  assert.strictEqual(S.isQhse(f), false);
+  assert.strictEqual(S.canDocs(null), false, "nessun utente: nessun permesso");
+  assert.strictEqual(S.canProduzione(undefined), false);
+});
+r.ok("scadenzario: copre tutti i documenti dei fornitori attivi, urgenti per primi", () => {
+  const righe = S.scadenzarioRighe();
+  const attivi = S.STATE.suppliers.filter(s => s.attivo).length;
+  assert.strictEqual(righe.length, attivi * S.docTipiAttivi().length, "una riga per fornitore attivo e tipo in uso");
+  const peso = { scaduto: 0, respinto: 1, mancante: 2, in_verifica: 3, in_scadenza: 4, valido: 5 };
+  for (let i = 1; i < righe.length; i++)
+    assert(peso[righe[i].stato] >= peso[righe[i - 1].stato], "ordine per urgenza rotto a " + i);
+  // "blocca" deve coincidere con la definizione del registro, non essere ricopiato a mano
+  for (const r of righe)
+    assert.strictEqual(r.blocca, !!(r.meta.obbl && r.meta.bloccante), "flag bloccante incoerente su " + r.tipo);
+});
+r.ok("scadenzario: i filtri partizionano senza perdere righe", () => {
+  const righe = S.scadenzarioRighe();
+  assert.strictEqual(S.scadFiltra(righe, "tutti").length, righe.length);
+  const daSistemare = S.scadFiltra(righe, "da_sistemare");
+  assert.strictEqual(daSistemare.length, righe.filter(r => r.stato !== "valido").length);
+  const somma = ["da_verificare", "in_scadenza", "scaduti", "mancanti"]
+    .reduce((n, f) => n + S.scadFiltra(righe, f).length, 0);
+  const respinti = righe.filter(r => r.stato === "respinto").length;
+  assert.strictEqual(somma + respinti, daSistemare.length, "i filtri non coprono tutto il da sistemare");
 });
 r.ok("visibilità: i tipi riservati non sono visibili al fornitore", () => {
   const ris = S.docTipiAttivi().find(t => t.visibile === "righi");

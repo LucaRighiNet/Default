@@ -373,6 +373,11 @@ table.tbl tr.late td{background:linear-gradient(90deg,var(--danger-tint),transpa
 .lrow .gr .s{font-size:12.5px;color:var(--muted);display:block;margin-top:1px}
 .lrow.unread{background:linear-gradient(90deg,var(--accent-tint),transparent 45%)}
 .lrow .arw{color:var(--muted);display:flex}
+.lrow-act{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+@media(max-width:640px){
+  .lrow:has(.lrow-act){flex-wrap:wrap}
+  .lrow .lrow-act{flex-basis:100%;justify-content:flex-start;padding-left:47px}
+}
 
 .avatar{width:34px;height:34px;border-radius:50%;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:#fff;background:var(--brand)}
 .avatar.sm{width:26px;height:26px;font-size:11px}
@@ -540,7 +545,7 @@ const KEY="righi_portale_v4", SESSKEY="righi_portale_sess_v4";
 // Versione del MODELLO dati. Va alzata quando cambia la forma dei dati: i dati
 // salvati con una versione precedente vengono rigenerati dal seed aggiornato,
 // altrimenti il browser continuerebbe a mostrare i dati vecchi con il codice nuovo.
-const DATA_VERSION = 6;
+const DATA_VERSION = 7;
 function makeLocalAdapter(){ return {
   get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } },
   set(k,v){ try{ localStorage.setItem(k,v); }catch(e){} },
@@ -914,6 +919,38 @@ function motivoBlocco(sid, isRighi){ const s = supplier(sid); if(!s) return "for
 const fornitoriNonQualificati = () => STATE.suppliers.filter(s => s.attivo && qualifica(s.id).stato === "non_qualificato");
 const fornitoriConRiserva     = () => STATE.suppliers.filter(s => s.attivo && qualifica(s.id).stato === "con_riserva");
 
+/* ---- Scadenzario: la coda di lavoro del QHSE ---------------------------------
+   Una riga per fornitore attivo e tipo in uso, ordinata per urgenza. E' logica
+   pura (nessun DOM): la vista ci mette solo i pulsanti. */
+// Tutte le righe documento dei fornitori attivi, con i giorni alla scadenza.
+function scadenzarioRighe(){
+  const out=[];
+  STATE.suppliers.filter(s=>s.attivo).forEach(s=>{
+    qualifica(s.id).righe.forEach(r=>{
+      out.push({ sid:s.id, fornitore:s.name, tipo:r.tipo, meta:r.meta, doc:r.doc, stato:r.stato,
+                 giorni: r.doc && r.doc.scadenza ? daysTo(r.doc.scadenza) : null,
+                 blocca: !!(r.meta.obbl && r.meta.bloccante) });
+    });
+  });
+  // prima cio' che ferma il lavoro, poi cio' che sta per scadere
+  const peso={ scaduto:0, respinto:1, mancante:2, in_verifica:3, in_scadenza:4, valido:5 };
+  return out.sort((a,b)=> (peso[a.stato]-peso[b.stato]) || ((b.blocca?1:0)-(a.blocca?1:0))
+    || ((a.giorni==null?9999:a.giorni)-(b.giorni==null?9999:b.giorni)) || a.fornitore.localeCompare(b.fornitore));
+}
+const docDaVerificare = ()=> scadenzarioRighe().filter(r=>r.stato==="in_verifica");
+function countDaVerificare(){ const n=docDaVerificare().length; return n||""; }
+
+const SCAD_FILTRI = { da_sistemare:"Da sistemare", da_verificare:"Da verificare", in_scadenza:"In scadenza",
+                      scaduti:"Scaduti", mancanti:"Mancanti", tutti:"Tutti" };
+function scadFiltra(righe, f){
+  if(f==="da_verificare") return righe.filter(r=>r.stato==="in_verifica");
+  if(f==="in_scadenza")   return righe.filter(r=>r.stato==="in_scadenza");
+  if(f==="scaduti")       return righe.filter(r=>r.stato==="scaduto");
+  if(f==="mancanti")      return righe.filter(r=>r.stato==="mancante");
+  if(f==="tutti")         return righe;
+  return righe.filter(r=>r.stato!=="valido");     // "da sistemare": tutto cio' che chiede un'azione
+}
+
 function fitsSpazio(sup, ingombro){ if(!ingombro||!sup||!sup.dimensioneMax) return true;
   return (DIMENSIONI[sup.dimensioneMax]||{ord:9}).ord >= (DIMENSIONI[ingombro]||{ord:0}).ord; }
 // Risposte rapide del caposquadra (un tocco, zero testo)
@@ -980,7 +1017,8 @@ function seed(){
     if(k % 11 === 3) sup.docs = sup.docs.filter(d => d.tipo !== "durc");   // qualche DURC mancante
   });
   const activeSup=suppliers.filter(s=>s.attivo);
-  const users=[{id:"u_resp", name:"Responsabile Produzione", role:"righi", righiRole:"responsabile", ruolo:"Responsabile Produzione", email:"produzione@righinet.com"}];
+  const users=[{id:"u_resp", name:"Responsabile Produzione", role:"righi", righiRole:"responsabile", ruolo:"Responsabile Produzione", email:"produzione@righinet.com"},
+               {id:"u_qhse", name:"Responsabile QHSE", role:"righi", righiRole:"qhse", ruolo:"Responsabile QHSE · Qualità, Sicurezza, Ambiente", email:"qhse@righinet.com"}];
   capi.forEach(c=> users.push({id:"u_"+c.id, name:c.name, role:"righi", righiRole:"caposquadra", capoId:c.id, ruolo:"OTL / Caposquadra", email:c.email}));
   activeSup.filter(s=>s.email).slice(0,3).forEach((s,k)=> users.push({id:"u_f"+(k+1), name:s.name, role:"fornitore", supplierId:s.id, email:s.email}));
   const lineTokens=["linea 1","linea 2","linea 3","reparto A","reparto B","impianto Nord","impianto Sud","cella 4","macchina 12","forno 2","banco prova","stazione 7","area confezionamento","gruppo pompe","nastro 5"];
@@ -1210,7 +1248,25 @@ function lateDays(j){ if(isLateReturn(j)) return Math.abs(daysTo(j.dataRientro))
 function jobResponses(jid){ return graphIndex().respByJob[jid]||[]; }   // lista di adiacenza commessa-risposte
 function jobRequests(jid){ return graphIndex().reqByJob[jid]||[]; }     // lista di adiacenza commessa-richieste
 /* ruoli lato Righi: responsabile (vede tutto) vs caposquadra (solo le sue commesse) */
+/* ---- Ruoli lato Righi -------------------------------------------------------
+   Tre profili distinti, non tre livelli di uno stesso profilo:
+   - responsabile di produzione: governa commesse, assegnazioni e anagrafica;
+   - caposquadra (OTL): segue le proprie commesse;
+   - responsabile QHSE: presidia la PARTE DOCUMENTALE (qualita', sicurezza,
+     ambiente). Decide quali documenti servono e quali bloccano, verifica e
+     respinge, tiene lo scadenzario. Non pubblica, non assegna, non approva
+     commesse: sono mestieri diversi, e tenerli separati e' il senso del profilo.
+   Il responsabile di produzione conserva l'accesso documentale perche' resta il
+   ruolo apicale e perche' un'azienda piccola non puo' restare ferma se il QHSE
+   e' assente. */
 function isCapo(u){ return !!(u && u.role==="righi" && u.righiRole==="caposquadra"); }
+function isQhse(u){ return !!(u && u.role==="righi" && u.righiRole==="qhse"); }
+function isResp(u){ return !!(u && u.role==="righi" && u.righiRole==="responsabile"); }
+// Chi puo' agire sui documenti e sul registro dei tipi.
+function canDocs(u){ return isResp(u) || isQhse(u); }
+// Chi governa le commesse: pubblicare, assegnare, approvare, decidere richieste.
+function canProduzione(u){ return !!(u && u.role==="righi" && !isQhse(u)); }
+const RIGHI_RUOLO = { responsabile:"Responsabile", caposquadra:"Caposquadra", qhse:"QHSE" };
 function scopedJobs(){ const u=currentUser(); return isCapo(u)? STATE.jobs.filter(j=>j.capoId===u.capoId) : STATE.jobs; }
 function scopedRequests(){ const u=currentUser(); return isCapo(u)? STATE.requests.filter(r=>r.capoId===u.capoId) : STATE.requests; }
 /* ore stimate: carico attivo per fornitore e mese di consegna (solo dati Righi) */
@@ -1246,7 +1302,7 @@ function extraSoglia(j){ return Math.round(jobImportoBase(j)*EXTRA_SOGLIA_PERC/1
 function extraRichieste(jid){ return (graphIndex().reqByJob[jid]||[]).filter(r=>r.tipo==="extra"); }
 function extraAperti(jid){ return extraRichieste(jid).filter(r=>r.stato!=="chiusa"); }
 // chi puo' decidere questo extra: il caposquadra entro soglia, il responsabile sempre
-function canApproveExtra(u, r, j){ if(!u||u.role!=="righi"||!r) return false;
+function canApproveExtra(u, r, j){ if(!canProduzione(u)||!r) return false;
   if(!isCapo(u)) return true;
   return (Number(r.importo)||0) <= extraSoglia(j); }
 function supplierMetrics(sid){
@@ -1296,7 +1352,7 @@ function supplierMetrics(sid){
    Il fornitore vede SOLO i propri documenti; mai quelli di altri fornitori. */
 function docBlock(sid, isRighi){
   const s=supplier(sid); if(!s) return "";
-  const q=qualifica(sid); const u=currentUser(); const puoAgire=isRighi && !isCapo(u);
+  const q=qualifica(sid); const u=currentUser(); const puoAgire=isRighi && canDocs(u);
   const riga=r=>{
     const meta=r.meta, st=r.stato, d=r.doc, ko=DOC_STATI_KO.includes(st);
     const azioni = puoAgire
@@ -1313,7 +1369,7 @@ function docBlock(sid, isRighi){
       <span class="ic ${DOC_PILL[st]==="ok"?"ok":DOC_PILL[st]==="warn"?"accent":DOC_PILL[st]==="info"?"info":"danger"}">${icon(st==="valido"?"check":st==="in_verifica"?"clock":"bolt","sm")}</span>
       <span class="gr"><b>${esc(meta.label)} ${natura}${riservato}</b>
         <span class="s">${esc(meta.sub||"")}${d&&d.scadenza?" · scadenza "+fmtDate(d.scadenza):""}${meta.alert===false?" · nessun avviso di scadenza":""}</span></span>
-      <span style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+      <span class="lrow-act">
         <span class="pill ${DOC_PILL[st]}">${DOC_LABEL[st]}</span>${azioni}</span></div>`;
   };
   // Il fornitore non vede (e non gestisce) i tipi riservati a Righi.
@@ -1514,7 +1570,11 @@ function render(){
   if(!currentUser()){ app.innerHTML=viewLogin(); return; }
   const u=currentUser();
   const lavN=scopedJobs().filter(j=>j.stato!=="chiuso").length;
-  const tabs = u.role==="righi"
+  // Il QHSE ha il suo perimetro: qualifica, scadenzario, anagrafica documentale.
+  // Le commesse non compaiono affatto, perche' non sono cose sue.
+  const tabs = isQhse(u)
+    ? [["qualifica","Qualifica",""],["scadenzario","Scadenzario",countDaVerificare()],["fornitori","Fornitori",""]]
+    : u.role==="righi"
     ? [["dashboard","Dashboard",""],["lavori","Commesse",lavN],["nuovo","Nuovo lavoro",""],["richieste","Richieste",countOpenReq()],["fornitori","Fornitori",""],["analisi","Analisi",""]]
     : [["bacheca","Bacheca",countBacheca()],["miei","I miei lavori",countMiei()],["richieste","Richieste guidate",""],["profilo","Profilo",""]];
   if(!App.tab || !tabs.some(t=>t[0]===App.tab)) App.tab = tabs[0][0];
@@ -1523,7 +1583,7 @@ function render(){
   <header class="topbar">
     <div class="brand">${LOGO}<div class="bt"><b>${WM}</b><span>Portale Fornitori · Subappalti</span></div></div>
     <div class="tb-spacer"></div>
-    <span class="role-chip ${u.role}">${u.role==="righi"?(isCapo(u)?"Caposquadra":"Responsabile"):"Fornitore"}</span>
+    <span class="role-chip ${u.role}">${u.role==="righi"?(RIGHI_RUOLO[u.righiRole]||"Responsabile"):"Fornitore"}</span>
     <button class="tb-btn" data-act="sfx" aria-label="${Sfx.enabled?"Disattiva i suoni":"Attiva i suoni"}" aria-pressed="${Sfx.enabled?"true":"false"}">${icon(Sfx.enabled?"audio":"audioOff")}</button>
     <button class="tb-btn" data-act="guide" aria-label="Guida">${icon("help")}</button>
     <button class="tb-btn" data-act="notif" aria-label="Notifiche">${icon("bell")}${notif?`<span class="badge">${notif}</span>`:""}</button>
@@ -1536,6 +1596,12 @@ function render(){
 }
 function viewFor(u){
   const t=App.tab;
+  if(isQhse(u)){
+    if(t==="qualifica")   return viewQhseQualifica();
+    if(t==="scadenzario") return viewScadenzario();
+    if(t==="fornitori")   return viewFornitori();
+    return "";
+  }
   if(u.role==="righi"){
     if(t==="dashboard") return viewRighiDashboard();
     if(t==="lavori")    return viewRighiLavori();
@@ -1555,7 +1621,7 @@ function countOpenReq(){ return scopedRequests().filter(r=>r.stato==="aperta").l
 function countBacheca(){ const u=currentUser(); if(!u.supplierId) return ""; return jobsForSupplier(u.supplierId).filter(j=>j.stato==="pubblicato" && j.assegnatoA!==u.supplierId && !jobResponses(j.id).some(r=>r.supplierId===u.supplierId&&r.tipo==="accettazione")).length; }
 function countMiei(){ const u=currentUser(); if(!u.supplierId) return ""; return STATE.jobs.filter(j=>j.assegnatoA===u.supplierId).length; }
 function unreadFor(u){
-  if(u.role==="righi"){ const jids=new Set(scopedJobs().map(j=>j.id));
+  if(u.role==="righi" && !isQhse(u)){ const jids=new Set(scopedJobs().map(j=>j.id));
     return STATE.responses.filter(r=>r.from==="fornitore"&&!r.read&&jids.has(r.jobId)).length + scopedRequests().filter(r=>r.from==="fornitore"&&!r.read).length; }
   return STATE.notifications.filter(n=>n.toUser===u.id&&!n.read).length;
 }
@@ -1582,6 +1648,121 @@ function viewLogin(){
     </div>
     <div class="foot">Prototipo dimostrativo · accessi predisposti · i dati restano sul dispositivo</div>
   </div></div>`;
+}
+
+/* ==================== VIEW: QHSE — Qualifica e scadenzario ====================
+   Il perimetro del responsabile QHSE e' una coda di lavoro, non un cruscotto da
+   guardare: documenti da verificare, scadenze in arrivo, fornitori fermi. Ogni
+   riga porta a un'azione, altrimenti sarebbe una scheda informativa. */
+
+// Riga del scadenzario: stato, chi, cosa, e i pulsanti che servono a chiuderla.
+function scadRiga(r, puoAgire){
+  const g=r.giorni;
+  const quando = r.stato==="mancante" ? "mai consegnato"
+    : g==null ? "senza scadenza"
+    : g<0 ? "scaduto da "+(-g)+" gg"
+    : g===0 ? "scade oggi" : "fra "+g+" gg · "+fmtDate(r.doc.scadenza);
+  const azioni = puoAgire
+    ? `${r.stato==="in_verifica"?`<button class="btn sm accent" data-act="docVerify" data-sup="${r.sid}" data-t="${r.tipo}">${icon("check","sm")} Verifica</button>
+         <button class="btn sm danger" data-act="docReject" data-sup="${r.sid}" data-t="${r.tipo}">Respingi</button>`:""}
+       <button class="btn sm ghost" data-act="docRenew" data-sup="${r.sid}" data-t="${r.tipo}">${r.stato==="mancante"?"Registra":"Rinnova"}</button>` : "";
+  return `<div class="lrow" style="align-items:flex-start" data-act="supDetail" data-sup="${r.sid}">
+    <span class="ic ${DOC_PILL[r.stato]==="ok"?"ok":DOC_PILL[r.stato]==="warn"?"accent":DOC_PILL[r.stato]==="info"?"info":"danger"}">${icon(r.stato==="valido"?"check":r.stato==="in_verifica"?"clock":"bolt","sm")}</span>
+    <span class="gr"><b>${esc(r.fornitore)} — ${esc(r.meta.label)}</b>
+      <span class="s">${esc(quando)}${r.blocca?" · <b>bloccante</b>":r.meta.obbl?" · richiesto, non bloccante":" · facoltativo"}${r.meta.visibile==="righi"?" · solo Righi":""}</span></span>
+    <span class="lrow-act">
+      <span class="pill ${DOC_PILL[r.stato]}">${DOC_LABEL[r.stato]}</span>${azioni}</span></div>`;
+}
+
+function viewQhseQualifica(){
+  const u=currentUser();
+  const righe=scadenzarioRighe();
+  const daVer=righe.filter(r=>r.stato==="in_verifica");
+  const fermi=righe.filter(r=>r.blocca && DOC_STATI_KO.includes(r.stato));
+  const scad=righe.filter(r=>r.stato==="in_scadenza");
+  const nonQual=fornitoriNonQualificati(), riserva=fornitoriConRiserva();
+  const attivi=STATE.suppliers.filter(s=>s.attivo).length;
+  const blocco=s=>{ const n=STATE.jobs.filter(j=>j.assegnatoA===s.id&&["assegnato","in_corso"].includes(j.stato)).length;
+    return `<div class="lrow" data-act="supDetail" data-sup="${s.id}"><span class="ic danger">${icon("bolt","sm")}</span>
+      <span class="gr"><b>${esc(s.name)}</b><span class="s">${esc(motivoBlocco(s.id))}${n?" · "+n+" commesse in corso":""}</span></span>
+      <span class="arw">${icon("chev")}</span></div>`; };
+  return `<div class="view-head"><div><h2>Qualifica fornitori</h2>
+      <p>Presidio documentale · <b>${attivi}</b> fornitori attivi · ${docTipiAttivi().length} tipi di documento in uso, ${docBloccanti().length} bloccanti</p></div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <button class="btn accent" data-act="docTypes">${icon("sliders","sm")} Tipi di documento</button>
+      <button class="btn ghost" data-act="exportQualifica">${icon("download","sm")} Esporta CSV</button>
+    </div></div>
+  <div class="grid k4" style="margin-bottom:14px">
+    <div class="card kpi ${nonQual.length?"danger":""} click" data-act="goQualifica"><span class="v">${nonQual.length}</span><span class="l">Non assegnabili</span><span class="foot">un bloccante non in regola</span></div>
+    <div class="card kpi ${riserva.length?"accent":""} click" data-act="goRiserva"><span class="v">${riserva.length}</span><span class="l">Con riserva</span><span class="foot">da sistemare, non bloccante</span></div>
+    <div class="card kpi ${daVer.length?"accent":""} click" data-act="goScad" data-f="da_verificare"><span class="v">${daVer.length}</span><span class="l">Da verificare</span><span class="foot">inviati dai fornitori</span></div>
+    <div class="card kpi click" data-act="goScad" data-f="in_scadenza"><span class="v">${scad.length}</span><span class="l">In scadenza</span><span class="foot">entro il preavviso del tipo</span></div>
+  </div>
+  <div class="card" style="margin-bottom:14px">
+    <div class="sect-t">${icon("clock","sm")} Da verificare — arrivati dai fornitori</div>
+    ${daVer.length?`<div class="rowlist">${daVer.map(r=>scadRiga(r,true)).join("")}</div>`
+      :`<div class="empty">${icon("check")}<p>Nessun documento in attesa di verifica</p></div>`}
+  </div>
+  <div class="card">
+    <div class="sect-t">${icon("bolt","sm")} Fornitori fermi — documenti bloccanti non in regola</div>
+    ${nonQual.length?`<div class="rowlist">${nonQual.map(blocco).join("")}</div>`
+      :`<div class="empty">${icon("check")}<p>Nessun fornitore bloccato dai documenti</p></div>`}
+  </div>`;
+}
+
+/* Esportazioni del QHSE. Servono a portare fuori il presidio documentale: lo
+   scadenzario nel foglio con cui si sollecitano i fornitori, il riepilogo per
+   l'audit o il riesame della direzione. */
+function exportScadenzarioCSV(){
+  const righe=scadenzarioRighe();
+  const rows=[["Fornitore","Documento","Richiesto","Bloccante","Visibile a","Stato","Scadenza","Giorni","Preavviso","Ultimo caricamento","Nota"]];
+  righe.forEach(r=>rows.push([r.fornitore, r.meta.label, r.meta.obbl?"si":"no", r.blocca?"si":"no",
+    r.meta.visibile==="righi"?"solo Righi":"Righi e fornitore", DOC_LABEL[r.stato],
+    r.doc&&r.doc.scadenza?fmtDate(r.doc.scadenza):"", r.giorni==null?"":r.giorni,
+    r.meta.alert===false?"nessuno":(Number(r.meta.preavviso)||DOC_PREAVVISO_DEF)+" gg",
+    r.doc&&r.doc.caricatoIl?fmtDate(r.doc.caricatoIl):"", (r.doc&&r.doc.nota)||""]));
+  downloadFile("scadenzario_documenti_"+todayISO()+".csv", toCSV(rows));
+  Sfx.play("tocco"); toast(righe.length+" righe esportate","ok");
+}
+function exportQualificaCSV(){
+  const att=STATE.suppliers.filter(s=>s.attivo);
+  const rows=[["Fornitore","Città","Qualifica","Assegnabile","Motivo del blocco","Riserva","Documenti in regola","Su totale","Commesse in corso"]];
+  att.forEach(s=>{ const q=qualifica(s.id);
+    const ok=q.righe.filter(r=>r.stato==="valido"||r.stato==="in_scadenza"||r.stato==="in_verifica").length;
+    rows.push([s.name, s.citta||"", QUAL_LABEL[q.stato], isAssegnabile(s.id)?"si":"no",
+      motivoBlocco(s.id), motivoRiserva(s.id), ok, q.righe.length,
+      STATE.jobs.filter(j=>j.assegnatoA===s.id&&["assegnato","in_corso"].includes(j.stato)).length]); });
+  downloadFile("qualifica_fornitori_"+todayISO()+".csv", toCSV(rows));
+  Sfx.play("tocco"); toast(att.length+" fornitori esportati","ok");
+}
+
+function viewScadenzario(){
+  const tutte=scadenzarioRighe();
+  const f=App.scadFiltro||"da_sistemare";
+  const soloBloccanti=!!App.scadBlocc;
+  return `<div class="view-head"><div><h2>Scadenzario documenti</h2>
+      <p>Tutti i documenti dei fornitori attivi, ordinati per urgenza: prima ciò che ferma il lavoro</p></div>
+    <button class="btn ghost" data-act="exportScadenzario">${icon("download","sm")} Esporta CSV</button></div>
+  <div class="card" style="margin-bottom:12px">
+    <input class="inp" id="scad-q" placeholder="Cerca fornitore o documento" value="${esc(App.scadQ||"")}" autocomplete="off">
+  </div>
+  <div class="filt-row" style="margin-bottom:10px">
+    ${Object.keys(SCAD_FILTRI).map(k=>`<button class="chip sm ${f===k?'on':''}" data-act="scadFiltro" data-v="${k}">${SCAD_FILTRI[k]} (${scadFiltra(tutte,k).length})</button>`).join("")}
+    <button class="chip sm ${soloBloccanti?'on':''}" data-act="scadBlocc">Solo bloccanti</button>
+  </div>
+  <div class="card" id="scad-list">${scadListaHtml()}</div>`;
+}
+// Solo i risultati: la ricerca li riscrive senza rifare la pagina, così il campo
+// non perde il focus mentre si digita (stesso schema della vista massiva).
+function scadListaHtml(){
+  const puoAgire=canDocs(currentUser());
+  let righe=scadFiltra(scadenzarioRighe(), App.scadFiltro||"da_sistemare");
+  const q=(App.scadQ||"").toLowerCase();
+  if(q) righe=righe.filter(r=>(r.fornitore+" "+r.meta.label).toLowerCase().includes(q));
+  if(App.scadBlocc) righe=righe.filter(r=>r.blocca);
+  return righe.length
+    ? `<div class="rowlist">${righe.map(r=>scadRiga(r,puoAgire)).join("")}</div>`
+    : `<div class="empty">${icon("check")}<p>Niente da sistemare con questo filtro</p></div>`;
 }
 
 /* ==================== VIEW: Righi — Dashboard ==================== */
@@ -2042,24 +2223,26 @@ function viewAnalisi(){ const u=currentUser(); const capo_=isCapo(u);
   </div>`;
 }
 function viewFornitori(){
-  const mode=App.fornMode||"lista"; const canManage=!isCapo(currentUser());
+  const mode=App.fornMode||"lista"; const canManage=isResp(currentUser()); const qhse_=isQhse(currentUser());
   const nAtt=STATE.suppliers.filter(s=>s.attivo).length; const filt=App.fornAttivi||"attivi";
   const head=`<div class="view-head"><div><h2>Fornitori accreditati</h2><p><b>${nAtt}</b> attivi su ${STATE.suppliers.length} fornitori · carico, specializzazioni e mappa</p></div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-      ${canManage?`<button class="btn ghost" data-act="docTypes">${icon("sliders","sm")} Tipi di documento</button>
-      <button class="btn accent" data-act="newSup">${icon("plus")} Nuovo fornitore</button>`:""}
+      ${canDocs(currentUser())?`<button class="btn ghost" data-act="docTypes">${icon("sliders","sm")} Tipi di documento</button>`:""}
+      ${canManage?`<button class="btn accent" data-act="newSup">${icon("plus")} Nuovo fornitore</button>`:""}
       <div class="seg"><button class="${mode==='lista'?'on':''}" data-act="fornMode" data-m="lista">${icon("list","sm")} Elenco</button><button class="${mode==='mappa'?'on':''}" data-act="fornMode" data-m="mappa">${icon("building","sm")} Mappa</button></div>
     </div></div>`;
   if(mode==="mappa") return head+mapHtml();
   const cview=App.caricoView||"grafico"; const mesi=caricoMesi(); let cmk=App.caricoMonth; if(!cmk||!mesi.includes(cmk)) cmk=mesi[0];
-  return head+`
+  // il carico ore serve a pianificare la produzione: non e' materia del QHSE
+  const carico = qhse_ ? "" : `
   <div class="card" style="margin-bottom:14px">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px">
       <div class="sect-t" style="margin:0">${icon("clock2","sm")} Carico fornitori — ore attive vs capacità</div>
       <div class="seg"><button class="${cview==='grafico'?'on':''}" data-act="caricoView" data-m="grafico">Grafico</button><button class="${cview==='tabella'?'on':''}" data-act="caricoView" data-m="tabella">Tabella</button></div>
     </div>
     ${cview==='grafico'?`<div class="filt-row" style="margin-bottom:6px">${mesi.map(m=>`<button class="chip sm ${cmk===m?'on':''}" data-act="caricoMonth" data-mk="${m}">${monthLabel(m)}</button>`).join("")}</div>${caricoChartHtml(cmk)}`:caricoMatrixHtml()}
-  </div>
+  </div>`;
+  return head+carico+`
   <div class="filt-row" style="margin-bottom:10px"><button class="chip sm ${filt==='attivi'?'on':''}" data-act="fornAttivi" data-v="attivi">Attivi (${nAtt})</button><button class="chip sm ${filt==='nonqual'?'on':''}" data-act="fornAttivi" data-v="nonqual">Non in regola (${fornitoriNonQualificati().length})</button><button class="chip sm ${filt==='scadenza'?'on':''}" data-act="fornAttivi" data-v="scadenza">Con riserva (${fornitoriConRiserva().length})</button><button class="chip sm ${filt==='tutti'?'on':''}" data-act="fornAttivi" data-v="tutti">Tutti (${STATE.suppliers.length})</button></div>
   <div class="grid auto">${STATE.suppliers.filter(s=> filt==='tutti'?true: filt==='nonqual'?(s.attivo&&qualifica(s.id).stato==='non_qualificato') : filt==='scadenza'?(s.attivo&&qualifica(s.id).stato==='con_riserva') : s.attivo).slice().sort((a,b)=>(b.attivo?1:0)-(a.attivo?1:0)).map(s=>{
     const active=STATE.jobs.filter(j=>j.assegnatoA===s.id&&!["consegnato","chiuso"].includes(j.stato)).length; const ore=activeHours(s.id);
@@ -2412,7 +2595,7 @@ function openReqDetail(rid){ const r=byId(STATE.requests,rid); if(!r) return;
           : `${r.stato==="aperta"?`<button class="btn" data-act="reqStato" data-id="${rid}" data-s="presa">Prendi in carico</button>`:""}${r.stato!=="chiusa"?`<button class="btn accent" data-act="reqStato" data-id="${rid}" data-s="chiusa">${icon("check")} Segna risolta</button>`:`<span class="pill ok lg">Chiusa</span>`}`}
       </div>`:""}`);
 }
-function sendQuickReply(rid, testo){ const r=byId(STATE.requests,rid); if(!r||!testo) return; const u=currentUser();
+function sendQuickReply(rid, testo){ if(vietatoQhse()) return; const r=byId(STATE.requests,rid); if(!r||!testo) return; const u=currentUser();
   r.risposte=r.risposte||[]; r.risposte.push({da:"righi", testo, at:new Date().toISOString().slice(0,16), byUser:u.id});
   if(r.stato==="aperta") r.stato="presa"; r.read=true;
   notifySupplier(r.supplierId,{ic:"mail",txt:"Risposta dal caposquadra: "+testo,sub:(byId(STATE.jobs,r.jobId)||{}).code,jobId:r.jobId});
@@ -2440,7 +2623,7 @@ function openEditDate(jid){ const j=byId(STATE.jobs,jid);
 }
 function openNotifCenter(){ const u=currentUser();
   let items;
-  if(u.role==="righi"){
+  if(u.role==="righi" && !isQhse(u)){
     const jids=new Set(scopedJobs().map(j=>j.id));
     items=[...STATE.responses.filter(r=>r.from==="fornitore"&&jids.has(r.jobId)).map(r=>({at:r.at,read:r.read,ic:r.tipo==="accettazione"?"check":r.tipo==="avanzamento"?"bolt":"mail",txt:(r.tipo==="accettazione"?"Accettazione":r.tipo==="avanzamento"?("Avanzamento: "+r.testo):"Domanda")+" — "+((supplier(r.supplierId)||{}).name||""),sub:(byId(STATE.jobs,r.jobId)||{}).title,job:r.jobId})),
       ...scopedRequests().filter(r=>r.from==="fornitore").map(r=>({at:r.at,read:r.read,ic:r.tipo==='materiale'?'inbox':r.tipo==='ritardo'?'clock':'mail',txt:REQ_TYPES[r.tipo].label+" — "+((supplier(r.supplierId)||{}).name||""),sub:(byId(STATE.jobs,r.jobId)||{}).title,req:r.id}))];
@@ -2453,7 +2636,7 @@ function openNotifCenter(){ const u=currentUser();
     ${items.length?`<div class="rowlist">${items.slice(0,40).map(n=>`<button class="lrow ${!n.read?'unread':''}" ${n.job?`data-job="${n.job}"`:n.req?`data-req="${n.req}"`:""} style="width:100%">
       <span class="ic ${!n.read?'accent':''}">${icon(n.ic)}</span><span class="gr"><b>${esc(n.txt)}</b><span class="s">${esc(n.sub||'')} · ${esc((n.at||'').replace('T',' '))}</span></span></button>`).join("")}</div>`
       :`<div class="empty">${icon("bell")}<p>Nessuna notifica</p></div>`}`);
-  if(u.role==="righi"){ const jids=new Set(scopedJobs().map(j=>j.id)); STATE.responses.forEach(r=>{ if(jids.has(r.jobId)) r.read=true; }); scopedRequests().forEach(r=>{ if(r.from==="fornitore") r.read=true; }); }
+  if(u.role==="righi" && !isQhse(u)){ const jids=new Set(scopedJobs().map(j=>j.id)); STATE.responses.forEach(r=>{ if(jids.has(r.jobId)) r.read=true; }); scopedRequests().forEach(r=>{ if(r.from==="fornitore") r.read=true; }); }
   else STATE.notifications.forEach(n=>{ if(n.toUser===u.id) n.read=true; });
   persist();
 }
@@ -2476,13 +2659,13 @@ function openNewUser(){ const d=App.userDraft={role:"fornitore"};
   openModal(`${modalHead("Nuovo utente / accesso")}
     <p class="muted" style="font-size:13px;margin-top:0">Crea un accesso al portale. Il <b>ruolo</b> determina cosa vede e può fare.</p>
     <div class="field"><label>Ruolo</label>
-      <div class="seg">${roleBtn("fornitore","Fornitore")}${roleBtn("caposquadra","OTL / Caposquadra")}${roleBtn("responsabile","Responsabile")}</div></div>
+      <div class="seg">${roleBtn("fornitore","Fornitore")}${roleBtn("caposquadra","OTL / Caposquadra")}${roleBtn("responsabile","Responsabile")}${roleBtn("qhse","QHSE")}</div></div>
     <div class="field"><label>Nome</label><input class="inp" id="nu-name" placeholder="es. Mario Rossi"></div>
     <div class="field"><label>Email (facoltativa)</label><input class="inp" id="nu-email" type="email" placeholder="nome@righinet.com"></div>
     <div class="field" id="nu-forn"><label>Fornitore collegato</label>
       <select class="inp" id="nu-sup">${STATE.suppliers.filter(s=>s.attivo).map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join("")}</select>
       <span class="hint">L'accesso fornitore vedrà solo le commesse di questo fornitore</span></div>
-    <p class="muted" id="nu-hint" style="font-size:12px">Il <b>fornitore</b> vede la sua bacheca e le sue commesse; l'<b>OTL/caposquadra</b> propone lavori e segue le sue commesse; il <b>responsabile</b> vede e governa tutto.</p>
+    <p class="muted" id="nu-hint" style="font-size:12px">Il <b>fornitore</b> vede la sua bacheca e le sue commesse; l'<b>OTL/caposquadra</b> propone lavori e segue le sue commesse; il <b>responsabile</b> vede e governa tutto; il <b>QHSE</b> presidia solo la parte documentale (qualifica, scadenzario, tipi di documento) e non tocca le commesse.</p>
     <button class="btn accent block" data-act="doCreateUser">${icon("check")} Crea accesso</button>`);
 }
 function createUser(){ const role=(App.userDraft&&App.userDraft.role)||"fornitore";
@@ -2494,6 +2677,7 @@ function createUser(){ const role=(App.userDraft&&App.userDraft.role)||"fornitor
     u.role="fornitore"; u.supplierId=sid; }
   else if(role==="caposquadra"){ const cid=uid("cs"); STATE.capi.push({id:cid,name,tel:"",email:u.email});
     u.role="righi"; u.righiRole="caposquadra"; u.capoId=cid; u.ruolo="OTL / Caposquadra"; }
+  else if(role==="qhse"){ u.role="righi"; u.righiRole="qhse"; u.ruolo="Responsabile QHSE · Qualità, Sicurezza, Ambiente"; }
   else { u.role="righi"; u.righiRole="responsabile"; u.ruolo="Responsabile Produzione"; }
   STATE.users.push(u); persist(); App.userDraft=null; closeModal();
   toast("Accesso creato: "+name,"ok"); openSwitch();
@@ -2547,7 +2731,7 @@ function readSupplierForm(d){
     specialties:(d.specialties||[]).slice(), settori:(d.settori||[]).slice(), certificazioni:(d.certificazioni||[]).slice(), attrezzature:(d.attrezzature||[]).slice() };
 }
 function openNewSupplier(){
-  if(isCapo(currentUser())){ toast("Solo il responsabile di produzione può accreditare un fornitore","warn"); return; }
+  if(!isResp(currentUser())){ toast("Solo il responsabile di produzione può accreditare un fornitore","warn"); return; }
   const d=App.supDraft={ name:"",citta:"Cesena",referente:"",email:"",specialties:[],settori:[],certificazioni:[],attrezzature:[],dimensioneMax:"m",capacitaMese:1000,attivo:true,preferenze:{} };
   openModal(`${modalHead("Nuovo fornitore")}
     <p class="muted" style="font-size:13px;margin-top:0">Accredita un fornitore: i dati alimentano suggerimenti di assegnazione, mappa e carico.</p>
@@ -2562,7 +2746,7 @@ function createSupplier(){ const d=App.supDraft||{}; const f=readSupplierForm(d)
   toast("Fornitore accreditato","ok"); openSupplierModal(sup.id);
 }
 function openEditSupplier(sid){
-  if(isCapo(currentUser())){ toast("Solo il responsabile di produzione può modificare la scheda","warn"); return; }
+  if(!isResp(currentUser())){ toast("Solo il responsabile di produzione può modificare la scheda","warn"); return; }
   const s=supplier(sid); if(!s) return;
   const d=App.supDraft={ name:s.name, citta:s.citta, referente:s.referente, email:s.email, capacitaMese:s.capacitaMese,
     costoOrario:s.costoOrario, cablatori:s.cablatori, risorseDedicate:s.risorseDedicate, dimensioneMax:s.dimensioneMax,
@@ -2573,7 +2757,7 @@ function openEditSupplier(sid){
     ${supplierFormFields(d)}
     <button class="btn accent block" data-act="saveSup" data-sup="${sid}">${icon("check")} Salva modifiche</button>`);
 }
-function saveSupplier(sid){ if(isCapo(currentUser())){ toast("Solo il responsabile di produzione può modificare la scheda","warn"); return; }
+function saveSupplier(sid){ if(!isResp(currentUser())){ toast("Solo il responsabile di produzione può modificare la scheda","warn"); return; }
   const s=supplier(sid); if(!s) return; const d=App.supDraft||{}; const f=readSupplierForm(d);
   if(!f.name){ toast("Inserisci la ragione sociale","warn"); $("#ns-name").focus(); return; }
   Object.assign(s, f); if(!s.email) s.email="preventivi@"+slug(f.name)+".it";
@@ -2593,7 +2777,29 @@ function openGuide(){ const u=currentUser(); const isR=u.role==="righi"; const c
   const stJob=(k,meaning)=>stRow(STATI[k].pill,STATI[k].label,meaning);   // badge preso da STATI (coerente con la bacheca)
   const stateSec=(t,rows,note)=>`<div class="guide-sec"><div class="guide-sec-t">${t}</div><div>${rows.join("")}</div>${note?`<p class="muted" style="font-size:12px;margin:8px 0 0">${note}</p>`:""}</div>`;
   let title, intro, body;
-  if(isR && !capo_){ title="Responsabile di produzione"; intro="Come pubblicare i lavori, approvare le proposte dei capisquadra, assegnare e governare i subappalti.";
+  if(isQhse(u)){ title="Responsabile QHSE"; intro="Come governare la parte documentale: decidere quali documenti servono e quali bloccano, verificarli, tenere lo scadenzario.";
+    body = sec("1 · Il tuo perimetro",[
+      ["Solo la parte documentale","Il tuo profilo presidia <b>qualità, sicurezza e ambiente</b> sul fronte fornitori. Non vedi le commesse e non le governi: pubblicare, assegnare e approvare sono del <b>responsabile di produzione</b>. Sono mestieri diversi, e il portale li tiene separati."],
+      ["Tre schede","<b>Qualifica</b> è il tuo cruscotto e la tua coda di lavoro; <b>Scadenzario</b> è l'elenco completo dei documenti ordinato per urgenza; <b>Fornitori</b> è l'anagrafica in sola lettura, da cui apri la scheda documentale di ciascuno."],
+      ["Cosa puoi fare","Definire i <b>tipi di documento</b>, <b>registrare</b> e <b>rinnovare</b> documenti, <b>verificarli o respingerli</b>, esportare in CSV. Non puoi modificare l'anagrafica commerciale (tariffe, capacità, preferenze): resta al responsabile di produzione."] ])
+    + sec("2 · Definisci le regole",[
+      ["Tipi di documento","Da <b>Qualifica · Tipi di documento</b> decidi per ogni tipo: <b>nome</b> e <b>caratteristiche</b>, se è <b>richiesto</b> a tutti o facoltativo, se è <b>bloccante</b> o solo un avviso, <b>chi può vederlo</b> (anche il fornitore, o solo tu e il responsabile), se <b>avvisare</b> prima della scadenza e con quanti <b>giorni di anticipo</b>, la <b>validità</b> in mesi."],
+      ["Non tutti bloccano","È la scelta che conta: un DURC scaduto ferma il lavoro, un'informativa privacy non firmata va sollecitata ma non ferma niente. Bloccare tutto porta a farsi aggirare; non bloccare mai rende la regola inutile."],
+      ["Guarda l'effetto prima di salvare","Il modulo ti dice <b>quanti fornitori cambiano stato</b> (es. <i>«8 diventano non assegnabili»</i>). Una regola che ferma otto fornitori non deve entrare in vigore di nascosto."],
+      ["Disattiva invece di eliminare","Un tipo che non serve più si <b>disattiva</b>: esce dalla qualifica ma i documenti già registrati restano e tornano a contare se lo riattivi. L'eliminazione è possibile solo se nessuno l'ha mai consegnato."] ])
+    + sec("3 · Lavora la coda",[
+      ["Da verificare","In <b>Qualifica</b> trovi i documenti che i fornitori hanno inviato: li <b>verifichi</b> o li <b>respingi</b>, e il fornitore riceve la notifica con l'esito. La campanella in alto ti avvisa quando ne arriva uno."],
+      ["Scadenzario","Tutti i documenti dei fornitori attivi, ordinati per urgenza: prima gli scaduti e i respinti, poi i mancanti, le verifiche pendenti e le scadenze in arrivo. Filtri per stato, ricerca per fornitore o documento, e il filtro <b>Solo bloccanti</b> per vedere cosa sta davvero fermando il lavoro."],
+      ["Fornitori fermi","Il riquadro <i>Fornitori fermi</i> elenca chi non può ricevere nuove commesse, con il motivo e quante commesse ha già in corso: quelle proseguono, ma non gliene arrivano altre."],
+      ["Esporta","<b>Esporta CSV</b> porta fuori lo scadenzario (per i solleciti) o il riepilogo della qualifica (per l'audit e il riesame della direzione)."] ])
+    + sec("4 · Riservatezza",[
+      ["Tipi riservati","Un tipo marcato <b>solo Righi</b> sparisce dal profilo del fornitore: non lo vede e non lo può inviare. È il caso della <i>scheda di valutazione fornitore</i>, che è un giudizio interno."],
+      ["I motivi sono filtrati","Se a bloccare è un documento riservato, il fornitore viene avvisato che <i>esiste</i> un documento gestito da Righi non in regola, ma non ne legge il nome. Un blocco senza spiegazione sarebbe peggio; un blocco che rivela un giudizio interno sarebbe una fuga."] ])
+    + faq([
+      ["Posso assegnare una commessa se un fornitore è in regola?","No: l'assegnazione è del responsabile di produzione. Tu determini <i>chi può</i> ricevere lavoro, non <i>chi lo riceve</i>."],
+      ["Se disattivo un tipo perdo i documenti già raccolti?","No. Restano registrati e tornano a contare appena lo riattivi."],
+      ["Perché un fornitore risulta \"con riserva\" ma è assegnabile?","Perché gli manca un documento <b>richiesto ma non bloccante</b>, oppure ha una scadenza vicina. Va sistemato, ma non ferma il lavoro."] ]); }
+  else if(isR && !capo_){ title="Responsabile di produzione"; intro="Come pubblicare i lavori, approvare le proposte dei capisquadra, assegnare e governare i subappalti.";
     body = stateSec("Gli stati della commessa",[
       stJob("bozza","In preparazione: non è ancora visibile ai fornitori. La crei tu o entra dall'import massivo."),
       stJob("da_approvare","Un caposquadra l'ha proposta e aspetta il tuo via libera: la <b>approvi</b> (passa a Da assegnare) oppure la <b>rimandi</b> con una nota."),
@@ -2720,13 +2926,21 @@ function openSupplierModal(sid){ const s=supplier(sid); if(!s) return;
     ${docBlock(sid, true)}
     ${metricsCardHtml(sid)}
     <div class="divide"></div>
-    <div class="btn-row">${!isCapo(currentUser())?`<button class="btn accent" data-act="editSup" data-sup="${sid}">${icon("doc","sm")} Modifica scheda</button>`:""}<button class="btn ghost" data-act="emailSup" data-sup="${sid}">${icon("mail","sm")} Email</button><button class="btn ghost" data-act="supJobs" data-sup="${sid}">Commesse del fornitore</button></div>`);
+    <div class="btn-row">${isResp(currentUser())?`<button class="btn accent" data-act="editSup" data-sup="${sid}">${icon("doc","sm")} Modifica scheda</button>`:""}<button class="btn ghost" data-act="emailSup" data-sup="${sid}">${icon("mail","sm")} Email</button><button class="btn ghost" data-act="supJobs" data-sup="${sid}">Commesse del fornitore</button></div>`);
 }
 
 /* ============================ AZIONI ============================ */
 function toast(msg,kind){ Sfx.esito(kind); const t=$("#toast"); t.className="toast show "+(kind||""); t.textContent=msg; clearTimeout(toast._t); toast._t=setTimeout(()=>t.className="toast "+(kind||""),2400); }
 
-function doPublish(jid){ const j=byId(STATE.jobs,jid); if(!j) return; j.stato="pubblicato"; j.publishedAt=todayISO();
+/* Il profilo QHSE presidia la parte documentale: le commesse non sono cose sue.
+   Il controllo sta QUI, nella funzione, non solo nelle schede che non gli
+   mostriamo: un'azione richiamata direttamente deve fallire lo stesso. */
+function vietatoQhse(){ const u=currentUser();
+  if(canProduzione(u)) return false;
+  toast(isQhse(u) ? "Profilo QHSE: le commesse le governa il responsabile di produzione"
+                  : "Azione riservata al personale Righi", "warn");
+  return true; }
+function doPublish(jid){ if(vietatoQhse()) return; const j=byId(STATE.jobs,jid); if(!j) return; j.stato="pubblicato"; j.publishedAt=todayISO();
   notifyJob(j, j.visibility==="selezionati"?(j.invitati||[]):STATE.suppliers.map(s=>s.id));
   persist(); closeModal(); Sfx.play("pubblicazione"); toast("Lavoro pubblicato","ok"); render(); }
 function notifyJob(j, supplierIds){
@@ -2781,7 +2995,7 @@ function openEmailModal(to, subject, body){
     </div>
     <p class="muted" style="font-size:12px;margin:10px 0 0">Nel prototipo l'email si apre nel tuo programma di posta (in una nuova scheda). In produzione l'invio è automatico lato server — vedi la Guida.</p>`);
 }
-function createJob(mode){
+function createJob(mode){ if(vietatoQhse()) return;
   const d=App.draft;
   d.title=$("#nl-title").value.trim(); d.budget=$("#nl-budget").value; d.ore=$("#nl-ore").value; d.capoId=$("#nl-capo").value;
   d.dataConsegna=$("#nl-cons").value; d.descrizione=$("#nl-desc").value.trim();
@@ -2820,7 +3034,7 @@ function notifyResponsabili(j){ const capo=currentUser();
 function notifyCapo(j, txt, ic){ const uid_=j.richiedente||j.creatoDa; if(!uid_) return;
   STATE.notifications.push({id:uid("n"),toUser:uid_,ic:ic||"bell",txt,sub:j.code+" — "+j.title,jobId:j.id,at:new Date().toISOString().slice(0,16),read:false});
 }
-function approveJob(jid){ const j=byId(STATE.jobs,jid); if(!j||j.stato!=="da_approvare") return;
+function approveJob(jid){ if(vietatoQhse()) return; const j=byId(STATE.jobs,jid); if(!j||j.stato!=="da_approvare") return;
   j.stato="pubblicato"; j.publishedAt=todayISO(); j.approvazione={esito:"approvata",da:currentUser().id,at:new Date().toISOString().slice(0,16)};
   const targets=j.visibility==="selezionati"?(j.invitati||[]):STATE.suppliers.map(s=>s.id);
   notifyJob(j, targets); notifyCapo(j, "Commessa approvata e pubblicata", "check");
@@ -2828,11 +3042,11 @@ function approveJob(jid){ const j=byId(STATE.jobs,jid); if(!j||j.stato!=="da_app
   if(j.emailNotify) emailJobToSuppliers(j, targets); else toast("Approvata e pubblicata ai fornitori","ok");
   render();
 }
-function submitApproval(jid){ const j=byId(STATE.jobs,jid); if(!j||j.stato!=="bozza") return;
+function submitApproval(jid){ if(vietatoQhse()) return; const j=byId(STATE.jobs,jid); if(!j||j.stato!=="bozza") return;
   j.stato="da_approvare"; if(!j.richiedente) j.richiedente=currentUser().id; j.approvazione=null;
   notifyResponsabili(j); persist(); closeModal(); Sfx.play("richiesta"); toast("Inviato al responsabile per approvazione","ok"); render();
 }
-function rejectJob(jid){ const motivo=($("#rej-note")?$("#rej-note").value.trim():"")||""; const j=byId(STATE.jobs,jid); if(!j||j.stato!=="da_approvare") return;
+function rejectJob(jid){ if(vietatoQhse()) return; const motivo=($("#rej-note")?$("#rej-note").value.trim():"")||""; const j=byId(STATE.jobs,jid); if(!j||j.stato!=="da_approvare") return;
   j.stato="bozza"; j.approvazione={esito:"rifiutata",da:currentUser().id,at:new Date().toISOString().slice(0,16),motivo};
   notifyCapo(j, "Commessa da rivedere"+(motivo?": "+motivo:""), "x");
   persist(); closeModal(); Sfx.play("rifiuto"); toast("Rimandata al caposquadra","warn"); render();
@@ -2914,7 +3128,7 @@ function applyDateChange(j, newDate, motivo, byRole, byUser){
   return true;
 }
 // Modifica date lato Righi: rientro (con storico+notifica) + inizio stimato e consegna cliente (diretti)
-function doEditDate(jid){ const j=byId(STATE.jobs,jid); const d=$("#ed-date")?$("#ed-date").value:""; const m=$("#ed-note")?$("#ed-note").value.trim():"";
+function doEditDate(jid){ if(vietatoQhse()) return; const j=byId(STATE.jobs,jid); const d=$("#ed-date")?$("#ed-date").value:""; const m=$("#ed-note")?$("#ed-note").value.trim():"";
   const ini=$("#ed-inizio")?$("#ed-inizio").value:""; const cli=$("#ed-cli")?$("#ed-cli").value:"";
   if(!d){ toast("Indica la data di rientro","warn"); return; } const u=currentUser();
   let changed=false;
@@ -2924,7 +3138,7 @@ function doEditDate(jid){ const j=byId(STATE.jobs,jid); const d=$("#ed-date")?$(
   if(ret||changed){ persist(); closeModal(); Sfx.play("tocco"); toast(ret?"Rientro aggiornato · fornitore notificato":"Date aggiornate","ok"); render(); }
   else { toast("Nessuna modifica","warn"); }
 }
-function resolveSlip(rid, approve){ const r=byId(STATE.requests,rid); if(!r) return; const j=byId(STATE.jobs,r.jobId); const u=currentUser();
+function resolveSlip(rid, approve){ if(vietatoQhse()) return; const r=byId(STATE.requests,rid); if(!r) return; const j=byId(STATE.jobs,r.jobId); const u=currentUser();
   r.stato="chiusa"; r.esito=approve?"approvato":"rifiutato"; r.read=true;
   if(approve && j){ applyDateChange(j, r.dataProposta, "Slittamento approvato", "fornitore", r.supplierId); }
   else { notifySupplier(r.supplierId,{ic:"x",txt:"Slittamento non approvato",sub:(j?j.code+" — "+j.title:""),jobId:r.jobId}); }
@@ -2978,7 +3192,7 @@ function resolveExtra(rid, approve){ const r=byId(STATE.requests,rid); if(!r||r.
   toast((approve?"Extra approvato · "+fmtMoney(imp):"Extra rifiutato")+(sent?" · fornitore avvisato via email":""),"ok"); render();
 }
 // Caposquadra: approva/rifiuta la richiesta di consegna del fornitore
-function resolveConsegna(rid, approve){ const r=byId(STATE.requests,rid); if(!r) return; const j=byId(STATE.jobs,r.jobId); const u=currentUser();
+function resolveConsegna(rid, approve){ if(vietatoQhse()) return; const r=byId(STATE.requests,rid); if(!r) return; const j=byId(STATE.jobs,r.jobId); const u=currentUser();
   // gli extra si decidono PRIMA di autorizzare la consegna: a quadro rientrato
   // discutere di soldi e' molto piu' difficile
   if(approve && j){ const ap=extraAperti(j.id).filter(x=>x.id!==rid);
@@ -3007,13 +3221,13 @@ function deliverJob(jid){ const u=currentUser(); const j=byId(STATE.jobs,jid); i
   notifyCapoJob(j,"Commessa consegnata: "+j.title,"check");
   persist(); closeModal(); Sfx.play("completato"); toast("Commessa consegnata","ok"); render();
 }
-function doNotify(jid){ const j=byId(STATE.jobs,jid); const ids=[...App.notifySel];
+function doNotify(jid){ if(vietatoQhse()) return; const j=byId(STATE.jobs,jid); const ids=[...App.notifySel];
   if(!ids.length){ toast("Scegli almeno un fornitore","warn"); return; }
   notifyJob(j, ids); const wantEmail=App.notifyEmail; persist(); closeModal(); Sfx.play("pubblicazione");
   toast("Notifica inviata a "+ids.length+" fornitor"+(ids.length>1?"i":"e"),"ok"); render();
   if(wantEmail) emailJobToSuppliers(j, ids);
 }
-function doAssign(jid,sid){ const j=byId(STATE.jobs,jid); const s=supplier(sid);
+function doAssign(jid,sid){ if(vietatoQhse()) return; const j=byId(STATE.jobs,jid); const s=supplier(sid);
   // La qualifica vale anche qui, non solo nascondendo il pulsante
   if(!isAssegnabile(sid)){ toast("Non assegnabile — "+motivoBlocco(sid),"warn"); return; }
   j.assegnatoA=sid; j.stato="assegnato"; j.assegnatoAt=todayISO();
@@ -3064,7 +3278,7 @@ function openOptimalAssign(){
     ${unp}
     <div class="btn-row" style="margin-top:14px"><button class="btn ghost" data-act="closeModal">Annulla</button><button class="btn accent" data-act="doOptimalAssign">${icon("check")} Conferma ${r.proposal.length} assegnazioni</button></div>`);
 }
-function doOptimalAssign(){
+function doOptimalAssign(){ if(vietatoQhse()) return;
   const r=App._optimal; if(!r||!r.proposal.length){ closeModal(); return; }
   const at=new Date().toISOString().slice(0,16);
   r.proposal.forEach(e=>{ const j=byId(STATE.jobs,e.jid); if(!j||j.stato!=="pubblicato") return;
@@ -3102,7 +3316,7 @@ function openDocForm(sid, tipo, daFornitore){
          <button class="btn accent" data-act="doDocRenew" data-sup="${sid}" data-t="${tipo}">${icon("check")} Conferma</button>`}
     </div>`);
 }
-function doDocRenew(sid, tipo){ const u=currentUser(); if(!u||u.role!=="righi"||isCapo(u)){ toast("Solo il responsabile di produzione","warn"); return; }
+function doDocRenew(sid, tipo){ const u=currentUser(); if(!canDocs(u)){ toast("Riservato al responsabile QHSE e al responsabile di produzione","warn"); return; }
   const scad=($("#doc-scad")||{}).value||""; if(!scad){ toast("Indica la scadenza","warn"); return; }
   setDoc(sid, tipo, {scadenza:scad, stato:"valido", caricatoIl:todayISO(), nota:($("#doc-nota")||{}).value||"", esitoDa:u.id});
   persist(); Sfx.play("tocco"); toast(docTipo(tipo).label+" aggiornato — "+QUAL_LABEL[qualifica(sid).stato].toLowerCase(),"ok"); render(); openSupplierModal(sid);
@@ -3116,11 +3330,12 @@ function doDocDeclare(tipo){ const u=currentUser(); const sid=u&&u.supplierId; i
   const scad=($("#doc-scad")||{}).value||""; if(!scad){ toast("Indica la scadenza","warn"); return; }
   setDoc(sid, tipo, {scadenza:scad, stato:"in_verifica", caricatoIl:todayISO(), nota:($("#doc-nota")||{}).value||""});
   // il responsabile deve sapere che c'e' un documento da verificare
-  STATE.users.filter(x=>x.righiRole==="responsabile").forEach(x=>STATE.notifications.push({id:uid("n"),toUser:x.id,ic:"doc",
+  // avvisa chi ha il potere di verificarlo: QHSE per mestiere, responsabile come riserva
+  STATE.users.filter(canDocs).forEach(x=>STATE.notifications.push({id:uid("n"),toUser:x.id,ic:"doc",
     txt:"Documento da verificare: "+docTipo(tipo).label, sub:(supplier(sid)||{}).name, at:new Date().toISOString().slice(0,16), read:false}));
   persist(); closeModal(); Sfx.play("richiesta"); toast(docTipo(tipo).label+" inviato: in verifica da Righi","ok"); render();
 }
-function doDocVerify(sid, tipo, ok){ const u=currentUser(); if(!u||u.role!=="righi"||isCapo(u)){ toast("Solo il responsabile di produzione","warn"); return; }
+function doDocVerify(sid, tipo, ok){ const u=currentUser(); if(!canDocs(u)){ toast("Riservato al responsabile QHSE e al responsabile di produzione","warn"); return; }
   setDoc(sid, tipo, {stato: ok?"valido":"respinto", esitoDa:u.id, esitoAt:todayISO()});
   const q=qualifica(sid);
   notifySupplier(sid,{ic:ok?"check":"x", txt:(ok?"Documento verificato: ":"Documento respinto: ")+docTipo(tipo).label,
@@ -3154,7 +3369,7 @@ function frasiDiff(d){ const p=[];
 const docTipoUsato = id => STATE.suppliers.filter(s=>supDocs(s).some(d=>d.tipo===id)).length;
 
 function openDocTypes(){ const u=currentUser();
-  if(!u||u.role!=="righi"||isCapo(u)){ toast("Solo il responsabile di produzione","warn"); return; }
+  if(!canDocs(u)){ toast("Riservato al responsabile QHSE e al responsabile di produzione","warn"); return; }
   const riga=t=>{
     const usato=docTipoUsato(t.id); const spento=t.attivo===false;
     const natura = !t.obbl ? '<span class="pill plain">facoltativo</span>'
@@ -3166,7 +3381,7 @@ function openDocTypes(){ const u=currentUser();
         <span class="s">${esc(t.sub||"senza descrizione")} · validità ${t.mesi} mesi · ${esc(DOC_VIS[t.visibile]||DOC_VIS.fornitore)}
           · ${t.alert===false?"nessun avviso":"avviso "+(Number(t.preavviso)||DOC_PREAVVISO_DEF)+" giorni prima"}
           · ${usato?usato+" fornitor"+(usato>1?"i":"e"):"nessun fornitore"}</span></span>
-      <span style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+      <span class="lrow-act">
         <button class="btn sm ghost" data-act="docTypeForm" data-t="${t.id}">Modifica</button>
         <button class="btn sm ghost" data-act="docTypeToggle" data-t="${t.id}">${spento?"Riattiva":"Disattiva"}</button>
       </span></div>`;
@@ -3190,7 +3405,7 @@ function openDocTypes(){ const u=currentUser();
 
 // Modulo di un tipo: ogni campo del menu chiesto, con l'effetto scritto accanto.
 function openDocTypeForm(id){ const u=currentUser();
-  if(!u||u.role!=="righi"||isCapo(u)){ toast("Solo il responsabile di produzione","warn"); return; }
+  if(!canDocs(u)){ toast("Riservato al responsabile QHSE e al responsabile di produzione","warn"); return; }
   const nuovo=!id; const t=nuovo
     ? {id:"", label:"", sub:"", mesi:12, obbl:true, bloccante:false, visibile:"fornitore", alert:true, preavviso:DOC_PREAVVISO_DEF, attivo:true}
     : docTipo(id);
@@ -3237,7 +3452,7 @@ function nuovoDocTipoId(label){ const base=(slug(label)||"doc").slice(0,16) || "
   let id=base, n=2; while(docTipo(id)){ id=base+"_"+n; n++; } return id; }
 
 function doDocTypeSave(id){ const u=currentUser();
-  if(!u||u.role!=="righi"||isCapo(u)){ toast("Solo il responsabile di produzione","warn"); return; }
+  if(!canDocs(u)){ toast("Riservato al responsabile QHSE e al responsabile di produzione","warn"); return; }
   const label=(($("#dt-label")||{}).value||"").trim();
   if(!label){ toast("Indica il tipo di documento","warn"); const e=$("#dt-label"); if(e) e.focus(); return; }
   const pre=Math.round(Number(($("#dt-pre")||{}).value||0));
@@ -3269,7 +3484,7 @@ function doDocTypeSave(id){ const u=currentUser();
 // Disattivare non e' eliminare: il tipo esce dalla qualifica ma i documenti
 // gia' registrati restano, e riattivandolo tornano a contare.
 function doDocTypeToggle(id){ const u=currentUser();
-  if(!u||u.role!=="righi"||isCapo(u)){ toast("Solo il responsabile di produzione","warn"); return; }
+  if(!canDocs(u)){ toast("Riservato al responsabile QHSE e al responsabile di produzione","warn"); return; }
   const t=docTipo(id); if(!t){ toast("Tipo di documento non trovato","warn"); return; }
   const prima=fotoQualifica();
   t.attivo = t.attivo===false;
@@ -3280,7 +3495,7 @@ function doDocTypeToggle(id){ const u=currentUser();
 }
 
 function doDocTypeDelete(id){ const u=currentUser();
-  if(!u||u.role!=="righi"||isCapo(u)){ toast("Solo il responsabile di produzione","warn"); return; }
+  if(!canDocs(u)){ toast("Riservato al responsabile QHSE e al responsabile di produzione","warn"); return; }
   const t=docTipo(id); if(!t){ toast("Tipo di documento non trovato","warn"); return; }
   // se qualcuno lo ha gia' consegnato, eliminarlo cancellerebbe uno storico:
   // in quel caso si disattiva, non si elimina
@@ -3293,12 +3508,12 @@ function doDocTypeDelete(id){ const u=currentUser();
   render(); openDocTypes();
 }
 // Chiude la pratica: stato finale, dalla consegna all'archivio.
-function closeJob(jid){ const j=byId(STATE.jobs,jid); const u=currentUser();
+function closeJob(jid){ if(vietatoQhse()) return; const j=byId(STATE.jobs,jid); const u=currentUser();
   if(!j||j.stato!=="consegnato"||!u||u.role!=="righi") return;
   j.stato="chiuso"; j.chiusaAt=todayISO(); j.chiusaDa=u.id;
   persist(); closeModal(); Sfx.play("completato"); toast("Pratica chiusa e archiviata","ok"); render();
 }
-function setStato(jid,st){ const j=byId(STATE.jobs,jid); j.stato=st; if(st==="consegnato"&&!j.dataRientroEff) j.dataRientroEff=todayISO();
+function setStato(jid,st){ if(vietatoQhse()) return; const j=byId(STATE.jobs,jid); j.stato=st; if(st==="consegnato"&&!j.dataRientroEff) j.dataRientroEff=todayISO();
   persist(); closeModal(); Sfx.play(st==="consegnato"||st==="chiuso"?"completato":"tocco"); toast("Stato aggiornato: "+STATI[st].label,"ok"); render(); }
 function setAvanzamento(jid, step){ const u=currentUser(); const j=byId(STATE.jobs,jid); if(!j||!u.supplierId||j.assegnatoA!==u.supplierId) return;
   j.avanzamento=step; j.avanzamentoAt=new Date().toISOString().slice(0,16); j.avanzamentoBy=u.id;
@@ -3308,7 +3523,7 @@ function setAvanzamento(jid, step){ const u=currentUser(); const j=byId(STATE.jo
   STATE.responses.push({id:uid("r"),jobId:jid,supplierId:u.supplierId,tipo:"avanzamento",testo:AVANZAMENTO[step].label,at:j.avanzamentoAt,from:"fornitore",read:false});
   persist(); closeModal(); Sfx.play("avanzamento"); toast("Avanzamento: "+AVANZAMENTO[step].label,"ok"); render();
 }
-function reqStato(rid,st){ const r=byId(STATE.requests,rid); r.stato=st; r.read=true; persist(); closeModal();
+function reqStato(rid,st){ if(vietatoQhse()) return; const r=byId(STATE.requests,rid); r.stato=st; r.read=true; persist(); closeModal();
   Sfx.play(st==="chiusa"?"approvazione":"tocco"); toast(st==="chiusa"?"Richiesta risolta":"Presa in carico","ok"); render(); }
 
 /* aggiorna solo il contenitore risultati (mantiene focus sulla ricerca) */
@@ -3362,6 +3577,12 @@ document.addEventListener("click",e=>{
     case "fornAttivi": App.fornAttivi=el.dataset.v; render(); break;
     case "goQualifica": App.tab="fornitori"; App.fornMode="lista";
       App.fornAttivi = fornitoriNonQualificati().length ? "nonqual" : "scadenza"; render(); break;
+    case "goRiserva": App.tab="fornitori"; App.fornMode="lista"; App.fornAttivi="scadenza"; render(); break;
+    case "goScad": App.tab="scadenzario"; App.scadFiltro=el.dataset.f||"da_sistemare"; App.scadBlocc=false; render(); break;
+    case "scadFiltro": App.scadFiltro=el.dataset.v; render(); break;
+    case "scadBlocc": App.scadBlocc=!App.scadBlocc; render(); break;
+    case "exportScadenzario": exportScadenzarioCSV(); break;
+    case "exportQualifica": exportQualificaCSV(); break;
     case "caricoView": App.caricoView=el.dataset.m; render(); break;
     case "caricoMonth": App.caricoMonth=el.dataset.mk; render(); break;
     case "chartFilter": App.tab="lavori"; App.lavoriMode="table"; App.page=1;
@@ -3497,6 +3718,7 @@ document.addEventListener("click",e=>{
 document.addEventListener("input",e=>{
   if(e.target && e.target.id==="lav-search"){ App.filters.q=e.target.value; App.page=1; updateResults(); }
   if(e.target && e.target.id==="forn-search"){ App.fFilters.q=e.target.value; updateResults(); }
+  if(e.target && e.target.id==="scad-q"){ App.scadQ=e.target.value; const el=$("#scad-list"); if(el) el.innerHTML=scadListaHtml(); }
   // Sync dei campi "Nuovo lavoro" nella bozza: così un re-render (visibilità,
   // fornitori suggeriti) non perde ciò che è stato digitato.
   const NLF={"nl-title":"title","nl-budget":"budget","nl-ore":"ore","nl-desc":"descrizione","nl-inizio":"dataInizioStimata","nl-rientro":"dataRientro","nl-cons":"dataConsegna"};

@@ -30,7 +30,8 @@ come immagini, per la condivisione e la stampa. Vedi anche
   apre nel browser e funziona anche senza connessione (i dati restano sul PC). È
   il modo più semplice per una prova offline.
 - **Subito**: apri `index.html` in un browser. Al primo accesso scegli un utente
-  (lato Righi o lato Fornitore) — gli accessi sono già predisposti per la demo.
+  (lato Righi — responsabile di produzione, caposquadra o **QHSE** — oppure lato
+  Fornitore): gli accessi sono già predisposti per la demo.
 - **Come sito** (consigliato per la PWA / installazione su telefono): servi la
   cartella con un web server statico, es.:
 
@@ -100,9 +101,9 @@ ma non ferma niente. Confonderle porta o a bloccare troppo (e la regola viene
 aggirata) o a non bloccare mai (e la regola non esiste). Per questo l'elenco dei
 tipi **non è scritto nel programma**: si configura.
 
-**Menu Tipi di documento** — da *Fornitori · Tipi di documento* (o dalla scheda di
-un fornitore), riservato al **responsabile di produzione**. Per ogni tipo si
-definisce:
+**Menu Tipi di documento** — da *Fornitori · Tipi di documento* (o da *Qualifica*
+per il QHSE, o dalla scheda di un fornitore), riservato al **responsabile QHSE**
+e al **responsabile di produzione**. Per ogni tipo si definisce:
 
 | Campo | Effetto |
 |---|---|
@@ -146,9 +147,11 @@ registro, e **agisce sull'operatività**:
 **Chi fa cosa**: il **fornitore** vede **solo i propri** documenti — e fra questi
 solo i tipi non riservati — con scadenze, stato e l'etichetta che dice se quel
 documento è bloccante; può **comunicare un rinnovo**, che entra *in verifica*. Il
-**responsabile di produzione** configura il registro, registra, **verifica o
-respinge** (il fornitore riceve la notifica con il motivo). Il **caposquadra
-consulta** ma non modifica, in linea con la regola dell'anagrafica.
+**responsabile QHSE** è il titolare della materia: configura il registro,
+registra, **verifica o respinge** (il fornitore riceve la notifica con il
+motivo). Il **responsabile di produzione** può fare le stesse cose. Il
+**caposquadra consulta** ma non modifica, in linea con la regola
+dell'anagrafica.
 
 I **motivi sono filtrati per chi legge**: se a bloccare o a mettere in riserva è
 un documento riservato, il fornitore è avvisato che *esiste* un documento gestito
@@ -165,6 +168,35 @@ proseguono.
   le relative richieste. Può **proporre un nuovo lavoro**, che invia al
   responsabile per l'approvazione (non pubblica direttamente). Vede inoltre il
   **carico di tutti i fornitori** (scheda Fornitori) per capire chi è libero.
+- **Responsabile QHSE** (Qualità, Sicurezza, Ambiente): presidia **solo la parte
+  documentale**. Vedi sotto.
+
+**Profilo QHSE — il presidio documentale**
+
+Decidere *chi può* lavorare per Righi e decidere *chi riceve* il lavoro sono due
+mestieri diversi. Il portale li tiene separati: il QHSE ha un profilo suo, con
+tre schede e nessun accesso alle commesse.
+
+| Scheda | Cosa contiene |
+|---|---|
+| **Qualifica** | Il cruscotto e la coda di lavoro: quanti fornitori sono fermi, quanti con riserva, quanti documenti attendono verifica, quanti stanno per scadere. Sotto, i documenti **da verificare** con i pulsanti per farlo e i **fornitori fermi** con il motivo e le commesse che hanno già in corso |
+| **Scadenzario** | Tutti i documenti dei fornitori attivi in un elenco solo, **ordinato per urgenza**: prima gli scaduti e i respinti, poi i mancanti, le verifiche pendenti, le scadenze in arrivo. Filtri per stato, ricerca per fornitore o documento, filtro **solo bloccanti** |
+| **Fornitori** | L'anagrafica in sola lettura, da cui aprire la scheda documentale di ciascuno. Niente carico ore: è pianificazione di produzione, non materia sua |
+
+**Cosa può fare**: definire i **tipi di documento** (compreso quali bloccano),
+**registrare** e **rinnovare** documenti, **verificarli o respingerli**,
+esportare in CSV lo scadenzario (per i solleciti) e il riepilogo qualifica (per
+audit e riesame della direzione).
+
+**Cosa non può fare**: pubblicare, assegnare, approvare commesse, extra,
+slittamenti o consegne; modificare l'anagrafica commerciale (tariffe, capacità,
+preferenze). Non è solo una questione di pulsanti nascosti: le funzioni di
+produzione **rifiutano** la sua chiamata anche se raggiunte per altra via.
+
+Il **responsabile di produzione** conserva l'accesso documentale — è il ruolo
+apicale, e un'azienda piccola non può fermarsi quando il QHSE è assente. Quando
+un fornitore comunica un rinnovo, l'avviso arriva a **entrambi**: la notifica
+segue chi ha il potere di agire, non un ruolo fissato nel codice.
 
 **Flusso di approvazione**: quando un caposquadra compila *Nuovo lavoro* e preme
 **Invia per approvazione**, la commessa entra in stato **Da approvare** (mai
@@ -398,9 +430,9 @@ cd portale-fornitori && node tests/run_all.js
 ```
 
 Verifica la sintassi dell'app (`node --check`), la logica pura di dominio
-(regole di **visibilità** dei lavori, **ritardi**, **qualifica** e registro dei
-tipi di documento, integrità del seed, helper), il contratto di **sync** e i
-**suoni** — questi ultimi registrando
+(regole di **visibilità** dei lavori, **ritardi**, **qualifica**, registro dei
+tipi di documento, **profili di accesso** e scadenzario, integrità del seed,
+helper), il contratto di **sync** e i **suoni** — questi ultimi registrando
 la sintesi voce per voce (scala, timbro, durate, volumi, direzione melodica e
 firma distinta per ogni funzionalità). Nessuna dipendenza esterna.
 

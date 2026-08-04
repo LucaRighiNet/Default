@@ -38,33 +38,52 @@ email; ogni rifiuto è motivato; ogni stato ha qualcuno che lo fa scattare.
 
 ## 2. Attori e organizzazione
 
-### 2.1 I tre ruoli
+### 2.1 I quattro profili
 
 | Ruolo | Chi è | Responsabilità nel portale |
 |---|---|---|
-| **Responsabile di produzione** | Ufficio subappalti Righi | Vede **tutte** le commesse. Pubblica, assegna, importa/esporta, governa il carico dei fornitori, **approva** le proposte dei capisquadra e gli **extra oltre soglia**. Unico che modifica l'anagrafica fornitori. |
+| **Responsabile di produzione** | Ufficio subappalti Righi | Vede **tutte** le commesse. Pubblica, assegna, importa/esporta, governa il carico dei fornitori, **approva** le proposte dei capisquadra e gli **extra oltre soglia**. Unico che modifica l'anagrafica fornitori. Conserva anche l'accesso documentale. |
 | **Caposquadra (OTL)** | Referente tecnico della commessa | Vede **solo le commesse che segue**. Propone nuovi lavori (che il responsabile approva), gestisce le richieste dei suoi fornitori, approva slittamenti, consegne ed **extra entro soglia**. |
+| **Responsabile QHSE** | Qualità, Sicurezza, Ambiente | Presidia **solo la parte documentale**. Definisce i **tipi di documento** e quali sono bloccanti, **verifica o respinge** ciò che i fornitori inviano, tiene lo **scadenzario**, esporta per audit e riesame. **Non vede le commesse** e non le governa. |
 | **Fornitore** | Referente del terzo accreditato | Vede le proposte a lui destinate e le proprie commesse. Quota, accetta con firma, aggiorna l'avanzamento, apre richieste guidate, chiede extra e l'autorizzazione a consegnare. |
+
+**Perché QHSE è un profilo e non un permesso in più.** Decidere *chi può* lavorare
+per Righi e decidere *chi riceve* il lavoro sono due mestieri diversi, con
+competenze e responsabilità diverse. Tenerli nello stesso profilo significa o
+dare al QHSE poteri di produzione che non gli competono, o lasciare la
+conformità come attività secondaria di chi ha altre urgenze. Il portale li
+separa: il QHSE non trova nemmeno la scheda Commesse, e le funzioni di
+produzione **rifiutano** la sua chiamata anche se raggiunte per altra via.
+
+Il responsabile di produzione mantiene l'accesso documentale — è il ruolo
+apicale, e un'azienda piccola non può fermarsi quando il QHSE è assente.
 
 ### 2.2 Matrice delle deleghe
 
-| Azione | Responsabile | Caposquadra | Fornitore |
-|---|:---:|:---:|:---:|
-| Creare una commessa | ✅ pubblica | ⚠️ propone | ❌ |
-| Approvare una proposta di commessa | ✅ | ❌ | ❌ |
-| Assegnare a un fornitore | ✅ | ❌ | ❌ |
-| Accettare una proposta (con firma) | ❌ | ❌ | ✅ |
-| Aggiornare l'avanzamento | ❌ | ❌ | ✅ |
-| Approvare uno slittamento | ✅ | ✅ | ❌ |
-| Approvare un **extra ≤ 10%** | ✅ | ✅ | ❌ |
-| Approvare un **extra > 10%** | ✅ | ❌ | ❌ |
-| Autorizzare la consegna | ✅ | ✅ | ❌ |
-| Segnare consegnato | ❌ | ❌ | ✅ |
-| Chiudere la pratica | ✅ | ✅ | ❌ |
-| Creare/modificare anagrafica fornitori | ✅ | ❌ | ❌ |
-| Configurare i **tipi di documento** (bloccante, visibilità, avvisi) | ✅ | ❌ | ❌ |
-| Registrare/verificare documenti di qualifica | ✅ | ❌ | ❌ |
-| Comunicare il rinnovo di un proprio documento | ❌ | ❌ | ✅ |
+| Azione | Responsabile | Caposquadra | QHSE | Fornitore |
+|---|:---:|:---:|:---:|:---:|
+| Vedere le commesse | ✅ tutte | ✅ le proprie | ❌ | ✅ le proprie |
+| Creare una commessa | ✅ pubblica | ⚠️ propone | ❌ | ❌ |
+| Approvare una proposta di commessa | ✅ | ❌ | ❌ | ❌ |
+| Assegnare a un fornitore | ✅ | ❌ | ❌ | ❌ |
+| Accettare una proposta (con firma) | ❌ | ❌ | ❌ | ✅ |
+| Aggiornare l'avanzamento | ❌ | ❌ | ❌ | ✅ |
+| Approvare uno slittamento | ✅ | ✅ | ❌ | ❌ |
+| Approvare un **extra ≤ 10%** | ✅ | ✅ | ❌ | ❌ |
+| Approvare un **extra > 10%** | ✅ | ❌ | ❌ | ❌ |
+| Autorizzare la consegna | ✅ | ✅ | ❌ | ❌ |
+| Segnare consegnato | ❌ | ❌ | ❌ | ✅ |
+| Chiudere la pratica | ✅ | ✅ | ❌ | ❌ |
+| Creare/modificare anagrafica fornitori | ✅ | ❌ | ❌ | ❌ |
+| Configurare i **tipi di documento** (bloccante, visibilità, avvisi) | ✅ | ❌ | ✅ | ❌ |
+| Registrare/rinnovare un documento | ✅ | ❌ | ✅ | ❌ |
+| Verificare o respingere un documento | ✅ | ❌ | ✅ | ❌ |
+| Consultare lo **scadenzario** ed esportarlo | ✅ | ❌ | ✅ | ❌ |
+| Comunicare il rinnovo di un proprio documento | ❌ | ❌ | ❌ | ✅ |
+
+Nel codice la matrice si riduce a due predicati, e ogni azione ne cita uno solo:
+`canDocs(u)` (responsabile o QHSE) per la parte documentale, `canProduzione(u)`
+(righi e non QHSE) per le commesse.
 
 ### 2.3 Riservatezza: cosa non attraversa il confine
 
@@ -377,9 +396,32 @@ Un documento **in verifica** con scadenza futura **copre** il requisito: è stat
 consegnato, manca solo il controllo. Se invece è già scaduto, la scadenza vince.
 
 **Chi fa cosa**: il fornitore vede **solo i propri** documenti, e fra questi
-**solo i tipi non riservati**; può comunicare un rinnovo. Il **responsabile**
-configura il registro, registra, verifica o respinge; il **caposquadra
-consulta** ma non modifica, coerentemente con la regola dell'anagrafica.
+**solo i tipi non riservati**; può comunicare un rinnovo. Il **responsabile
+QHSE** è il titolare della materia: configura il registro, registra, verifica o
+respinge, tiene lo scadenzario. Il **responsabile di produzione** può fare le
+stesse cose (ruolo apicale, e continuità quando il QHSE è assente). Il
+**caposquadra consulta** ma non modifica, coerentemente con la regola
+dell'anagrafica.
+
+**Il perimetro operativo del QHSE** — due schede, entrambe code di lavoro:
+
+| Scheda | A cosa serve |
+|---|---|
+| **Qualifica** | Cruscotto e coda: quanti fornitori sono fermi, quanti con riserva, quanti documenti attendono verifica, quanti scadono. Sotto, i documenti **da verificare** con i pulsanti per farlo, e i **fornitori fermi** con il motivo e le commesse che hanno già in corso |
+| **Scadenzario** | Tutti i documenti dei fornitori attivi in una lista sola, ordinata per urgenza (scaduti, respinti, mancanti, in verifica, in scadenza). Filtri per stato, ricerca per fornitore o documento, filtro **solo bloccanti**, esportazione CSV |
+
+L'ordinamento dello scadenzario non è alfabetico né cronologico: mette per primo
+**ciò che ferma il lavoro**, poi ciò che sta per fermarlo. È la stessa domanda
+che si fa chi apre quella pagina la mattina.
+
+Due esportazioni CSV chiudono il ciclo verso l'esterno: lo **scadenzario** è il
+foglio con cui si sollecitano i fornitori; il **riepilogo qualifica** (un
+fornitore per riga, con stato, assegnabilità e motivo) è ciò che serve a un audit
+o al riesame della direzione.
+
+**Le notifiche seguono il potere di agire**: quando un fornitore comunica un
+rinnovo, l'avviso va a **tutti** quelli che possono verificarlo — QHSE e
+responsabile — non a un ruolo fissato nel codice.
 
 **I motivi sono filtrati per chi legge.** Se a bloccare (o a mettere in riserva)
 è un documento riservato, il fornitore viene avvisato che *esiste* un documento
@@ -686,11 +728,11 @@ vecchia". È disponibile anche un **ripristino manuale** dei dati dimostrativi.
 
 | Livello | Copertura |
 |---|---|
-| **Test di modello** (85) | Date e alert, metriche, capacità, qualifica, matching ottimo, flusso massimo e taglio minimo, invarianti del grafo |
+| **Test di modello** (91) | Date e alert, metriche, capacità, qualifica, matching ottimo, flusso massimo e taglio minimo, invarianti del grafo |
 | **Test di sincronizzazione** (6) | Contratto del seam remoto (pull/push, versioni) |
 | **Test dei suoni** (26) | La sintesi viene registrata voce per voce: scala, timbro, durate, volumi, direzione melodica, firma distinta per ogni funzionalità, interruttore e anti-raffica |
 | **Audit automatici** (3 passate) | Percorso completo di tutti i ruoli su ogni schermata (desktop e mobile), riservatezza, invarianti, persistenza, coerenza dei numeri, casi limite dei link |
-| **Prove end-to-end** (33 scenari) | Ciclo di vita, extra, magic link, richieste con foto, approvazioni, carico, analisi, suoni sulle azioni reali, registro dei tipi di documento |
+| **Prove end-to-end** (45 scenari) | Ciclo di vita, extra, magic link, richieste con foto, approvazioni, carico, analisi, suoni sulle azioni reali, registro dei tipi di documento, perimetro del profilo QHSE |
 | **Controlli strutturali** | Nessuna funzione vuota, nessun pulsante privo di effetto, nessun gestore orfano, nessuna emoji |
 
 Gli audit hanno individuato e fatto correggere difetti reali — tra cui una **fuga
@@ -715,7 +757,7 @@ corretti, per non lasciare falsi allarmi.
 email con link diretto, auto-matching, duplicazione come modello, firma leggera,
 assegnazione ottima, lettura del collo di bottiglia, gestione degli extra,
 qualifica dei fornitori dai documenti con registro dei tipi configurabile,
-linguaggio sonoro degli eventi.
+profilo di accesso QHSE con scadenzario, linguaggio sonoro degli eventi.
 
 **Prossimi passi** (richiedono il server, dettagliati in `BACKEND.md`):
 
@@ -743,4 +785,6 @@ linguaggio sonoro degli eventi.
 | **Qualifica** | Stato calcolato dai documenti e dal registro dei tipi: abilita, mette in riserva o blocca l'assegnazione |
 | **Tipo bloccante** | Documento richiesto la cui assenza o scadenza rende il fornitore non assegnabile |
 | **Con riserva** | Qualificato ma con qualcosa da sistemare: non ferma il lavoro |
+| **QHSE** | Qualità, Sicurezza, Ambiente: il presidio documentale sui fornitori |
+| **Scadenzario** | Elenco di tutti i documenti dei fornitori attivi ordinato per urgenza |
 | **Firma sonora** | Sequenza di note che identifica un evento: distinta per ogni funzionalità |
