@@ -116,7 +116,32 @@ attivo** — né disattivandolo né declassandolo.
 Anche la schermata di accesso è raggruppata per profilo: chi entra vede subito
 in che veste sta entrando, invece di cercare il proprio nome in un elenco piatto.
 
-### 2.4 Riservatezza: cosa non attraversa il confine
+### 2.4 Il cartiglio: l'intestazione dei numeri
+
+L'intestazione di ogni cruscotto **non** è la fila di riquadri con il numerone.
+È la firma di qualunque pannello generato, e informa poco: quattro numeri di pari
+peso, nessuna proporzione, moltissimo spazio verticale.
+
+Al suo posto il portale usa il **cartiglio**: il riquadro che ogni tavola di
+disegno tecnico porta con sé, e che in Righi si maneggia tutti i giorni. Campi
+etichettati e incolonnati, filetti sottili, numeri a spaziatura fissa, nessuna
+ombra. In cima una **striscia di ripartizione** proporzionale, che dice ciò che
+le card non dicevano: come è distribuito il lavoro, non solo quanto ce n'è.
+
+| | Prima | Ora |
+|---|---|---|
+| Altezza a 1280px | ~210 px su due file | **123 px** su una fila |
+| Proporzioni | nessuna | striscia proporzionale, partizione completa degli stati |
+| Tastiera | `div` cliccabili, non raggiungibili | ogni cella è un `button` |
+| Numeri | grassetto proporzionale | monospaziato tabulare, incolonnato |
+
+La striscia è una **partizione vera**: la somma dei segmenti è il totale delle
+commesse in scopo, altrimenti mentirebbe. Le diciture stanno dentro i segmenti
+finché c'è spazio (dicitura completa oltre i 1200 px, solo la cifra sotto, solo
+il colore sotto i 560 px); il conteggio esatto resta comunque nelle celle e
+nell'etichetta per i lettori di schermo.
+
+### 2.5 Riservatezza: cosa non attraversa il confine
 
 Regola strutturale, non cosmetica: alcune informazioni **non escono mai** verso il
 fornitore, perché riguardano la marginalità e la pianificazione interna di Righi.
@@ -763,7 +788,8 @@ vecchia". È disponibile anche un **ripristino manuale** dei dati dimostrativi.
 | **Test di sincronizzazione** (6) | Contratto del seam remoto (pull/push, versioni) |
 | **Test dei suoni** (26) | La sintesi viene registrata voce per voce: scala, timbro, durate, volumi, direzione melodica, firma distinta per ogni funzionalità, interruttore e anti-raffica |
 | **Audit automatici** (3 passate) | Percorso completo di tutti i ruoli su ogni schermata (desktop e mobile), riservatezza, invarianti, persistenza, coerenza dei numeri, casi limite dei link |
-| **Prove end-to-end** (54 scenari) | Ciclo di vita, extra, magic link, richieste con foto, approvazioni, carico, analisi, suoni sulle azioni reali, registro dei tipi di documento, perimetro del profilo QHSE, anagrafica profili e accessi |
+| **Prove end-to-end** (58 scenari) | Ciclo di vita, extra, magic link, richieste con foto, approvazioni, carico, analisi, suoni sulle azioni reali, registro dei tipi di documento, perimetro del profilo QHSE, anagrafica profili e accessi |
+| **Controlli di impaginazione** | Nessun elemento fuori dallo schermo e nessuna scritta troncata da 320 a 1600 px, colonne dell'anagrafica allineate riga per riga |
 | **Controlli strutturali** | Nessuna funzione vuota, nessun pulsante privo di effetto, nessun gestore orfano, nessuna emoji |
 
 Gli audit hanno individuato e fatto correggere difetti reali — tra cui una **fuga
@@ -789,7 +815,7 @@ email con link diretto, auto-matching, duplicazione come modello, firma leggera,
 assegnazione ottima, lettura del collo di bottiglia, gestione degli extra,
 qualifica dei fornitori dai documenti con registro dei tipi configurabile,
 profilo di accesso QHSE con scadenzario, anagrafica dei profili e degli
-accessi, linguaggio sonoro degli eventi.
+accessi, linguaggio sonoro degli eventi, cartiglio al posto dei riquadri KPI.
 
 **Prossimi passi** (richiedono il server, dettagliati in `BACKEND.md`):
 

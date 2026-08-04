@@ -160,6 +160,15 @@ interna. Se un fornitore non è in regola lo vede scritto dal suo profilo, con
 l'avviso che non riceverà nuove commesse finché non provvede: quelle in corso
 proseguono.
 
+**L'intestazione dei numeri (il cartiglio)**: in cima ai cruscotti non c'è la
+fila di riquadri con il numerone — la firma di qualunque pannello generato, che
+informa poco. C'è il **cartiglio**, il riquadro che ogni tavola di disegno
+tecnico porta con sé: campi etichettati e incolonnati, filetti sottili, numeri a
+spaziatura fissa. Occupa **la metà dello spazio**, sta su una riga sola, ed è
+raggiungibile da tastiera (ogni cella è un pulsante). Sopra le celle una
+**striscia proporzionale** mostra come è distribuito il lavoro — da approvare, da
+assegnare, attive, consegnate — cosa che i quattro numeri non dicevano.
+
 **Ruoli e accessi (lato Righi)**
 - **Responsabile di produzione**: vede **tutte** le commesse, pubblica, assegna,
   importa/esporta, governa il carico dei fornitori e **approva** le commesse

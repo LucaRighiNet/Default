@@ -103,15 +103,53 @@ main{max-width:1180px;margin:0 auto;padding:16px calc(var(--sar) + 14px) calc(va
 .grid.k4{grid-template-columns:repeat(4,1fr)}
 .grid.auto{grid-template-columns:repeat(auto-fill,minmax(290px,1fr))}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:15px;box-shadow:var(--shadow)}
-.kpi{display:flex;flex-direction:column;gap:3px}
-.kpi .v{font-size:30px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
-.kpi .l{font-size:12.5px;color:var(--muted)}
-.kpi.accent .v{color:var(--accent-deep)}
-.kpi.danger .v{color:var(--danger)}
-.kpi.ok .v{color:var(--ok)}
-.kpi .foot{font-size:11.5px;color:var(--muted);margin-top:2px}
-.kpi.click{cursor:pointer;transition:box-shadow .15s}
-.kpi.click:hover{box-shadow:0 4px 16px rgba(16,40,48,.12)}
+/* ---- Cartiglio -------------------------------------------------------------
+   L'intestazione dei numeri. NON una fila di riquadri con il numerone: quella e'
+   la firma di qualunque cruscotto generato, e dice poco — quattro numeri di pari
+   peso, nessuna proporzione, moltissimo spazio verticale.
+   Qui si prende in prestito il CARTIGLIO del disegno tecnico: il riquadro che
+   Righi ha su ogni tavola. Campi etichettati, righe sottili, numeri a spaziatura
+   fissa, niente ombre. In cima una striscia di ripartizione che dice cio' che le
+   card non dicevano: come e' distribuito il lavoro, non solo quanto ce n'e'. */
+.cartiglio{border:1px solid var(--line);border-radius:10px;background:var(--surface);overflow:hidden;margin-bottom:14px}
+/* la striscia porta i numeri dentro i segmenti: cosi' e' una lettura, non un
+   ornamento — dice quanto pesa ogni fase, non solo che esiste */
+.crt-bar{display:flex;height:23px;background:var(--surface-3);font-size:11px;line-height:1}
+.crt-bar .crt-seg{display:flex;align-items:center;justify-content:center;min-width:3px;overflow:hidden;color:#fff;font-weight:600;white-space:nowrap}
+.crt-bar .crt-seg > span{padding:0 9px}
+.crt-bar .crt-seg .sm{display:none}
+@media(max-width:1200px){ .crt-bar .crt-seg .lg{display:none} .crt-bar .crt-seg .sm{display:inline} }
+.crt-bar .crt-seg+.crt-seg{border-left:2px solid var(--surface)}
+.crt-bar .crt-seg.cf-muted{color:var(--ink-soft)}
+.crt-cells{display:grid;grid-template-columns:repeat(auto-fit,minmax(152px,1fr))}
+/* i filetti sono ombre di 1px: cosi' restano corretti comunque vada a capo la
+   griglia, e i tratti esterni li taglia il bordo del cartiglio */
+.crt-cell{display:flex;flex-direction:column;gap:3px;align-items:flex-start;text-align:left;
+  padding:10px 13px 11px;background:transparent;border:none;color:inherit;font:inherit;
+  box-shadow:-1px 0 0 var(--line),0 -1px 0 var(--line)}
+.crt-cell .k{display:flex;align-items:center;gap:5px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);white-space:nowrap}
+.crt-cell .k .mk{width:7px;height:7px;border-radius:2px;flex:0 0 auto;background:var(--brand-line)}
+.crt-cell .k .mk.cf-ok{background:var(--ok)} .crt-cell .k .mk.cf-warn{background:var(--warn)}
+.crt-cell .k .mk.cf-info{background:var(--info)} .crt-cell .k .mk.cf-brand{background:var(--brand)}
+.crt-cell .k .mk.cf-accent{background:var(--accent)} .crt-cell .k .mk.cf-danger{background:var(--danger)}
+.crt-cell .v{font-family:var(--mono);font-size:25px;font-weight:600;line-height:1.05;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.crt-cell .s{font-size:11px;color:var(--muted);line-height:1.35;white-space:normal}
+button.crt-cell{cursor:pointer;transition:background .12s}
+button.crt-cell:hover{background:var(--surface-2)}
+button.crt-cell:focus-visible{outline:2px solid var(--brand);outline-offset:-2px}
+.crt-cell.allarme .v{color:var(--danger)}
+@media(max-width:560px){
+  /* minmax(0,...) e etichetta che va a capo: senza, il testo non spezzabile
+     allarga la colonna oltre lo schermo */
+  .crt-cells{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .crt-cell{padding:9px 11px 10px}
+  .crt-cell .k{white-space:normal}
+  .crt-cell .v{font-size:22px}
+  /* nella striscia resta la sola proporzione: nemmeno il numero ci sta.
+     Le cifre sono nelle celle qui sotto. Stessa specificita' della regola
+     dei 1200px e definita dopo, cosi' vince davvero. */
+  .crt-bar .crt-seg .lg,.crt-bar .crt-seg .sm{display:none}
+}
 /* metriche fornitore */
 .mgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
 .mkpi{background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:9px 10px;display:flex;flex-direction:column;gap:1px}
@@ -199,6 +237,7 @@ main{max-width:1180px;margin:0 auto;padding:16px calc(var(--sar) + 14px) calc(va
 .cf-ok{background:var(--ok)} .cf-warn{background:var(--warn)} .cf-info{background:var(--info)} .cf-brand{background:var(--brand)} .cf-muted{background:var(--surface-3)}
 .cf-danger{background:var(--danger);background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.28) 0 3px,transparent 3px 7px)}
 .cf-auto{background:var(--auto)} .cf-dist{background:var(--dist)} .cf-pot{background:var(--pot)}
+.cf-accent{background:var(--accent)}
 .map-legend i.lg.cf-ok{background:var(--ok)} .map-legend i.lg.cf-warn{background:var(--warn)} .map-legend i.lg.cf-info{background:var(--info)}
 .map-legend i.lg.cf-danger{background:var(--danger);background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.4) 0 2px,transparent 2px 5px)}
 /* colonne verticali impilate */
@@ -375,9 +414,32 @@ table.tbl tr.late td{background:linear-gradient(90deg,var(--danger-tint),transpa
 .lrow.unread{background:linear-gradient(90deg,var(--accent-tint),transparent 45%)}
 .lrow .arw{color:var(--muted);display:flex}
 .lrow-act{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+/* Anagrafica accessi: colonne fisse per profilo e stato, così i campi restano
+   incolonnati qualunque sia la lunghezza del nome. */
+.acc-row{display:grid;grid-template-columns:26px minmax(0,1fr) 126px 108px;align-items:center;gap:10px;
+  padding:9px 2px;border-bottom:1px solid var(--line-soft)}
+.acc-row:last-child{border-bottom:none}
+.acc-row.off{opacity:.55}
+.acc-chi{min-width:0}
+.acc-chi b{display:block;font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.acc-chi .s{display:block;font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.acc-prof,.acc-stato{display:flex;justify-content:flex-start}
+.acc-prof .inp.sm{width:100%}
+.acc-stato .btn{width:100%}
+@media(max-width:560px){
+  .acc-row{grid-template-columns:26px minmax(0,1fr);row-gap:7px}
+  .acc-prof{grid-column:2}
+  .acc-stato{grid-column:2}
+}
 @media(max-width:640px){
   .lrow:has(.lrow-act){flex-wrap:wrap}
   .lrow .lrow-act{flex-basis:100%;justify-content:flex-start;padding-left:47px}
+}
+/* Su schermo stretto un pulsante in riga allarga la scheda oltre lo schermo:
+   va a capo sotto al testo invece di spingere. */
+@media(max-width:560px){
+  .lrow:has(> .btn){flex-wrap:wrap}
+  .lrow > .btn{flex-basis:100%;margin-left:47px}
 }
 
 .avatar{width:34px;height:34px;border-radius:50%;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:#fff;background:var(--brand)}
@@ -1189,7 +1251,8 @@ let _stateVer = 0;                                   // bumpato ad ogni mutazion
 function persist(){ _stateVer++; Store.save(STATE); }
 // Riporta la demo ai dati iniziali della versione corrente: utile se il browser
 // conserva dati vecchi o se si vuole ripartire puliti dopo aver provato il portale.
-function resetDemoData(){ STATE=seed(); Session=null;
+function resetDemoData(){ if(!isResp(currentUser())){ toast("Solo il responsabile di produzione","warn"); return; }
+  STATE=seed(); Session=null;
   try{ Storage.set(SESSKEY, JSON.stringify(null)); }catch(e){}
   persist(); App.tab=null; App.filters={q:"",stato:"",tipologia:"",settore:"",capo:"",fornitore:"",late:false};
   closeModal(); toast("Dati dimostrativi ripristinati","ok"); render();
@@ -1276,9 +1339,13 @@ function resolveMagicLink(){
   try{ history.replaceState(null,"",(location.href||"").split("#")[0]); }catch(e){ try{ location.hash=""; }catch(_){} }
   if(p.c||p.q) App._deepLink={ code:p.c||null, req:p.q||null };
   // il link personale vince SEMPRE sulla sessione in corso: chi apre l'email deve entrare come se stesso
-  if(p.f){ const u=ensureSupplierUser(p.f); if(u){ setSession(u.id); return true; }
+  // un accesso revocato non rientra dal link: il collegamento identifica, non riapre una porta chiusa
+  const entra=u=>{ if(!utenteAttivo(u)){ toast("Accesso disattivato: contatta il responsabile","warn"); return false; }
+    setSession(u.id); return true; };
+  if(p.f){ const u=ensureSupplierUser(p.f); if(u){ if(entra(u)) return true; return !!App._deepLink; }
     toast("Link non valido: fornitore non trovato","warn"); return !!App._deepLink; }
-  if(p.u && byId(STATE.users,p.u)){ setSession(p.u); return true; }          // link personale di un utente Righi (es. caposquadra)
+  if(p.u){ const u=byId(STATE.users,p.u);                                    // link personale di un utente Righi
+    if(u){ if(entra(u)) return true; return !!App._deepLink; } }
   return !!App._deepLink;
 }
 // L'hash puo' arrivare DOPO il boot (alcuni host impostano l'URL dell'iframe dopo il caricamento):
@@ -1325,8 +1392,14 @@ function keyDate(j){ return j.dataRientro||j.dataConsegna; }
 function lateDays(j){ if(isLateReturn(j)) return Math.abs(daysTo(j.dataRientro)); if(isLateStart(j)) return Math.abs(daysTo(j.dataInizioStimata)); return 0; }
 function jobResponses(jid){ return graphIndex().respByJob[jid]||[]; }   // lista di adiacenza commessa-risposte
 function jobRequests(jid){ return graphIndex().reqByJob[jid]||[]; }     // lista di adiacenza commessa-richieste
-function scopedJobs(){ const u=currentUser(); return isCapo(u)? STATE.jobs.filter(j=>j.capoId===u.capoId) : STATE.jobs; }
-function scopedRequests(){ const u=currentUser(); return isCapo(u)? STATE.requests.filter(r=>r.capoId===u.capoId) : STATE.requests; }
+/* Il perimetro sulle commesse sta QUI, alla fonte: il caposquadra vede le
+   proprie, il QHSE nessuna (la sua materia sono i documenti). Cosi' anche
+   canSeeJob/canSeeReq — e quindi i link diretti — ne discendono senza dover
+   ricordare un controllo in piu' in ogni punto. */
+function scopedJobs(){ const u=currentUser(); if(isQhse(u)) return [];
+  return isCapo(u)? STATE.jobs.filter(j=>j.capoId===u.capoId) : STATE.jobs; }
+function scopedRequests(){ const u=currentUser(); if(isQhse(u)) return [];
+  return isCapo(u)? STATE.requests.filter(r=>r.capoId===u.capoId) : STATE.requests; }
 /* ore stimate: carico attivo per fornitore e mese di consegna (solo dati Righi) */
 const MESI=["gen","feb","mar","apr","mag","giu","lug","ago","set","ott","nov","dic"];
 function monthKey(iso){ return (iso||"").slice(0,7); }
@@ -1708,6 +1781,36 @@ function viewLogin(){
   </div></div>`;
 }
 
+/* Costruisce il cartiglio (vedi il commento del CSS omonimo).
+   celle:   {label, v, sub, mk, allarme, act, data}
+   strisce: {label, q, cls} — la ripartizione in cima, proporzionale.
+   Le celle cliccabili sono <button>: prima erano <div>, quindi irraggiungibili
+   da tastiera pur essendo la via principale per entrare nei filtri. */
+function cartiglio(celle, strisce){
+  const seg=(strisce||[]).filter(x=>x.q>0);
+  const tot=seg.reduce((n,x)=>n+x.q,0);
+  const bar = seg.length>1
+    ? `<div class="crt-bar" role="img" aria-label="Ripartizione: ${esc(seg.map(x=>x.q+" "+x.label.toLowerCase()).join(", "))}">
+        ${seg.map(x=>{
+          // sotto l'8% la scritta uscirebbe troncata: resta il solo colore.
+          // Sopra, la dicitura per intero sui monitor larghi e il solo numero
+          // dove lo spazio non basta (vedi le media query di .crt-seg).
+          const testo = (x.q/tot >= 0.08)
+            ? `<span class="lg">${x.q} ${esc(x.label.toLowerCase())}</span><span class="sm">${x.q}</span>` : "";
+          return `<span class="crt-seg ${x.cls||"cf-muted"}" style="flex:${x.q}" title="${esc(x.label)}: ${x.q}">${testo}</span>`;
+        }).join("")}</div>`
+    : "";
+  const cella=c=>{
+    const dentro = `<span class="k">${c.mk?`<i class="mk ${c.mk}"></i>`:""}${esc(c.label)}</span>
+      <span class="v">${esc(String(c.v))}</span>${c.sub?`<span class="s">${c.sub}</span>`:""}`;
+    const cls = "crt-cell"+(c.allarme?" allarme":"");
+    if(!c.act) return `<div class="${cls}">${dentro}</div>`;
+    const attr = Object.keys(c.data||{}).map(k=>` data-${k}="${esc(c.data[k])}"`).join("");
+    return `<button class="${cls}" data-act="${c.act}"${attr}>${dentro}</button>`;
+  };
+  return `<div class="cartiglio">${bar}<div class="crt-cells">${celle.map(cella).join("")}</div></div>`;
+}
+
 /* ==================== VIEW: QHSE — Qualifica e scadenzario ====================
    Il perimetro del responsabile QHSE e' una coda di lavoro, non un cruscotto da
    guardare: documenti da verificare, scadenze in arrivo, fornitori fermi. Ogni
@@ -1751,12 +1854,20 @@ function viewQhseQualifica(){
       <button class="btn accent" data-act="docTypes">${icon("sliders","sm")} Tipi di documento</button>
       <button class="btn ghost" data-act="exportQualifica">${icon("download","sm")} Esporta CSV</button>
     </div></div>
-  <div class="grid k4" style="margin-bottom:14px">
-    <div class="card kpi ${nonQual.length?"danger":""} click" data-act="goQualifica"><span class="v">${nonQual.length}</span><span class="l">Non assegnabili</span><span class="foot">un bloccante non in regola</span></div>
-    <div class="card kpi ${riserva.length?"accent":""} click" data-act="goRiserva"><span class="v">${riserva.length}</span><span class="l">Con riserva</span><span class="foot">da sistemare, non bloccante</span></div>
-    <div class="card kpi ${daVer.length?"accent":""} click" data-act="goScad" data-f="da_verificare"><span class="v">${daVer.length}</span><span class="l">Da verificare</span><span class="foot">inviati dai fornitori</span></div>
-    <div class="card kpi click" data-act="goScad" data-f="in_scadenza"><span class="v">${scad.length}</span><span class="l">In scadenza</span><span class="foot">entro il preavviso del tipo</span></div>
-  </div>
+  ${cartiglio([
+    {label:"Non assegnabili", v:nonQual.length, sub:"un bloccante non in regola", mk:"cf-danger",
+     allarme:nonQual.length>0, act:"goQualifica"},
+    {label:"Con riserva", v:riserva.length, sub:"da sistemare, non bloccante", mk:"cf-warn", act:"goRiserva"},
+    {label:"Da verificare", v:daVer.length, sub:"inviati dai fornitori", mk:"cf-info",
+     act:"goScad", data:{f:"da_verificare"}},
+    {label:"In scadenza", v:scad.length, sub:"entro il preavviso del tipo", mk:"cf-accent",
+     act:"goScad", data:{f:"in_scadenza"}},
+  ], [
+    // la ripartizione dei fornitori attivi: le tre classi si escludono e fanno il totale
+    {label:"Qualificati", q:attivi-nonQual.length-riserva.length, cls:"cf-ok"},
+    {label:"Con riserva", q:riserva.length, cls:"cf-warn"},
+    {label:"Non assegnabili", q:nonQual.length, cls:"cf-danger"},
+  ])}
   <div class="card" style="margin-bottom:14px">
     <div class="sect-t">${icon("clock","sm")} Da verificare — arrivati dai fornitori</div>
     ${daVer.length?`<div class="rowlist">${daVer.map(r=>scadRiga(r,true)).join("")}</div>`
@@ -1847,13 +1958,27 @@ function viewRighiDashboard(){
   return `
   <div class="view-head"><div><h2>Ciao, ${esc(u.name.split(" ")[0])}</h2><p>${capo_?"Le commesse che segui":"Tutte le commesse"} · ${fmtDate(todayISO())}</p></div>
     <button class="btn accent" data-act="goNuovo">${icon("plus")} Nuovo lavoro</button></div>
-  <div class="grid k4" style="margin-bottom:14px">
-    <div class="card kpi click" data-act="goFilter" data-stato="da_assegnare"><span class="v">${pub}</span><span class="l">Da assegnare</span><span class="foot">pubblicati ai fornitori</span></div>
-    <div class="card kpi ok click" data-act="goFilter" data-stato="attivi"><span class="v">${ass}</span><span class="l">Assegnati / in corso</span></div>
-    <div class="card kpi danger click" data-act="goFilter" data-stato="late"><span class="v">${late.length}</span><span class="l">In ritardo</span><span class="foot">inizio o rientro superati</span></div>
-    <div class="card kpi accent click" data-act="goTab" data-tab="richieste"><span class="v">${openReq.length}</span><span class="l">Richieste aperte</span><span class="foot">dai fornitori</span></div>
-    <div class="card kpi ${fornitoriNonQualificati().length?"danger":""} click" data-act="goQualifica"><span class="v">${fornitoriNonQualificati().length}</span><span class="l">Fornitori non in regola</span><span class="foot">${fornitoriConRiserva().length} con riserva (scadenze o non bloccanti)</span></div>
-  </div>
+  ${cartiglio([
+    {label:"Da assegnare", v:pub, sub:"pubblicati ai fornitori", mk:"cf-info",
+     act:"goFilter", data:{stato:"da_assegnare"}},
+    {label:"Assegnati / in corso", v:ass, mk:"cf-ok", act:"goFilter", data:{stato:"attivi"}},
+    {label:"In ritardo", v:late.length, sub:"inizio o rientro superati", mk:"cf-danger",
+     allarme:late.length>0, act:"goFilter", data:{stato:"late"}},
+    {label:"Richieste aperte", v:openReq.length, sub:"dai fornitori", mk:"cf-accent",
+     act:"goTab", data:{tab:"richieste"}},
+    {label:"Fornitori non in regola", v:fornitoriNonQualificati().length, mk:"cf-danger",
+     sub:fornitoriConRiserva().length+" con riserva (scadenze o non bloccanti)",
+     allarme:fornitoriNonQualificati().length>0, act:"goQualifica"},
+  ], [
+    // il flusso di lavorazione per intero: gli stati si escludono e la somma fa
+    // il totale delle commesse in scopo, altrimenti la striscia mentirebbe
+    {label:"Bozze", q:base.filter(j=>j.stato==="bozza").length, cls:"cf-muted"},
+    {label:"Da approvare", q:daApprovare.length, cls:"cf-warn"},
+    {label:"Da assegnare", q:pub, cls:"cf-info"},
+    {label:"Attive", q:ass, cls:"cf-ok"},
+    {label:"Consegnate", q:base.filter(j=>j.stato==="consegnato").length, cls:"cf-brand"},
+    {label:"Chiuse", q:base.filter(j=>j.stato==="chiuso").length, cls:"cf-muted"},
+  ])}
   ${daApprovare.length?`<div class="card leftbar" style="margin-bottom:14px;border-left:4px solid var(--warn)">
     <div class="sect-t" style="color:var(--warn)">${icon("bolt","sm")} ${capo_?"Le tue commesse in attesa di approvazione":"Da approvare — inviate dai capisquadra"} (${daApprovare.length})</div>
     <div class="rowlist">${daApprovare.slice(0,6).map(j=>{const rq=byId(STATE.users,j.richiedente);return `
@@ -2408,10 +2533,11 @@ function viewProfilo(u){
     <div style="display:flex;gap:14px;align-items:center;margin-bottom:14px">
       <span class="avatar" style="width:52px;height:52px;font-size:18px;background:${colorFor(s.id)}">${initials(s.name)}</span>
       <div><h3 style="font-size:19px">${esc(s.name)}</h3><div class="muted">${esc(s.citta)} · <span class="pill ${QUAL_PILL[qualifica(s.id).stato]}">${QUAL_LABEL[qualifica(s.id).stato]}</span></div></div></div>
-    <div class="grid k3" style="margin-bottom:14px">
-      <div class="card kpi"><span class="v">${active}</span><span class="l">Commesse attive</span></div>
-      <div class="card kpi ok"><span class="v">${done}</span><span class="l">Consegnate</span></div>
-      <div class="card kpi"><span class="v">${m.puntualita==null?"—":m.puntualita+"%"}</span><span class="l">Puntualità</span></div></div>
+    ${cartiglio([
+      {label:"Commesse attive", v:active, mk:"cf-ok"},
+      {label:"Consegnate", v:done, mk:"cf-brand"},
+      {label:"Puntualità", v:m.puntualita==null?"—":m.puntualita+"%", mk:"cf-info"},
+    ])}
     <div class="field"><label>Specializzazioni</label><div class="tags">${s.specialties.map(sp=>`<span class="pill brand"><span class="dot ${TIPOLOGIE[sp].dot}"></span>${TIPOLOGIE[sp].short}</span>`).join("")}</div></div>
     <div class="field"><label>Certificazioni</label><div class="tags">${(s.certificazioni&&s.certificazioni.length)?s.certificazioni.map(c=>`<span class="pill accent">${CERT[c]||c}</span>`).join(""):'<span class="muted">—</span>'}</div></div>
     <div class="row2"><div class="field"><label>Settori</label><div class="tags">${s.settori.map(se=>`<span class="pill plain">${esc(se)}</span>`).join("")||'<span class="muted">—</span>'}</div></div>
@@ -2709,9 +2835,9 @@ function openSwitch(){
     <button class="btn ghost block" style="margin-top:8px" data-act="newUser">${icon("plus","sm")} Nuovo utente / accesso</button>
     ${isResp(currentUser())?`<button class="btn ghost block" style="margin-top:8px" data-act="profili">${icon("sliders","sm")} Anagrafica profili e accessi</button>`:""}
     <div class="divide"></div>
-    <button class="btn ghost block" data-act="resetDemo">${icon("bolt","sm")} Ripristina dati dimostrativi</button>
-    <p class="muted" style="font-size:12px;margin:6px 0 0">Riporta la demo ai dati iniziali di questa versione: usalo se il browser mostra ancora dati di una versione precedente.</p>
-    <div class="divide"></div>
+    ${isResp(currentUser())?`<button class="btn ghost block" data-act="resetDemo">${icon("bolt","sm")} Ripristina dati dimostrativi</button>
+    <p class="muted" style="font-size:12px;margin:6px 0 0">Riporta la demo ai dati iniziali di questa versione: usalo se il browser mostra ancora dati di una versione precedente. Azzera i dati di <b>tutti</b> gli accessi, per questo è riservato al responsabile.</p>
+    <div class="divide"></div>`:""}
     <button class="btn danger block" data-act="logout">${icon("logout","sm")} Esci</button>`);
 }
 function openNewUser(){ const d=App.userDraft={role:"fornitore"};
@@ -2744,20 +2870,25 @@ function openProfili(){
       <span class="ic ${k==="responsabile"?"accent":k==="qhse"?"info":k==="fornitore"?"":"ok"}">${icon(P.ic,"sm")}</span>
       <span class="gr"><b>${esc(P.label)} <span class="pill plain">${conta(k)} attiv${conta(k)===1?"o":"i"}</span></b>
         <span class="s">${esc(P.sintesi)}<br>${P.puo.map(x=>"· "+esc(x)).join("<br>")}${P.no.length?"<br>"+P.no.map(x=>"<b>·</b> "+esc(x)).join("<br>"):""}</span></span></div>`; };
+  /* Righe a COLONNE, non a flex: qui "profilo" e "stato" sono campi, e i campi
+     si leggono incolonnati. Con il flex ogni riga metteva i comandi dove
+     capitava, a seconda di quanto era lungo il nome. */
   const riga=u=>{ const off=!utenteAttivo(u); const io=u.id===me.id;
     const s=u.supplierId?supplier(u.supplierId):null;
     const ultimo=isResp(u) && responsabiliAttivi().length<=1;
-    return `<div class="lrow" style="align-items:flex-start;${off?"opacity:.55":""}">
+    const puoCambiare=u.role==="righi" && !io && !ultimo;
+    return `<div class="acc-row${off?" off":""}">
       <span class="avatar sm" style="background:${u.role==='righi'?'var(--accent)':colorFor(u.id)}">${initials(u.name)}</span>
-      <span class="gr"><b>${esc(u.name)}${io?' <span class="pill brand">tu</span>':""}${off?' <span class="pill plain">non attivo</span>':""}</b>
-        <span class="s">${esc(profiloLabel(u))}${s?" · "+esc(s.name):""}${u.email?" · "+esc(u.email):""}</span></span>
-      <span class="lrow-act">
-        ${u.role==="righi"&&!io&&!ultimo?`<select class="inp sm" data-prof-user="${u.id}" aria-label="Profilo di ${esc(u.name)}">
-          ${PROFILI_RIGHI.map(k=>`<option value="${k}"${profiloDi(u)===k?" selected":""}>${esc(PROFILI[k].chip)}</option>`).join("")}</select>`:""}
-        ${io?'<span class="pill info">accesso in uso</span>'
-           :ultimo?'<span class="pill warn">ultimo responsabile</span>'
-           :`<button class="btn sm ${off?"accent":"ghost"}" data-act="utenteToggle" data-u="${u.id}">${off?"Riattiva":"Disattiva"}</button>`}
-      </span></div>`; };
+      <span class="acc-chi"><b>${esc(u.name)}${io?' <span class="pill brand">tu</span>':""}</b>
+        <span class="s">${s?esc(s.name):esc(u.email||"")}</span></span>
+      <span class="acc-prof">${puoCambiare
+        ? `<select class="inp sm" data-prof-user="${u.id}" aria-label="Profilo di ${esc(u.name)}">
+             ${PROFILI_RIGHI.map(k=>`<option value="${k}"${profiloDi(u)===k?" selected":""}>${esc(PROFILI[k].chip)}</option>`).join("")}</select>`
+        : `<span class="pill plain">${esc(profiloChip(u))}</span>`}</span>
+      <span class="acc-stato">${io?'<span class="pill info">in uso</span>'
+        :ultimo?'<span class="pill warn">ultimo resp.</span>'
+        :`<button class="btn sm ${off?"accent":"ghost"} block" data-act="utenteToggle" data-u="${u.id}">${off?"Riattiva":"Disattiva"}</button>`}</span>
+    </div>`; };
   const righi=STATE.users.filter(u=>u.role==="righi");
   const forn=STATE.users.filter(u=>u.role==="fornitore");
   openModal(`${modalHead("Anagrafica profili e accessi")}
@@ -2795,8 +2926,13 @@ function toggleUtente(userId){
   if(u.id===me.id){ toast("Non puoi disattivare l'accesso che stai usando","warn"); return; }
   if(utenteAttivo(u) && isResp(u) && responsabiliAttivi().length<=1){ toast("È l'ultimo responsabile di produzione attivo","warn"); return; }
   u.attivo = !utenteAttivo(u);
+  // spegnere l'accesso di un fornitore che ha lavoro in corso vuol dire che le
+  // notifiche del portale non lo raggiungono piu': meglio dirlo subito
+  const attive = (!u.attivo && u.supplierId)
+    ? STATE.jobs.filter(j=>j.assegnatoA===u.supplierId && ["assegnato","in_corso"].includes(j.stato)).length : 0;
   persist(); Sfx.play(u.attivo?"approvazione":"avviso");
-  toast(u.name+(u.attivo?": accesso riattivato":": accesso disattivato"), u.attivo?"ok":"warn");
+  toast(u.name+(u.attivo?": accesso riattivato":": accesso disattivato")
+    + (attive?" · ha "+attive+" commesse in corso e non riceverà più le notifiche nel portale":""), u.attivo?"ok":"warn");
   render(); openProfili();
 }
 
