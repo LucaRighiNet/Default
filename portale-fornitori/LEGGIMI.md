@@ -198,6 +198,32 @@ apicale, e un'azienda piccola non può fermarsi quando il QHSE è assente. Quand
 un fornitore comunica un rinnovo, l'avviso arriva a **entrambi**: la notifica
 segue chi ha il potere di agire, non un ruolo fissato nel codice.
 
+**Anagrafica profili e accessi**
+
+I profili non sono etichette sparse: vivono in un **registro unico** da cui
+derivano l'etichetta nella barra in alto, la voce che si legge nella schermata di
+accesso e in *cambia utente*, i pulsanti del modulo di creazione e la legenda
+dell'anagrafica. Aggiungere un profilo vuol dire aggiungere **una riga lì**, non
+toccare cinque punti e dimenticarne uno.
+
+Da **cambia utente · Anagrafica profili e accessi** (riservato al responsabile di
+produzione) vedi tutti gli accessi con il loro profilo, più la legenda di cosa
+ciascun profilo può e non può fare. Due azioni, entrambe con effetto immediato:
+
+- **Cambia profilo** — i permessi seguono subito. Passando a caposquadra
+  l'accesso riceve una squadra; uscendone la perde, perché non se la porta dietro.
+- **Disattiva / riattiva** — un accesso disattivato **non entra** (il rifiuto è
+  nella funzione di accesso, non solo nella riga grigia), non ha alcun permesso e
+  **non riceve notifiche**. Resta in elenco, marcato *non attivo*, e si riattiva
+  quando serve.
+
+Due protezioni: non puoi agire sull'**accesso che stai usando**, e non puoi
+lasciare il portale **senza un responsabile di produzione attivo** — né
+disattivandolo né declassandolo.
+
+Anche la schermata di accesso è ora **raggruppata per profilo**: chi entra vede
+subito in che veste sta entrando.
+
 **Flusso di approvazione**: quando un caposquadra compila *Nuovo lavoro* e preme
 **Invia per approvazione**, la commessa entra in stato **Da approvare** (mai
 visibile ai fornitori). Il responsabile la trova in Dashboard e nel filtro
@@ -431,8 +457,8 @@ cd portale-fornitori && node tests/run_all.js
 
 Verifica la sintassi dell'app (`node --check`), la logica pura di dominio
 (regole di **visibilità** dei lavori, **ritardi**, **qualifica**, registro dei
-tipi di documento, **profili di accesso** e scadenzario, integrità del seed,
-helper), il contratto di **sync** e i **suoni** — questi ultimi registrando
+tipi di documento, **anagrafica dei profili** e permessi, scadenzario, integrità
+del seed, helper), il contratto di **sync** e i **suoni** — questi ultimi registrando
 la sintesi voce per voce (scala, timbro, durate, volumi, direzione melodica e
 firma distinta per ogni funzionalità). Nessuna dipendenza esterna.
 

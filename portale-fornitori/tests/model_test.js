@@ -10,7 +10,7 @@ const START = "/* ============================ Utility";
 const END   = "/* ============================ Render";
 const EXPORTS = ["STATE","App","isLate","isLateStart","isLateReturn","keyDate","lateDays","jobsForSupplier","filteredJobs","daysTo","relDays","fmtMoney","fmtDate",
                  "dISO","addDays","supplier","capo","byId","mailto","isCapo","activeHours","supplierMonthlyLoad","monthKey",
-                 "toCSV","parseCSV","isAssegnabile","qualifica","docStato","motivoBlocco","motivoRiserva","elencoDoc","isQhse","isResp","isCapo","canDocs","canProduzione","scadenzarioRighe","scadFiltra","SCAD_FILTRI","docTipi","docTipiAttivi","docTipo","docKeys","docObbl","docBloccanti","docVisibileA","docPreavviso","docTipiSeed","DOC_STATI_KO","suggestEsclusi",
+                 "toCSV","parseCSV","isAssegnabile","qualifica","docStato","motivoBlocco","motivoRiserva","elencoDoc","isQhse","isResp","isCapo","canDocs","canProduzione","PROFILI","PROFILI_RIGHI","profiloDi","profilo","utenteAttivo","responsabiliAttivi","scadenzarioRighe","scadFiltra","SCAD_FILTRI","docTipi","docTipiAttivi","docTipo","docKeys","docObbl","docBloccanti","docVisibileA","docPreavviso","docTipiSeed","DOC_STATI_KO","suggestEsclusi",
                  "supplierMetrics","freeCapacity","monthLoad","daysBetween","jobHealth","suggestSuppliers",
                  "TIPOLOGIE","STATI","SETTORI","LAVORAZIONI","LAV_KEYS","parseLavorazioni","REQ_TYPES","AVANZAMENTO","CERT","QUICK_REPLIES","esc","uid",
                  "DIMENSIONI","ATTREZZATURE","fitsSpazio","supplier","jobResponses","jobRequests","graphIndex","maxflowMinCut","capacityBottleneck"];
@@ -446,8 +446,71 @@ r.ok("i motivi non nominano mai un documento riservato al fornitore", () => {
     assert(/gestit\w+ da Righi/.test(S.motivoBlocco(s.id, false)), "il blocco va comunque spiegato");
   } finally { ris.bloccante = eraB; ris.obbl = eraO; ripristina(); }
 });
-/* ---- Profili di accesso lato Righi ---- */
-r.ok("i tre profili Righi sono distinti e mutuamente esclusivi", () => {
+/* ---- Anagrafica dei profili ---- */
+r.ok("il registro dei profili è completo e coerente", () => {
+  const k = Object.keys(S.PROFILI);
+  assert(k.includes("responsabile") && k.includes("caposquadra") && k.includes("qhse") && k.includes("fornitore"),
+    "profili attesi mancanti: " + k.join(", "));
+  for (const id of k) {
+    const P = S.PROFILI[id];
+    assert(["righi", "fornitore"].includes(P.lato), id + ": lato non valido");
+    assert(P.chip && P.label && P.ruolo && P.sintesi, id + ": etichette incomplete");
+    assert(Array.isArray(P.puo) && P.puo.length, id + ": nessuna capacità dichiarata");
+    assert(Array.isArray(P.no), id + ": elenco dei limiti mancante");
+    assert(P.ic, id + ": icona mancante");
+  }
+  const chip = k.map(id => S.PROFILI[id].chip);
+  assert.strictEqual(new Set(chip).size, chip.length, "etichette brevi duplicate: " + chip.join(", "));
+  assert.deepStrictEqual(S.PROFILI_RIGHI.slice().sort(), ["caposquadra", "qhse", "responsabile"],
+    "profili Righi disallineati: " + S.PROFILI_RIGHI.join(", "));
+});
+r.ok("ogni accesso del seed ha un profilo riconosciuto e l'etichetta del registro", () => {
+  for (const u of S.STATE.users) {
+    const id = S.profiloDi(u);
+    assert(id && S.PROFILI[id], "profilo non riconosciuto per " + u.id + " (" + u.righiRole + ")");
+    // l'etichetta non è una stringa scritta a mano: viene dal registro
+    assert.strictEqual(u.ruolo, S.PROFILI[id].ruolo, u.id + ": etichetta fuori registro (" + u.ruolo + ")");
+    assert.strictEqual(S.utenteAttivo(u), true, u.id + ": il seed deve creare accessi attivi");
+  }
+});
+r.ok("un ruolo sconosciuto non regala i permessi più alti", () => {
+  const finto = { id: "u_x", role: "righi", righiRole: "amministratore_delegato" };
+  assert.strictEqual(S.profiloDi(finto), null, "un ruolo inventato non deve risolversi");
+  assert.strictEqual(S.isResp(finto), false);
+  assert.strictEqual(S.canDocs(finto), false);
+  assert.strictEqual(S.canProduzione(finto), false, "resta comunque fuori dalla produzione");
+  // un accesso Righi SENZA ruolo è un dato vecchio: vale come responsabile
+  assert.strictEqual(S.profiloDi({ id: "u_y", role: "righi" }), "responsabile");
+});
+r.ok("un accesso disattivato non ha alcun permesso", () => {
+  const u = S.STATE.users.find(x => S.isResp(x));
+  const q = S.STATE.users.find(x => S.isQhse(x));
+  const c = S.STATE.users.find(x => S.isCapo(x));
+  try {
+    for (const [x, nome] of [[u, "responsabile"], [q, "qhse"], [c, "caposquadra"]]) {
+      x.attivo = false;
+      assert.strictEqual(S.utenteAttivo(x), false, nome);
+      assert.strictEqual(S.canDocs(x), false, nome + ": conserva i permessi documentali");
+      assert.strictEqual(S.canProduzione(x), false, nome + ": conserva i permessi di produzione");
+      assert.strictEqual(S.isResp(x) || S.isQhse(x) || S.isCapo(x), false, nome + ": risulta ancora nel suo profilo");
+      // il profilo resta leggibile: serve a mostrarlo in anagrafica
+      assert(S.profiloDi(x), nome + ": disattivare non deve cancellare il profilo");
+      x.attivo = true;
+    }
+  } finally { u.attivo = true; q.attivo = true; c.attivo = true; }
+});
+r.ok("l'ultimo responsabile attivo è protetto dal conteggio", () => {
+  const resp = S.STATE.users.filter(x => S.isResp(x));
+  assert.strictEqual(S.responsabiliAttivi().length, resp.length);
+  const altri = resp.slice(1);
+  try {
+    altri.forEach(x => x.attivo = false);
+    assert.strictEqual(S.responsabiliAttivi().length, 1, "deve restarne esattamente uno");
+    resp[0].attivo = false;
+    assert.strictEqual(S.responsabiliAttivi().length, 0, "il conteggio segue lo stato reale");
+  } finally { resp.forEach(x => x.attivo = true); }
+});
+r.ok("i profili Righi sono distinti e mutuamente esclusivi", () => {
   const resp = S.STATE.users.find(u => u.righiRole === "responsabile");
   const capo = S.STATE.users.find(u => u.righiRole === "caposquadra");
   const qhse = S.STATE.users.find(u => u.righiRole === "qhse");

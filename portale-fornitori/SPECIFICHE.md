@@ -83,9 +83,40 @@ apicale, e un'azienda piccola non può fermarsi quando il QHSE è assente.
 
 Nel codice la matrice si riduce a due predicati, e ogni azione ne cita uno solo:
 `canDocs(u)` (responsabile o QHSE) per la parte documentale, `canProduzione(u)`
-(righi e non QHSE) per le commesse.
+(responsabile o caposquadra) per le commesse. Nessuno dei due è definito "per
+esclusione": un ruolo non riconosciuto non concede nulla, perché un dato sporco
+non deve regalare i permessi più alti.
 
-### 2.3 Riservatezza: cosa non attraversa il confine
+### 2.3 Anagrafica dei profili e degli accessi
+
+I profili non sono stringhe sparse nel codice: vivono in un **registro unico**
+(`PROFILI`) da cui derivano l'etichetta nella barra, la voce che si legge in
+accesso e in *cambia utente*, i pulsanti del modulo di creazione e la legenda
+dell'anagrafica. Aggiungere un profilo significa aggiungere **una riga lì**, non
+toccare cinque punti e dimenticarne uno.
+
+Ogni profilo dichiara: `lato` (Righi o fornitore), etichetta breve e estesa, la
+voce mostrata sull'accesso, una sintesi, l'elenco di **cosa può fare** e di
+**cosa non può**. Sono gli stessi elenchi che l'anagrafica mostra come legenda:
+la documentazione del permesso sta accanto al permesso.
+
+**La schermata** (*cambia utente · Anagrafica profili e accessi*, riservata al
+responsabile di produzione) elenca gli accessi Righi e fornitore con il loro
+profilo, e offre due sole azioni — entrambe con effetto immediato sui permessi:
+
+| Azione | Effetto |
+|---|---|
+| **Cambia profilo** | I permessi seguono subito. Passando a caposquadra l'accesso riceve una squadra; uscendone la perde, perché non se la porta dietro |
+| **Disattiva / riattiva** | Un accesso disattivato **non entra** (il rifiuto è nella funzione di accesso, non solo nella riga grigia), non ha alcun permesso e **non riceve notifiche**. Resta in elenco, marcato, e si riattiva quando serve |
+
+Due protezioni, entrambe verificate: non si agisce **sull'accesso che si sta
+usando**, e non si può lasciare il portale **senza un responsabile di produzione
+attivo** — né disattivandolo né declassandolo.
+
+Anche la schermata di accesso è raggruppata per profilo: chi entra vede subito
+in che veste sta entrando, invece di cercare il proprio nome in un elenco piatto.
+
+### 2.4 Riservatezza: cosa non attraversa il confine
 
 Regola strutturale, non cosmetica: alcune informazioni **non escono mai** verso il
 fornitore, perché riguardano la marginalità e la pianificazione interna di Righi.
@@ -728,11 +759,11 @@ vecchia". È disponibile anche un **ripristino manuale** dei dati dimostrativi.
 
 | Livello | Copertura |
 |---|---|
-| **Test di modello** (91) | Date e alert, metriche, capacità, qualifica, matching ottimo, flusso massimo e taglio minimo, invarianti del grafo |
+| **Test di modello** (96) | Date e alert, metriche, capacità, qualifica, matching ottimo, flusso massimo e taglio minimo, invarianti del grafo |
 | **Test di sincronizzazione** (6) | Contratto del seam remoto (pull/push, versioni) |
 | **Test dei suoni** (26) | La sintesi viene registrata voce per voce: scala, timbro, durate, volumi, direzione melodica, firma distinta per ogni funzionalità, interruttore e anti-raffica |
 | **Audit automatici** (3 passate) | Percorso completo di tutti i ruoli su ogni schermata (desktop e mobile), riservatezza, invarianti, persistenza, coerenza dei numeri, casi limite dei link |
-| **Prove end-to-end** (45 scenari) | Ciclo di vita, extra, magic link, richieste con foto, approvazioni, carico, analisi, suoni sulle azioni reali, registro dei tipi di documento, perimetro del profilo QHSE |
+| **Prove end-to-end** (54 scenari) | Ciclo di vita, extra, magic link, richieste con foto, approvazioni, carico, analisi, suoni sulle azioni reali, registro dei tipi di documento, perimetro del profilo QHSE, anagrafica profili e accessi |
 | **Controlli strutturali** | Nessuna funzione vuota, nessun pulsante privo di effetto, nessun gestore orfano, nessuna emoji |
 
 Gli audit hanno individuato e fatto correggere difetti reali — tra cui una **fuga
@@ -757,7 +788,8 @@ corretti, per non lasciare falsi allarmi.
 email con link diretto, auto-matching, duplicazione come modello, firma leggera,
 assegnazione ottima, lettura del collo di bottiglia, gestione degli extra,
 qualifica dei fornitori dai documenti con registro dei tipi configurabile,
-profilo di accesso QHSE con scadenzario, linguaggio sonoro degli eventi.
+profilo di accesso QHSE con scadenzario, anagrafica dei profili e degli
+accessi, linguaggio sonoro degli eventi.
 
 **Prossimi passi** (richiedono il server, dettagliati in `BACKEND.md`):
 
@@ -786,5 +818,7 @@ profilo di accesso QHSE con scadenzario, linguaggio sonoro degli eventi.
 | **Tipo bloccante** | Documento richiesto la cui assenza o scadenza rende il fornitore non assegnabile |
 | **Con riserva** | Qualificato ma con qualcosa da sistemare: non ferma il lavoro |
 | **QHSE** | Qualità, Sicurezza, Ambiente: il presidio documentale sui fornitori |
+| **Profilo** | Insieme di permessi assegnato a un accesso: determina cosa si vede e cosa si può fare |
+| **Accesso** | Utenza del portale, collegata a un profilo e attivabile o disattivabile |
 | **Scadenzario** | Elenco di tutti i documenti dei fornitori attivi ordinato per urgenza |
 | **Firma sonora** | Sequenza di note che identifica un evento: distinta per ogni funzionalità |

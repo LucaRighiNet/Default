@@ -256,6 +256,7 @@ main{max-width:1180px;margin:0 auto;padding:16px calc(var(--sar) + 14px) calc(va
 .field{margin-bottom:13px}
 .field > label{display:block;font-size:12.5px;font-weight:600;color:var(--ink-soft);margin-bottom:5px}
 .field .hint{font-size:11.5px;color:var(--muted);margin-top:4px}
+select.inp.sm{min-height:34px;padding:5px 8px;font-size:12.5px;width:auto}
 .inp,select.inp,textarea.inp{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#fff;min-height:44px;color:var(--ink);transition:border-color .15s,box-shadow .15s}
 .inp:focus,select.inp:focus,textarea.inp:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-tint)}
 textarea.inp{min-height:80px;resize:vertical;line-height:1.45}
@@ -545,7 +546,7 @@ const KEY="righi_portale_v4", SESSKEY="righi_portale_sess_v4";
 // Versione del MODELLO dati. Va alzata quando cambia la forma dei dati: i dati
 // salvati con una versione precedente vengono rigenerati dal seed aggiornato,
 // altrimenti il browser continuerebbe a mostrare i dati vecchi con il codice nuovo.
-const DATA_VERSION = 7;
+const DATA_VERSION = 8;
 function makeLocalAdapter(){ return {
   get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } },
   set(k,v){ try{ localStorage.setItem(k,v); }catch(e){} },
@@ -987,6 +988,83 @@ const RIGHI_HQ = {name:"Righi Solutions", citta:"Cesena", lat:44.14, lng:12.24};
 const SEED_CAPI=[{"id": "cs1", "name": "Davis Casadei", "tel": ""}, {"id": "cs2", "name": "Enea Matteucci", "tel": ""}, {"id": "cs3", "name": "Gianni Gregori", "tel": ""}, {"id": "cs4", "name": "Smeraldi (TQM)", "tel": ""}, {"id": "cs5", "name": "Alex Foschi", "tel": ""}, {"id": "cs6", "name": "Luca Chiaruttini", "tel": ""}];
 const SEED_SUPPLIERS=[{"id": "f1", "name": "AB CODE", "attivo": false, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 300, "cablatori": 2, "risorseDedicate": null, "costoOrario": 20, "referente": "", "email": null, "note": "Non fanno quadri di potenza e quadri grandi che debbano essere movimentati con muletto o carro ponte (hanno la possibilità di movimentare solo quadri a mano)", "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "s", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f2", "name": "AEG", "attivo": true, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 300, "cablatori": 6, "risorseDedicate": 2, "costoOrario": 25, "referente": "", "email": "commerciale@aegsnc.it", "note": null, "preferenze": {"cs1": 10, "cs2": 0, "cs3": 10, "cs4": 60, "cs5": 20, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f3", "name": "AME CABLAGGI", "attivo": false, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 300, "cablatori": 2, "risorseDedicate": null, "costoOrario": null, "referente": "", "email": null, "note": null, "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f4", "name": "AMPERE X", "attivo": true, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 300, "cablatori": 3, "risorseDedicate": 2, "costoOrario": 23, "referente": "", "email": "info@amperex.it", "note": null, "preferenze": {"cs1": 20, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 80, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f5", "name": "BE SYSTEM SNC DI BARCHI ENRICO & C", "attivo": false, "accredited": true, "citta": "San Piero in Bagno", "zona": "Romagna", "lat": 43.83, "lng": 11.98, "capacitaMese": 600, "cablatori": 4, "risorseDedicate": 4, "costoOrario": 15, "referente": "", "email": null, "note": "CHIUSO", "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f6", "name": "CABAS", "attivo": false, "accredited": true, "citta": "Bologna", "zona": "Bologna", "lat": 44.49, "lng": 11.34, "capacitaMese": 0, "cablatori": null, "risorseDedicate": "VARIABILE", "costoOrario": 15, "referente": "", "email": null, "note": "FORNITORE NUOVO 2018 IN FASE DI TEST", "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f7", "name": "CMP", "attivo": true, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 200, "cablatori": null, "risorseDedicate": 1, "costoOrario": null, "referente": "", "email": "cmpelettronica@libero.it", "note": "SOLO LAVORAZIONI A CONSUNTIVO C/O NS. SEDE", "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 30, "cs5": 70, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f8", "name": "DM ELETTROTECNICA SNC", "attivo": true, "accredited": true, "citta": "Sarsina", "zona": "Romagna", "lat": 43.92, "lng": 12.14, "capacitaMese": 900, "cablatori": 7, "risorseDedicate": 5, "costoOrario": 24, "referente": "", "email": "elettrotecnicadm@alice.it", "note": "Esperienza su tutte le tipologia di quadri", "preferenze": {"cs1": 15, "cs2": 0, "cs3": 25, "cs4": 40, "cs5": 20, "cs6": 0}, "specialties": ["automazione", "distribuzione", "potenza"], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f9", "name": "DPM", "attivo": true, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 350, "cablatori": 6, "risorseDedicate": 2, "costoOrario": 25, "referente": "", "email": "commerciale@dpmservicesrl.it", "note": null, "preferenze": {"cs1": 0, "cs2": 0, "cs3": 10, "cs4": 0, "cs5": 70, "cs6": 20}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f10", "name": "DUE‑DI ELETTROTECNICA", "attivo": false, "accredited": true, "citta": "Perticara", "zona": "Romagna", "lat": 43.87, "lng": 12.27, "capacitaMese": 3000, "cablatori": 20, "risorseDedicate": null, "costoOrario": 25, "referente": "", "email": null, "note": "Potenza/MCC", "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": ["potenza"], "settori": [], "dimensioneMax": "l", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f11", "name": "DUEMME SNC", "attivo": true, "accredited": true, "citta": "Bologna", "zona": "Bologna", "lat": 44.49, "lng": 11.34, "capacitaMese": 200, "cablatori": 6, "risorseDedicate": 1.5, "costoOrario": 28, "referente": "", "email": "m.querze@duemmesnc.net", "note": null, "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 100, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f12", "name": "DV AUTOMAZIONI", "attivo": true, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 250, "cablatori": 7, "risorseDedicate": 1.5, "costoOrario": 25, "referente": "", "email": "giovanni.donnini@dvautomazioni.com", "note": null, "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 100, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f13", "name": "EDI", "attivo": false, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 450, "cablatori": 3, "risorseDedicate": 2, "costoOrario": 15, "referente": "", "email": null, "note": null, "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f14", "name": "EESI", "attivo": true, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 300, "cablatori": 4, "risorseDedicate": 2, "costoOrario": 24, "referente": "", "email": "e.e.s.i.dv@gmail.com", "note": null, "preferenze": {"cs1": 60, "cs2": 25, "cs3": 15, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f15", "name": "ELEKTRA", "attivo": true, "accredited": true, "citta": "Conselice", "zona": "Romagna", "lat": 44.51, "lng": 11.83, "capacitaMese": 350, "cablatori": 6, "risorseDedicate": 2, "costoOrario": 26, "referente": "", "email": "marco@impiantielektra.it", "note": null, "preferenze": {"cs1": 0, "cs2": 0, "cs3": 80, "cs4": 0, "cs5": 20, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f16", "name": "ELETTRIC TEAM", "attivo": false, "accredited": true, "citta": "Sant'Arcangelo", "zona": "Romagna", "lat": 44.06, "lng": 12.45, "capacitaMese": 900, "cablatori": 6, "risorseDedicate": null, "costoOrario": 22, "referente": "", "email": null, "note": "Per i trasporti, consegna materiale a carico nostro, riconsegna quadro a carico loro", "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f17", "name": "ELETTROTECH S.A.S.", "attivo": false, "accredited": true, "citta": "Borello", "zona": "Romagna", "lat": 43.99, "lng": 12.16, "capacitaMese": 450, "cablatori": 3, "risorseDedicate": null, "costoOrario": 20, "referente": "", "email": null, "note": "Nuova tariffa da marzo 2023 (prima 18h)", "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f18", "name": "ELETTROTECNICA LIVERANI", "attivo": true, "accredited": true, "citta": "Forlì", "zona": "Romagna", "lat": 44.22, "lng": 12.04, "capacitaMese": 200, "cablatori": 8, "risorseDedicate": 1, "costoOrario": 26, "referente": "", "email": "info@elettrotecnicaliverani.it", "note": "Potenza/MCC + all'evenienza anche quadri a lotti", "preferenze": {"cs1": 0, "cs2": 0, "cs3": 10, "cs4": 70, "cs5": 20, "cs6": 0}, "specialties": ["potenza"], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f19", "name": "ELLEVI", "attivo": false, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 0, "cablatori": null, "risorseDedicate": null, "costoOrario": 22, "referente": "", "email": null, "note": "Costi di trasporto a carico loro", "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f20", "name": "ER LUX", "attivo": false, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 750, "cablatori": 5, "risorseDedicate": null, "costoOrario": null, "referente": "", "email": null, "note": null, "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f21", "name": "EST AUTOMAZIONE", "attivo": true, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 200, "cablatori": null, "risorseDedicate": null, "costoOrario": 28, "referente": "", "email": null, "note": null, "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 100}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f22", "name": "F.A.G.M SYSTEM", "attivo": false, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 600, "cablatori": 4, "risorseDedicate": null, "costoOrario": 22, "referente": "", "email": null, "note": null, "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f23", "name": "FERRARA IMPIANTI", "attivo": false, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 750, "cablatori": 5, "risorseDedicate": null, "costoOrario": 25, "referente": "", "email": null, "note": "Nuova tariffa da marzo 2023 (prima 19€h)", "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f24", "name": "FT", "attivo": false, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 600, "cablatori": 4, "risorseDedicate": null, "costoOrario": null, "referente": "", "email": null, "note": null, "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f25", "name": "GKM", "attivo": true, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 500, "cablatori": 3, "risorseDedicate": 3, "costoOrario": null, "referente": "", "email": "kenanakpolat88@gmail.com", "note": "SOLO LAVORAZIONI A CONSUNTIVO C/O SEDE DI GERENZANO + aggiunta costi pasti a parte", "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 100}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f26", "name": "GROUP SYSTEM", "attivo": false, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 0, "cablatori": null, "risorseDedicate": null, "costoOrario": 25, "referente": "", "email": null, "note": null, "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f27", "name": "GUERCINI IMPIANTI", "attivo": false, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 150, "cablatori": 1, "risorseDedicate": null, "costoOrario": null, "referente": "", "email": null, "note": "Fanno quadri, BM, ingegneria e software. Lavorano con GD e Iema", "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f28", "name": "ICEE", "attivo": true, "accredited": true, "citta": "Faenza", "zona": "Romagna", "lat": 44.29, "lng": 11.88, "capacitaMese": 300, "cablatori": 4, "risorseDedicate": 2, "costoOrario": 24, "referente": "", "email": "paolo@icee-it.com", "note": "FORNITORE NUOVO 2018", "preferenze": {"cs1": 0, "cs2": 0, "cs3": 30, "cs4": 0, "cs5": 70, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f29", "name": "IMP.EL", "attivo": true, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 200, "cablatori": null, "risorseDedicate": 1, "costoOrario": 25, "referente": "", "email": "dmartelli@impelimola.it", "note": null, "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 100}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f30", "name": "LUMA SISTEM", "attivo": true, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 200, "cablatori": 1, "risorseDedicate": 1, "costoOrario": 20, "referente": "", "email": "lumasistem@gmail.com", "note": "Costi di trasporto a carico loro", "preferenze": {"cs1": 0, "cs2": 100, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f31", "name": "MARALDI", "attivo": true, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 200, "cablatori": 1, "risorseDedicate": 1, "costoOrario": null, "referente": "", "email": "luigi.maraldi77@gmail.com", "note": "SOLO LAVORAZIONI A CONSUNTIVO C/O NS. SEDE", "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 100, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f32", "name": "NORDELETTRICA IMPIANTI SRL", "attivo": false, "accredited": true, "citta": "Fusignano", "zona": "Romagna", "lat": 44.47, "lng": 11.96, "capacitaMese": 0, "cablatori": null, "risorseDedicate": "VARIABILE", "costoOrario": 25, "referente": "", "email": null, "note": "AL MOMENTO NON UTILIZZATO", "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f33", "name": "NOVATEC", "attivo": true, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 250, "cablatori": null, "risorseDedicate": 1.5, "costoOrario": 28, "referente": "", "email": "danilofilippone@novatecsrl.it", "note": null, "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 100}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f34", "name": "NOWATT", "attivo": true, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 350, "cablatori": null, "risorseDedicate": 2, "costoOrario": 23, "referente": "", "email": "info@nowatt.it", "note": null, "preferenze": {"cs1": 40, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 60, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f35", "name": "PF EUROIMPIANTI", "attivo": false, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 1500, "cablatori": 10, "risorseDedicate": null, "costoOrario": 20, "referente": "", "email": null, "note": "Costi di trasporto a carico loro", "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f36", "name": "POLAR", "attivo": false, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 0, "cablatori": null, "risorseDedicate": null, "costoOrario": null, "referente": "", "email": null, "note": "Costi di trasporto a carico loro", "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f37", "name": "POWER di Mercatello sul Metauro (PU)", "attivo": true, "accredited": true, "citta": "Mercatello sul Metauro", "zona": "Marche", "lat": 43.65, "lng": 12.34, "capacitaMese": 300, "cablatori": null, "risorseDedicate": 2, "costoOrario": 28, "referente": "", "email": "mario.muscinelli@power-srl.com", "note": null, "preferenze": {"cs1": 0, "cs2": 100, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f38", "name": "QUADRI SYSTEM", "attivo": true, "accredited": true, "citta": "Faenza", "zona": "Romagna", "lat": 44.29, "lng": 11.88, "capacitaMese": 350, "cablatori": 4, "risorseDedicate": 2, "costoOrario": 26, "referente": "", "email": "marco@impiantielektra.it", "note": null, "preferenze": {"cs1": 0, "cs2": 0, "cs3": 80, "cs4": 0, "cs5": 20, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f39", "name": "ROMAN LUCAKOVIC", "attivo": false, "accredited": true, "citta": "Borello", "zona": "Romagna", "lat": 43.99, "lng": 12.16, "capacitaMese": 600, "cablatori": 4, "risorseDedicate": 4, "costoOrario": 15, "referente": "", "email": null, "note": "CHIUSO", "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f40", "name": "SANTI MIRCO", "attivo": true, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 200, "cablatori": null, "risorseDedicate": 1, "costoOrario": null, "referente": "", "email": "mirco.santi75@gmail.com", "note": "SOLO LAVORAZIONI A CONSUNTIVO C/O NS. SEDE", "preferenze": {"cs1": 0, "cs2": 100, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f41", "name": "SAVIO ASSEMBLAGGI", "attivo": false, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 75, "cablatori": 0.5, "risorseDedicate": null, "costoOrario": 18, "referente": "", "email": null, "note": "Non fanno quadri di potenza e quadri grandi che debbano essere movimentati con muletto o carro ponte (hanno la possibilità di movimentare solo quadri a mano)", "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "s", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f42", "name": "SCE", "attivo": false, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 1200, "cablatori": 8, "risorseDedicate": 2, "costoOrario": 18, "referente": "", "email": null, "note": "Costi di trasporto a carico loro", "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f43", "name": "SEIA", "attivo": true, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 200, "cablatori": null, "risorseDedicate": 1, "costoOrario": null, "referente": "", "email": "seia.automazioni@libero.it", "note": null, "preferenze": {"cs1": 0, "cs2": 0, "cs3": 50, "cs4": 0, "cs5": 50, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f44", "name": "SINTEC", "attivo": true, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 300, "cablatori": null, "risorseDedicate": 2, "costoOrario": 27, "referente": "", "email": "info@sintecelectronic.it", "note": "Trasporto a carico loro", "preferenze": {"cs1": 100, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f45", "name": "SOEL", "attivo": false, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 450, "cablatori": 3, "risorseDedicate": null, "costoOrario": 20, "referente": "", "email": null, "note": "Costi di trasporto a carico loro", "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f46", "name": "SOIMEL", "attivo": false, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 450, "cablatori": 3, "risorseDedicate": null, "costoOrario": null, "referente": "", "email": null, "note": null, "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f47", "name": "STEVE ELETTRO SYSTEM", "attivo": true, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 450, "cablatori": null, "risorseDedicate": 3, "costoOrario": 24, "referente": "", "email": "uff.direzione@steveelettrosystem.com", "note": "Trasporto a carico loro", "preferenze": {"cs1": 0, "cs2": 0, "cs3": 60, "cs4": 0, "cs5": 40, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f48", "name": "SYSTEM AP", "attivo": true, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 600, "cablatori": null, "risorseDedicate": 4, "costoOrario": 25, "referente": "", "email": "mimmo.systemap@gmail.com", "note": null, "preferenze": {"cs1": 0, "cs2": 10, "cs3": 0, "cs4": 0, "cs5": 90, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f49", "name": "SYSTEMS & SOLUTIONS", "attivo": false, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 750, "cablatori": 5, "risorseDedicate": null, "costoOrario": 22, "referente": "", "email": null, "note": null, "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f50", "name": "TECNO LUCE", "attivo": false, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 1800, "cablatori": 12, "risorseDedicate": null, "costoOrario": 32, "referente": "", "email": null, "note": null, "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "l", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f51", "name": "TECNOQUADRI", "attivo": true, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 400, "cablatori": 30, "risorseDedicate": 3, "costoOrario": 25, "referente": "", "email": "f.mellini@tecnoquadri-srl.it", "note": null, "preferenze": {"cs1": 80, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 20, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "l", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f52", "name": "TEKNO 4", "attivo": false, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 2250, "cablatori": 15, "risorseDedicate": null, "costoOrario": 34, "referente": "", "email": null, "note": null, "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "l", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f53", "name": "VACCARI", "attivo": true, "accredited": true, "citta": null, "zona": null, "lat": null, "lng": null, "capacitaMese": 350, "cablatori": null, "risorseDedicate": 2, "costoOrario": 30, "referente": "", "email": "m.gardin@sigersrl.com", "note": null, "preferenze": {"cs1": 0, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 100, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}, {"id": "f54", "name": "VERNOCCHI FABIO", "attivo": true, "accredited": true, "citta": "Righi", "zona": "Romagna", "lat": 44.14, "lng": 12.24, "capacitaMese": 200, "cablatori": 1, "risorseDedicate": 1, "costoOrario": null, "referente": "", "email": "fabioverno@tiscali.it", "note": "SOLO LAVORAZIONI A CONSUNTIVO C/O NS. SEDE", "preferenze": {"cs1": 100, "cs2": 0, "cs3": 0, "cs4": 0, "cs5": 0, "cs6": 0}, "specialties": [], "settori": [], "dimensioneMax": "m", "attrezzature": [], "certificazioni": [], "rating": null}];
 
+/* ---- Anagrafica dei profili -------------------------------------------------
+   Fonte di verita' unica: da qui derivano l'etichetta nella barra, la voce che
+   si legge in accesso e in "cambia utente", i pulsanti del modulo di creazione,
+   la legenda dell'anagrafica accessi. Aggiungere un profilo vuol dire aggiungere
+   una riga QUI, non toccare cinque punti diversi e dimenticarne uno.
+
+   Quattro profili distinti, non quattro livelli dello stesso profilo:
+   - responsabile di produzione: governa commesse, assegnazioni e anagrafica;
+   - caposquadra (OTL): segue le proprie commesse;
+   - responsabile QHSE: presidia la PARTE DOCUMENTALE (qualita', sicurezza,
+     ambiente). Decide quali documenti servono e quali bloccano, verifica e
+     respinge, tiene lo scadenzario. Non pubblica, non assegna, non approva
+     commesse: sono mestieri diversi, e tenerli separati e' il senso del profilo.
+   - fornitore: vede le proprie commesse e i propri documenti.
+   Il responsabile di produzione conserva l'accesso documentale perche' resta il
+   ruolo apicale e perche' un'azienda piccola non puo' restare ferma se il QHSE
+   e' assente. */
+const PROFILI = {
+  responsabile: { lato:"righi", chip:"Responsabile", label:"Responsabile di produzione",
+    ruolo:"Responsabile Produzione", ic:"star",
+    sintesi:"Governa commesse, assegnazioni e anagrafica fornitori. Conserva anche l'accesso documentale.",
+    puo:["Pubblica, assegna, importa ed esporta le commesse",
+         "Approva le proposte dei capisquadra e gli extra oltre soglia",
+         "Crea e modifica l'anagrafica dei fornitori",
+         "Configura i tipi di documento, registra e verifica"],
+    no:[] },
+  caposquadra: { lato:"righi", chip:"Caposquadra", label:"OTL / Caposquadra",
+    ruolo:"OTL / Caposquadra", ic:"user",
+    sintesi:"Segue le commesse che gli sono affidate e ne propone di nuove.",
+    puo:["Vede e segue solo le proprie commesse",
+         "Propone nuovi lavori, che il responsabile approva",
+         "Decide slittamenti, consegne ed extra entro soglia",
+         "Consulta carico e qualifica dei fornitori"],
+    no:["Non pubblica ne' assegna", "Non modifica l'anagrafica", "Non tocca i documenti"] },
+  qhse: { lato:"righi", chip:"QHSE", label:"Responsabile QHSE",
+    ruolo:"Responsabile QHSE · Qualità, Sicurezza, Ambiente", ic:"doc",
+    sintesi:"Presidia la parte documentale: tipi di documento, verifiche, scadenzario.",
+    puo:["Definisce i tipi di documento e quali sono bloccanti",
+         "Registra, rinnova, verifica o respinge i documenti",
+         "Tiene lo scadenzario ed esporta per audit e riesame"],
+    no:["Non vede e non governa le commesse", "Non modifica l'anagrafica commerciale"] },
+  fornitore: { lato:"fornitore", chip:"Fornitore", label:"Fornitore accreditato",
+    ruolo:"Fornitore", ic:"building",
+    sintesi:"Vede le proposte a lui destinate, le proprie commesse e i propri documenti.",
+    puo:["Quota e accetta le proposte con firma",
+         "Aggiorna l'avanzamento e chiede l'autorizzazione a consegnare",
+         "Apre richieste guidate e chiede extra",
+         "Comunica il rinnovo dei propri documenti"],
+    no:["Non vede le commesse di altri fornitori", "Non vede ore, capacita' e consegna al cliente"] },
+};
+const PROFILI_RIGHI = Object.keys(PROFILI).filter(k=>PROFILI[k].lato==="righi");
+// Il profilo di un utente: per il fornitore lo dice il lato, per Righi il
+// righiRole. Un ruolo sconosciuto NON diventa "responsabile" per comodita': un
+// dato sporco non deve regalare i permessi piu' alti. Solo un accesso Righi
+// senza ruolo (dato vecchio) vale come responsabile.
+function profiloDi(u){ if(!u) return null;
+  if(u.role==="fornitore") return "fornitore";
+  if(PROFILI[u.righiRole] && PROFILI[u.righiRole].lato==="righi") return u.righiRole;
+  return u.righiRole ? null : "responsabile"; }
+const profilo = u => PROFILI[profiloDi(u)] || null;
+const profiloLabel = u => (profilo(u)||{}).label || "Profilo non riconosciuto";
+const profiloChip  = u => (profilo(u)||{}).chip  || "—";
+// Un accesso disattivato non e' un accesso: nessun permesso, nessuna notifica,
+// nessuna sessione. Gli utenti creati prima del campo restano attivi.
+const utenteAttivo = u => !!u && u.attivo!==false;
+
+function isCapo(u){ return utenteAttivo(u) && u.role==="righi" && u.righiRole==="caposquadra"; }
+function isQhse(u){ return utenteAttivo(u) && u.role==="righi" && u.righiRole==="qhse"; }
+function isResp(u){ return utenteAttivo(u) && u.role==="righi" && profiloDi(u)==="responsabile"; }
+// Chi puo' agire sui documenti e sul registro dei tipi.
+function canDocs(u){ return isResp(u) || isQhse(u); }
+// Chi governa le commesse: pubblicare, assegnare, approvare, decidere richieste.
+function canProduzione(u){ const p=utenteAttivo(u) ? profiloDi(u) : null;
+  return p==="responsabile" || p==="caposquadra"; }
+// Non si resta senza governo: l'ultimo responsabile attivo non si tocca.
+const responsabiliAttivi = () => STATE.users.filter(isResp);
+
 /* ============================ Seed ============================ */
 function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
 function seed(){
@@ -1017,10 +1095,10 @@ function seed(){
     if(k % 11 === 3) sup.docs = sup.docs.filter(d => d.tipo !== "durc");   // qualche DURC mancante
   });
   const activeSup=suppliers.filter(s=>s.attivo);
-  const users=[{id:"u_resp", name:"Responsabile Produzione", role:"righi", righiRole:"responsabile", ruolo:"Responsabile Produzione", email:"produzione@righinet.com"},
-               {id:"u_qhse", name:"Responsabile QHSE", role:"righi", righiRole:"qhse", ruolo:"Responsabile QHSE · Qualità, Sicurezza, Ambiente", email:"qhse@righinet.com"}];
-  capi.forEach(c=> users.push({id:"u_"+c.id, name:c.name, role:"righi", righiRole:"caposquadra", capoId:c.id, ruolo:"OTL / Caposquadra", email:c.email}));
-  activeSup.filter(s=>s.email).slice(0,3).forEach((s,k)=> users.push({id:"u_f"+(k+1), name:s.name, role:"fornitore", supplierId:s.id, email:s.email}));
+  const users=[{id:"u_resp", name:"Responsabile Produzione", role:"righi", righiRole:"responsabile", ruolo:PROFILI.responsabile.ruolo, email:"produzione@righinet.com", attivo:true},
+               {id:"u_qhse", name:"Responsabile QHSE", role:"righi", righiRole:"qhse", ruolo:PROFILI.qhse.ruolo, email:"qhse@righinet.com", attivo:true}];
+  capi.forEach(c=> users.push({id:"u_"+c.id, name:c.name, role:"righi", righiRole:"caposquadra", capoId:c.id, ruolo:PROFILI.caposquadra.ruolo, email:c.email, attivo:true}));
+  activeSup.filter(s=>s.email).slice(0,3).forEach((s,k)=> users.push({id:"u_f"+(k+1), name:s.name, role:"fornitore", supplierId:s.id, email:s.email, attivo:true, ruolo:PROFILI.fornitore.ruolo}));
   const lineTokens=["linea 1","linea 2","linea 3","reparto A","reparto B","impianto Nord","impianto Sud","cella 4","macchina 12","forno 2","banco prova","stazione 7","area confezionamento","gruppo pompe","nastro 5"];
   let codeN=2400; const jobs=[];
   function mk(stato,opts){
@@ -1149,7 +1227,7 @@ function portalEmailBody(referente, contesto, link){
 // garantisce un accesso fornitore per il fornitore del link (solo alcuni sono pre-creati)
 function ensureSupplierUser(sid){ const s=supplier(sid); if(!s) return null;
   let u=STATE.users.find(x=>x.supplierId===sid);
-  if(!u){ u={id:"u_link_"+sid, name:s.name, role:"fornitore", supplierId:sid, email:s.email}; STATE.users.push(u); persist(); }
+  if(!u){ u={id:"u_link_"+sid, name:s.name, role:"fornitore", supplierId:sid, email:s.email, attivo:true, ruolo:PROFILI.fornitore.ruolo}; STATE.users.push(u); persist(); }
   return u; }
 // Notifica in app al fornitore. Consegna GARANTITA: se il fornitore non ha ancora
 // un accesso al portale viene creato al volo (prima le notifiche andavano perse).
@@ -1163,7 +1241,7 @@ function notifySupplier(sid, o){ const to=supplierUserId(sid); if(!to) return nu
   const n={id:uid("n"),toUser:to,ic:o.ic||"bell",txt:o.txt,sub:o.sub||"",jobId:o.jobId||null,at:new Date().toISOString().slice(0,16),read:false};
   STATE.notifications.push(n); return n; }
 // Notifica il caposquadra di riferimento della commessa (avvio produzione, consegna...)
-function notifyCapoJob(j, txt, ic){ const cu=STATE.users.find(x=>x.righiRole==="caposquadra"&&x.capoId===j.capoId); if(!cu) return null;
+function notifyCapoJob(j, txt, ic){ const cu=STATE.users.find(x=>isCapo(x)&&x.capoId===j.capoId); if(!cu) return null;
   const n={id:uid("n"),toUser:cu.id,ic:ic||"bell",txt,sub:j.code+" — "+j.title,jobId:j.id,at:new Date().toISOString().slice(0,16),read:false};
   STATE.notifications.push(n); return n; }
 // Email di avviso al fornitore su una richiesta, col link diretto alla richiesta stessa:
@@ -1247,26 +1325,6 @@ function keyDate(j){ return j.dataRientro||j.dataConsegna; }
 function lateDays(j){ if(isLateReturn(j)) return Math.abs(daysTo(j.dataRientro)); if(isLateStart(j)) return Math.abs(daysTo(j.dataInizioStimata)); return 0; }
 function jobResponses(jid){ return graphIndex().respByJob[jid]||[]; }   // lista di adiacenza commessa-risposte
 function jobRequests(jid){ return graphIndex().reqByJob[jid]||[]; }     // lista di adiacenza commessa-richieste
-/* ruoli lato Righi: responsabile (vede tutto) vs caposquadra (solo le sue commesse) */
-/* ---- Ruoli lato Righi -------------------------------------------------------
-   Tre profili distinti, non tre livelli di uno stesso profilo:
-   - responsabile di produzione: governa commesse, assegnazioni e anagrafica;
-   - caposquadra (OTL): segue le proprie commesse;
-   - responsabile QHSE: presidia la PARTE DOCUMENTALE (qualita', sicurezza,
-     ambiente). Decide quali documenti servono e quali bloccano, verifica e
-     respinge, tiene lo scadenzario. Non pubblica, non assegna, non approva
-     commesse: sono mestieri diversi, e tenerli separati e' il senso del profilo.
-   Il responsabile di produzione conserva l'accesso documentale perche' resta il
-   ruolo apicale e perche' un'azienda piccola non puo' restare ferma se il QHSE
-   e' assente. */
-function isCapo(u){ return !!(u && u.role==="righi" && u.righiRole==="caposquadra"); }
-function isQhse(u){ return !!(u && u.role==="righi" && u.righiRole==="qhse"); }
-function isResp(u){ return !!(u && u.role==="righi" && u.righiRole==="responsabile"); }
-// Chi puo' agire sui documenti e sul registro dei tipi.
-function canDocs(u){ return isResp(u) || isQhse(u); }
-// Chi governa le commesse: pubblicare, assegnare, approvare, decidere richieste.
-function canProduzione(u){ return !!(u && u.role==="righi" && !isQhse(u)); }
-const RIGHI_RUOLO = { responsabile:"Responsabile", caposquadra:"Caposquadra", qhse:"QHSE" };
 function scopedJobs(){ const u=currentUser(); return isCapo(u)? STATE.jobs.filter(j=>j.capoId===u.capoId) : STATE.jobs; }
 function scopedRequests(){ const u=currentUser(); return isCapo(u)? STATE.requests.filter(r=>r.capoId===u.capoId) : STATE.requests; }
 /* ore stimate: carico attivo per fornitore e mese di consegna (solo dati Righi) */
@@ -1583,7 +1641,7 @@ function render(){
   <header class="topbar">
     <div class="brand">${LOGO}<div class="bt"><b>${WM}</b><span>Portale Fornitori · Subappalti</span></div></div>
     <div class="tb-spacer"></div>
-    <span class="role-chip ${u.role}">${u.role==="righi"?(RIGHI_RUOLO[u.righiRole]||"Responsabile"):"Fornitore"}</span>
+    <span class="role-chip ${u.role}">${profiloChip(u)}</span>
     <button class="tb-btn" data-act="sfx" aria-label="${Sfx.enabled?"Disattiva i suoni":"Attiva i suoni"}" aria-pressed="${Sfx.enabled?"true":"false"}">${icon(Sfx.enabled?"audio":"audioOff")}</button>
     <button class="tb-btn" data-act="guide" aria-label="Guida">${icon("help")}</button>
     <button class="tb-btn" data-act="notif" aria-label="Notifiche">${icon("bell")}${notif?`<span class="badge">${notif}</span>`:""}</button>
@@ -1631,18 +1689,18 @@ function tipPill(tip){ const t=TIPOLOGIE[tip]; return `<span class="pill"><span 
 function viewLogin(){
   const righi=STATE.users.filter(u=>u.role==="righi");
   const forn=STATE.users.filter(u=>u.role==="fornitore");
-  const urow=u=>{ const s=u.supplierId?supplier(u.supplierId):null;
-    return `<button class="urow" data-login="${u.id}">
+  const urow=u=>{ const s=u.supplierId?supplier(u.supplierId):null; const off=!utenteAttivo(u);
+    return `<button class="urow" data-login="${u.id}"${off?' style="opacity:.5"':''}>
       <span class="avatar" style="background:${u.role==='righi'?'var(--accent)':colorFor(u.id)}">${initials(u.name)}</span>
-      <span class="gr"><b>${esc(u.name)}</b><span>${u.role==='righi'?esc(u.ruolo||'Righi'):esc((s?s.name:'')+((s&&s.citta)?' · '+s.citta:''))}</span></span>
+      <span class="gr"><b>${esc(u.name)}${off?' <span class="pill plain">non attivo</span>':''}</b><span>${u.role==='righi'?esc(u.ruolo||profiloLabel(u)):esc((s?s.name:'')+((s&&s.citta)?' · '+s.citta:''))}</span></span>
       <span class="arw">${icon("chev")}</span></button>`; };
   return `<div class="login"><div class="box">
     <div class="logo">${LOGO}<div><div class="wm-lg"><span class="r">righi</span> <span class="s">solutions</span></div><div class="sub">Portale Fornitori</div></div>
       <p>Assegnazione e gestione dei lavori di subappalto: cablaggio e costruzione di quadri elettrici.</p></div>
     <div class="panel">
-      <div class="lbl">${icon("building","sm")} Accedi come — Righi</div>
-      ${righi.map(urow).join("")}
-      <div class="lbl" style="margin-top:14px">${icon("user","sm")} Accedi come — Fornitore accreditato</div>
+      ${PROFILI_RIGHI.map((k,i)=>{ const el=righi.filter(u=>profiloDi(u)===k); if(!el.length) return "";
+        return `<div class="lbl"${i?' style="margin-top:14px"':''}>${icon(PROFILI[k].ic,"sm")} Accedi come — ${esc(PROFILI[k].label)}</div>${el.map(urow).join("")}`; }).join("")}
+      <div class="lbl" style="margin-top:14px">${icon("building","sm")} Accedi come — ${esc(PROFILI.fornitore.label)}</div>
       ${forn.map(urow).join("")}
       <button class="btn ghost block" style="margin-top:12px" data-act="newUser">${icon("plus","sm")} Nuovo utente / accesso</button>
     </div>
@@ -2644,10 +2702,11 @@ function openSwitch(){
   openModal(`${modalHead("Cambia utente")}
     <p class="muted" style="font-size:13px;margin-top:0">Passa tra i due lati del portale per la demo.</p>
     ${STATE.users.map(u=>{const s=u.supplierId?supplier(u.supplierId):null;const cur=Session&&Session.userId===u.id;
-      return `<button class="urow" style="color:var(--ink);background:var(--surface-2);border-color:var(--line)" data-login="${u.id}">
+      return `<button class="urow" style="color:var(--ink);background:var(--surface-2);border-color:var(--line)${utenteAttivo(u)?'':';opacity:.55'}" data-login="${u.id}">
         <span class="avatar" style="background:${u.role==='righi'?'var(--accent)':colorFor(u.id)}">${initials(u.name)}</span>
-        <span class="gr"><b>${esc(u.name)} ${cur?'<span class="pill brand" style="margin-left:4px">attuale</span>':''}</b><span class="muted">${u.role==='righi'?esc(u.ruolo):esc(s?s.name:'')}</span></span><span class="arw">${icon("chev")}</span></button>`;}).join("")}
+        <span class="gr"><b>${esc(u.name)} ${cur?'<span class="pill brand" style="margin-left:4px">attuale</span>':''}${utenteAttivo(u)?'':'<span class="pill plain" style="margin-left:4px">non attivo</span>'}</b><span class="muted">${u.role==='righi'?esc(u.ruolo||profiloLabel(u)):esc(s?s.name:'')}</span></span><span class="arw">${icon("chev")}</span></button>`;}).join("")}
     <button class="btn ghost block" style="margin-top:8px" data-act="newUser">${icon("plus","sm")} Nuovo utente / accesso</button>
+    ${isResp(currentUser())?`<button class="btn ghost block" style="margin-top:8px" data-act="profili">${icon("sliders","sm")} Anagrafica profili e accessi</button>`:""}
     <div class="divide"></div>
     <button class="btn ghost block" data-act="resetDemo">${icon("bolt","sm")} Ripristina dati dimostrativi</button>
     <p class="muted" style="font-size:12px;margin:6px 0 0">Riporta la demo ai dati iniziali di questa versione: usalo se il browser mostra ancora dati di una versione precedente.</p>
@@ -2659,15 +2718,87 @@ function openNewUser(){ const d=App.userDraft={role:"fornitore"};
   openModal(`${modalHead("Nuovo utente / accesso")}
     <p class="muted" style="font-size:13px;margin-top:0">Crea un accesso al portale. Il <b>ruolo</b> determina cosa vede e può fare.</p>
     <div class="field"><label>Ruolo</label>
-      <div class="seg">${roleBtn("fornitore","Fornitore")}${roleBtn("caposquadra","OTL / Caposquadra")}${roleBtn("responsabile","Responsabile")}${roleBtn("qhse","QHSE")}</div></div>
+      <div class="seg">${roleBtn("fornitore",PROFILI.fornitore.chip)}${PROFILI_RIGHI.map(k=>roleBtn(k,PROFILI[k].chip)).join("")}</div>
+      <span class="hint">${esc(PROFILI[d.role].sintesi)}</span></div>
     <div class="field"><label>Nome</label><input class="inp" id="nu-name" placeholder="es. Mario Rossi"></div>
     <div class="field"><label>Email (facoltativa)</label><input class="inp" id="nu-email" type="email" placeholder="nome@righinet.com"></div>
     <div class="field" id="nu-forn"><label>Fornitore collegato</label>
       <select class="inp" id="nu-sup">${STATE.suppliers.filter(s=>s.attivo).map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join("")}</select>
       <span class="hint">L'accesso fornitore vedrà solo le commesse di questo fornitore</span></div>
-    <p class="muted" id="nu-hint" style="font-size:12px">Il <b>fornitore</b> vede la sua bacheca e le sue commesse; l'<b>OTL/caposquadra</b> propone lavori e segue le sue commesse; il <b>responsabile</b> vede e governa tutto; il <b>QHSE</b> presidia solo la parte documentale (qualifica, scadenzario, tipi di documento) e non tocca le commesse.</p>
+    <p class="muted" id="nu-hint" style="font-size:12px">${Object.keys(PROFILI).map(k=>"<b>"+esc(PROFILI[k].label)+"</b>: "+esc(PROFILI[k].sintesi)).join("<br>")}</p>
     <button class="btn accent block" data-act="doCreateUser">${icon("check")} Crea accesso</button>`);
 }
+/* ---- Anagrafica profili e accessi -------------------------------------------
+   Il posto dove si vede CHI ha accesso al portale e CON QUALE PROFILO, e dove
+   si cambia. Riservato al responsabile di produzione: assegnare profili e'
+   governo degli accessi, non amministrazione di reparto.
+   Due sole azioni, entrambe con effetto immediato sui permessi: cambiare il
+   profilo di un accesso e disattivarlo/riattivarlo. */
+function openProfili(){
+  const me=currentUser();
+  if(!isResp(me)){ toast("Solo il responsabile di produzione","warn"); return; }
+  const conta=k=>STATE.users.filter(u=>profiloDi(u)===k && utenteAttivo(u)).length;
+  const legenda=k=>{ const P=PROFILI[k];
+    return `<div class="lrow" style="align-items:flex-start">
+      <span class="ic ${k==="responsabile"?"accent":k==="qhse"?"info":k==="fornitore"?"":"ok"}">${icon(P.ic,"sm")}</span>
+      <span class="gr"><b>${esc(P.label)} <span class="pill plain">${conta(k)} attiv${conta(k)===1?"o":"i"}</span></b>
+        <span class="s">${esc(P.sintesi)}<br>${P.puo.map(x=>"· "+esc(x)).join("<br>")}${P.no.length?"<br>"+P.no.map(x=>"<b>·</b> "+esc(x)).join("<br>"):""}</span></span></div>`; };
+  const riga=u=>{ const off=!utenteAttivo(u); const io=u.id===me.id;
+    const s=u.supplierId?supplier(u.supplierId):null;
+    const ultimo=isResp(u) && responsabiliAttivi().length<=1;
+    return `<div class="lrow" style="align-items:flex-start;${off?"opacity:.55":""}">
+      <span class="avatar sm" style="background:${u.role==='righi'?'var(--accent)':colorFor(u.id)}">${initials(u.name)}</span>
+      <span class="gr"><b>${esc(u.name)}${io?' <span class="pill brand">tu</span>':""}${off?' <span class="pill plain">non attivo</span>':""}</b>
+        <span class="s">${esc(profiloLabel(u))}${s?" · "+esc(s.name):""}${u.email?" · "+esc(u.email):""}</span></span>
+      <span class="lrow-act">
+        ${u.role==="righi"&&!io&&!ultimo?`<select class="inp sm" data-prof-user="${u.id}" aria-label="Profilo di ${esc(u.name)}">
+          ${PROFILI_RIGHI.map(k=>`<option value="${k}"${profiloDi(u)===k?" selected":""}>${esc(PROFILI[k].chip)}</option>`).join("")}</select>`:""}
+        ${io?'<span class="pill info">accesso in uso</span>'
+           :ultimo?'<span class="pill warn">ultimo responsabile</span>'
+           :`<button class="btn sm ${off?"accent":"ghost"}" data-act="utenteToggle" data-u="${u.id}">${off?"Riattiva":"Disattiva"}</button>`}
+      </span></div>`; };
+  const righi=STATE.users.filter(u=>u.role==="righi");
+  const forn=STATE.users.filter(u=>u.role==="fornitore");
+  openModal(`${modalHead("Anagrafica profili e accessi")}
+    <p class="muted" style="font-size:12.5px;margin-top:0">Chi entra nel portale e con quale profilo. Il profilo determina cosa si vede e cosa si può fare: cambiarlo ha effetto <b>subito</b>.</p>
+    <div class="sect-t">${icon("building","sm")} Accessi Righi</div>
+    <div class="rowlist">${righi.map(riga).join("")}</div>
+    <div class="sect-t" style="margin-top:14px">${icon("user","sm")} Accessi fornitore <span class="pill plain">${forn.length}</span></div>
+    <div class="rowlist">${forn.length?forn.slice(0,8).map(riga).join(""):`<div class="empty">${icon("inbox")}<p>Nessun accesso fornitore</p></div>`}</div>
+    ${forn.length>8?`<p class="muted" style="font-size:12px;margin:6px 0 0">e altri ${forn.length-8} accessi fornitore.</p>`:""}
+    <div class="divide"></div>
+    <div class="sect-t">${icon("help","sm")} I profili</div>
+    <div class="rowlist">${Object.keys(PROFILI).map(legenda).join("")}</div>
+    <div class="btn-row" style="margin-top:12px">
+      <button class="btn ghost" data-act="switch">Torna a cambia utente</button>
+      <button class="btn accent" data-act="newUser">${icon("plus","sm")} Nuovo accesso</button>
+    </div>`);
+}
+// Cambio profilo: cambia i permessi, quindi cambia cosa quella persona vede.
+function setProfilo(userId, nuovo){
+  const me=currentUser(); if(!isResp(me)){ toast("Solo il responsabile di produzione","warn"); return; }
+  const u=byId(STATE.users,userId); if(!u||u.role!=="righi"||!PROFILI[nuovo]||PROFILI[nuovo].lato!=="righi"){ toast("Profilo non valido","warn"); return; }
+  if(u.id===me.id){ toast("Non puoi cambiare il tuo stesso profilo","warn"); return; }
+  if(profiloDi(u)===nuovo){ toast("Profilo già assegnato","warn"); return; }
+  if(isResp(u) && responsabiliAttivi().length<=1){ toast("È l'ultimo responsabile di produzione attivo: assegnane un altro prima","warn"); return; }
+  // il caposquadra ha una squadra collegata: diventando altro non la porta con se'
+  if(nuovo!=="caposquadra") delete u.capoId;
+  else if(!u.capoId){ const cid=uid("cs"); STATE.capi.push({id:cid,name:u.name,tel:"",email:u.email||""}); u.capoId=cid; }
+  u.righiRole=nuovo; u.ruolo=PROFILI[nuovo].ruolo;
+  persist(); Sfx.play("approvazione"); toast(u.name+": profilo "+PROFILI[nuovo].chip,"ok"); render(); openProfili();
+}
+// Disattivare un accesso toglie i permessi e chiude la porta: non e' cosmetico.
+function toggleUtente(userId){
+  const me=currentUser(); if(!isResp(me)){ toast("Solo il responsabile di produzione","warn"); return; }
+  const u=byId(STATE.users,userId); if(!u){ toast("Accesso non trovato","warn"); return; }
+  if(u.id===me.id){ toast("Non puoi disattivare l'accesso che stai usando","warn"); return; }
+  if(utenteAttivo(u) && isResp(u) && responsabiliAttivi().length<=1){ toast("È l'ultimo responsabile di produzione attivo","warn"); return; }
+  u.attivo = !utenteAttivo(u);
+  persist(); Sfx.play(u.attivo?"approvazione":"avviso");
+  toast(u.name+(u.attivo?": accesso riattivato":": accesso disattivato"), u.attivo?"ok":"warn");
+  render(); openProfili();
+}
+
 function createUser(){ const role=(App.userDraft&&App.userDraft.role)||"fornitore";
   const name=($("#nu-name").value||"").trim(); const email=($("#nu-email").value||"").trim();
   if(!name){ toast("Inserisci il nome","warn"); $("#nu-name").focus(); return; }
@@ -2676,9 +2807,9 @@ function createUser(){ const role=(App.userDraft&&App.userDraft.role)||"fornitor
   if(role==="fornitore"){ const sid=$("#nu-sup")?$("#nu-sup").value:""; if(!sid){ toast("Scegli il fornitore collegato","warn"); return; }
     u.role="fornitore"; u.supplierId=sid; }
   else if(role==="caposquadra"){ const cid=uid("cs"); STATE.capi.push({id:cid,name,tel:"",email:u.email});
-    u.role="righi"; u.righiRole="caposquadra"; u.capoId=cid; u.ruolo="OTL / Caposquadra"; }
-  else if(role==="qhse"){ u.role="righi"; u.righiRole="qhse"; u.ruolo="Responsabile QHSE · Qualità, Sicurezza, Ambiente"; }
-  else { u.role="righi"; u.righiRole="responsabile"; u.ruolo="Responsabile Produzione"; }
+    u.role="righi"; u.righiRole="caposquadra"; u.capoId=cid; }
+  else { u.role="righi"; u.righiRole=PROFILI[role]?role:"responsabile"; }
+  u.attivo=true; u.ruolo=(profilo(u)||PROFILI.responsabile).ruolo;   // etichetta dal registro, mai riscritta a mano
   STATE.users.push(u); persist(); App.userDraft=null; closeModal();
   toast("Accesso creato: "+name,"ok"); openSwitch();
 }
@@ -2821,6 +2952,7 @@ function openGuide(){ const u=currentUser(); const isR=u.role==="righi"; const c
       ["Valuta le accettazioni","Chi accetta compare in <i>Da valutare</i>; ogni accettazione è <b>firmata</b> dal fornitore. Assegna al migliore (ordinati per idoneità)."],
       ["Ciclo vita e ritardi","Aggiorni la data (con storico), segui l'avanzamento del fornitore e vedi i ritardi in rosso con il semaforo predittivo."],
       ["Extra (lavorazioni in più)","Il fornitore chiede un <b>extra</b> con importo e motivo. Entro il <b>${EXTRA_SOGLIA_PERC}%</b> dell'importo concordato lo approva il caposquadra; <b>oltre serve la tua approvazione</b>. Approvando puoi <b>cambiare l'importo</b>, indicare le <b>ore aggiuntive</b> (entrano nel carico) e spostare il rientro. L'extra approvato entra nell'importo della commessa e nell'export per l'ERP."],
+      ["Chi entra nel portale","Da <b>cambia utente · Anagrafica profili e accessi</b> vedi tutti gli accessi con il loro <b>profilo</b>, e la legenda di cosa ciascun profilo può e non può fare. Da lì <b>cambi il profilo</b> di un accesso (i permessi cambiano subito) o lo <b>disattivi</b>: un accesso disattivato non entra più e non riceve notifiche, ma resta in elenco e si riattiva quando serve. Due protezioni: non puoi toccare l'accesso che stai usando, e non puoi lasciare il portale senza responsabile di produzione attivo."],
       ["Anagrafica fornitori","In <b>Fornitori</b> premi <b>Nuovo fornitore</b> per accreditare un fornitore (specializzazioni, settori, zona, capacità, certificazioni): entra subito nei suggerimenti, nella mappa e nel carico. Tocca il nome di un fornitore per aprirne la scheda con le metriche."],
       ["Documenti: non tutti bloccano","<b>Non tutti i documenti sono bloccanti.</b> Da <b>Fornitori · Tipi di documento</b> decidi, per ogni tipo: se è <b>richiesto</b> a tutti o facoltativo, se è <b>bloccante</b> (se manca o è scaduto il fornitore non riceve lavoro) oppure solo un <b>avviso</b>, <b>chi può vederlo</b> (anche il fornitore, o solo Righi), se <b>avvisare</b> prima della scadenza e con quanti <b>giorni di anticipo</b>, e la <b>validità</b> in mesi che propone la nuova scadenza al rinnovo. Prima di salvare il portale ti dice <b>quanti fornitori cambiano stato</b>. Un tipo che non serve più si <b>disattiva</b> (i documenti già registrati restano) e si elimina solo se nessuno l'ha mai consegnato."],
       ["Carico e Analisi","L'istogramma in Fornitori mostra il carico ore per fornitore e mese; in <b>Analisi</b> hai consegne per mese, pipeline, salute, puntualità e mix."],
@@ -3029,7 +3161,7 @@ function createJob(mode){ if(vietatoQhse()) return;
   App.tab="lavori"; App.filters={q:"",stato:(mode==="publish"?"da_assegnare":mode==="approvazione"?"da_approvare":"bozza"),tipologia:"",settore:"",capo:"",fornitore:"",late:false}; App.page=1; render();
 }
 function notifyResponsabili(j){ const capo=currentUser();
-  STATE.users.filter(u=>u.role==="righi"&&u.righiRole==="responsabile").forEach(u=>STATE.notifications.push({id:uid("n"),toUser:u.id,ic:"bolt",txt:"Da approvare: "+j.title,sub:j.code+" · da "+(capo?capo.name:""),jobId:j.id,at:new Date().toISOString().slice(0,16),read:false}));
+  STATE.users.filter(isResp).forEach(u=>STATE.notifications.push({id:uid("n"),toUser:u.id,ic:"bolt",txt:"Da approvare: "+j.title,sub:j.code+" · da "+(capo?capo.name:""),jobId:j.id,at:new Date().toISOString().slice(0,16),read:false}));
 }
 function notifyCapo(j, txt, ic){ const uid_=j.richiedente||j.creatoDa; if(!uid_) return;
   STATE.notifications.push({id:uid("n"),toUser:uid_,ic:ic||"bell",txt,sub:j.code+" — "+j.title,jobId:j.id,at:new Date().toISOString().slice(0,16),read:false});
@@ -3210,7 +3342,7 @@ function reqConsegna(jid){ const u=currentUser(); const j=byId(STATE.jobs,jid); 
   if(STATE.requests.some(r=>r.jobId===jid&&r.tipo==="collaudo"&&r.stato!=="chiusa")){ toast("Richiesta già inviata","warn"); return; }
   const at=new Date().toISOString().slice(0,16);
   STATE.requests.push({id:uid("q"),jobId:jid,supplierId:u.supplierId,tipo:"collaudo",testo:"Lavoro pronto: richiedo l'approvazione a consegnare.",at,stato:"aperta",capoId:j.capoId,from:"fornitore",read:false,esito:null});
-  const capoUser=STATE.users.find(x=>x.righiRole==="caposquadra"&&x.capoId===j.capoId);
+  const capoUser=STATE.users.find(x=>isCapo(x)&&x.capoId===j.capoId);
   if(capoUser) STATE.notifications.push({id:uid("n"),toUser:capoUser.id,ic:"check",txt:"Richiesta approvazione consegna",sub:j.code+" — "+j.title,jobId:jid,at,read:false});
   persist(); closeModal(); Sfx.play("richiesta"); toast("Richiesta di approvazione consegna inviata","ok"); render();
 }
@@ -3541,7 +3673,10 @@ document.addEventListener("click",e=>{
   if(!el) return;
   if(el.hasAttribute("data-close-bg") && e.target===el){ closeModal(); return; }
   if(el.tagName==="A") return; // lascia procedere i mailto/tel
-  if(el.dataset.login){ setSession(el.dataset.login); App.tab=null; App.filters={q:"",stato:"",tipologia:"",settore:"",capo:"",fornitore:"",late:false}; App.fFilters={q:"",stato:""}; closeModal(); render(); openDeepLinkTarget(); return; }
+  if(el.dataset.login){
+    const cand=byId(STATE.users, el.dataset.login);
+    if(!utenteAttivo(cand)){ toast("Accesso disattivato: chiedi al responsabile di riattivarlo","warn"); return; }
+    setSession(el.dataset.login); App.tab=null; App.filters={q:"",stato:"",tipologia:"",settore:"",capo:"",fornitore:"",late:false}; App.fFilters={q:"",stato:""}; closeModal(); render(); openDeepLinkTarget(); return; }
   if(el.dataset.tab && !el.dataset.act){ App.tab=el.dataset.tab; App.page=1; render(); window.scrollTo(0,0); return; }
 
   if(el.dataset.set){ const g=el.dataset.set; App.draft=App.draft||{}; App.draft[g]=el.dataset.v;
@@ -3611,6 +3746,8 @@ document.addEventListener("click",e=>{
     case "editSup": openEditSupplier(el.dataset.sup); break;
     case "saveSup": saveSupplier(el.dataset.sup); break;
     case "newUser": openNewUser(); break;
+    case "profili": openProfili(); break;
+    case "utenteToggle": toggleUtente(el.dataset.u); break;
     case "doCreateUser": createUser(); break;
     case "nuRole": { App.userDraft=App.userDraft||{}; App.userDraft.role=el.dataset.v;
       const grp=el.closest(".seg"); if(grp) $$("button",grp).forEach(b=>b.classList.toggle("on", b===el));
@@ -3727,6 +3864,7 @@ document.addEventListener("input",e=>{
 // select filtri avanzati
 document.addEventListener("change",e=>{
   if(e.target && e.target.dataset && e.target.dataset.adv){ App.filters[e.target.dataset.adv]=e.target.value; App.page=1; render(); return; }
+  if(e.target && e.target.dataset && e.target.dataset.profUser){ setProfilo(e.target.dataset.profUser, e.target.value); return; }
   if(e.target && e.target.id==="nl-capo"){ App.draft=App.draft||{}; App.draft.capoId=e.target.value; return; }
   if(e.target && e.target.id==="nl-ingombro"){ App.draft=App.draft||{}; App.draft.ingombro=e.target.value; return; }
   if(e.target && e.target.id==="nl-import"){ const f=e.target.files[0]; if(!f) return;
