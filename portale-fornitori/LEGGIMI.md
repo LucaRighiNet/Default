@@ -4,10 +4,12 @@ Portale per mettere in comunicazione **Righi** e i suoi **fornitori**
 sui lavori di subappalto di manodopera: **cablaggio e costruzione di quadri
 elettrici** (automazione, distribuzione, potenza).
 
-Non è un portale di qualifica fornitori né di approvvigionamento materiali: è un
-portale di **delega di lavori a progetto**, pensato per gare piccole e brevi
-(3–5 settimane), con due obiettivi di design — **ridurre il testo scritto** e
-**accelerare l'assegnazione**.
+Non è un portale di approvvigionamento materiali: è un portale di **delega di
+lavori a progetto**, pensato per gare piccole e brevi (3–5 settimane), con due
+obiettivi di design — **ridurre il testo scritto** e **accelerare
+l'assegnazione**. Include la **qualifica dei fornitori** per la parte che incide
+sull'operatività (documenti obbligatori che abilitano o bloccano l'assegnazione),
+non come sistema completo di gestione della conformità aziendale.
 
 **Documento di riferimento**: [`SPECIFICHE.md`](SPECIFICHE.md) raccoglie in un
 unico posto le specifiche **funzionali, organizzative e tecniche**, con diagrammi
@@ -85,6 +87,35 @@ può servire una copia vecchia.
   metriche. Dalla scheda, il **responsabile di produzione** può **Modifica
   scheda** e aggiornare tutti i dati (il caposquadra non può: creazione e
   modifica dell'anagrafica sono riservate al responsabile).
+
+**Qualifica dei fornitori (documenti)**: il portale presidia anche la domanda
+*«questo fornitore **può** lavorare per noi?»*, distinta da *«a chi conviene
+affidare questo lavoro?»*. Ogni fornitore ha i **documenti obbligatori** (DURC,
+polizza RCT/RCO, idoneità tecnico-professionale ex art. 26 D.Lgs. 81/08, visura
+camerale) e quelli **facoltativi** (ISO 9001, ISO 45001), ciascuno con la propria
+scadenza.
+
+La qualifica **non è un campo che si digita**: è calcolata dai documenti, e
+**agisce sull'operatività**:
+
+- un obbligatorio **mancante, scaduto o respinto** rende il fornitore **non
+  assegnabile**: sparisce dai **fornitori suggeriti**, viene saltato
+  dall'**assegnazione ottima** e l'**assegnazione manuale è bloccata** con il
+  motivo esplicito (il controllo vale anche sulla chiamata diretta, non solo
+  nascondendo il pulsante);
+- gli esclusi **non spariscono in silenzio**: nel modulo di invito compare quanti
+  sono e perché;
+- un documento **in scadenza** (entro 30 giorni) **avvisa** ma non blocca;
+- in **Dashboard** un indicatore conta i *fornitori non in regola* e porta
+  all'elenco già filtrato; nell'elenco ogni scheda ha il proprio badge.
+
+**Chi fa cosa**: il **fornitore** vede **solo i propri** documenti, con scadenze e
+stato, e può **comunicare un rinnovo** — che entra *in verifica*. Il
+**responsabile di produzione** registra, **verifica o respinge** (il fornitore
+riceve la notifica con il motivo). Il **caposquadra consulta** ma non modifica,
+in linea con la regola dell'anagrafica. Se un fornitore non è in regola lo vede
+scritto dal suo profilo, con l'avviso che non riceverà nuove commesse finché non
+provvede — quelle in corso proseguono.
 
 **Ruoli e accessi (lato Righi)**
 - **Responsabile di produzione**: vede **tutte** le commesse, pubblica, assegna,

@@ -623,6 +623,23 @@ const AVANZAMENTO = { materiale:{label:"Materiale ricevuto"}, cablaggio:{label:"
 const AVZ_ORDER = ["materiale","cablaggio","collaudo","pronto"];
 // Certificazioni/qualifiche fornitore
 const CERT = { hv:"Quadri >250A", food:"Igienico/food", atex:"ATEX" };
+/* ---- Qualifica del fornitore (documenti e conformita') ----------------------
+   Presidia la domanda "questo fornitore PUO' lavorare per noi?", distinta da
+   "a chi conviene affidare questo lavoro?". Non e' una scheda informativa: un
+   documento obbligatorio mancante o scaduto rende il fornitore NON ASSEGNABILE,
+   quindi sparisce dai suggerimenti, viene saltato dall'assegnazione ottima e
+   blocca l'assegnazione manuale. */
+const DOC_TIPI = {
+  durc:     {label:"DURC",                            sub:"Regolarità contributiva",     mesi:4,  obbl:true},
+  rct:      {label:"Polizza RCT/RCO",                 sub:"Responsabilità civile",       mesi:12, obbl:true},
+  idoneita: {label:"Idoneità tecnico-professionale",  sub:"art. 26 D.Lgs. 81/08",        mesi:12, obbl:true},
+  visura:   {label:"Visura camerale",                 sub:"Iscrizione CCIAA",            mesi:12, obbl:true},
+  iso9001:  {label:"ISO 9001",                        sub:"Sistema qualità",             mesi:36, obbl:false},
+  iso45001: {label:"ISO 45001",                       sub:"Sicurezza sul lavoro",        mesi:36, obbl:false},
+};
+const DOC_KEYS = Object.keys(DOC_TIPI);
+const DOC_OBBL = DOC_KEYS.filter(k=>DOC_TIPI[k].obbl);
+const DOC_PREAVVISO = 30;   // giorni entro i quali un documento risulta "in scadenza"
 // Limite di spazio/ingombro: quanto grande può essere il quadro/batteria che il
 // fornitore riesce a lavorare e movimentare (ord serve al confronto capacita/bisogno).
 const DIMENSIONI = {
@@ -638,6 +655,52 @@ const ATTREZZATURE = {
 const ATTR_KEYS = Object.keys(ATTREZZATURE);
 function attrLabels(arr){ return (arr||[]).map(k=>ATTREZZATURE[k]||k); }
 // il fornitore può gestire l'ingombro richiesto?
+/* ---- Stato dei documenti e qualifica ---------------------------------------
+   docStato: valido | in_scadenza | in_verifica | respinto | scaduto | mancante
+   Un documento in verifica con scadenza futura copre comunque il requisito:
+   e' stato consegnato, manca solo il controllo di Righi. */
+const supDocs = s => (s && s.docs) || [];
+const docOf = (s, tipo) => supDocs(s).find(d => d.tipo === tipo);
+function docStato(d){
+  if(!d) return "mancante";
+  if(d.stato === "respinto") return "respinto";
+  const n = daysTo(d.scadenza);
+  if(n == null) return "mancante";
+  if(n < 0) return "scaduto";
+  if(d.stato === "in_verifica") return "in_verifica";
+  return n <= DOC_PREAVVISO ? "in_scadenza" : "valido";
+}
+const DOC_BLOCCANTI = ["mancante", "scaduto", "respinto"];
+const DOC_LABEL = { valido:"in regola", in_scadenza:"in scadenza", in_verifica:"in verifica",
+                    respinto:"respinto", scaduto:"scaduto", mancante:"mancante" };
+const DOC_PILL  = { valido:"ok", in_scadenza:"warn", in_verifica:"info",
+                    respinto:"danger", scaduto:"danger", mancante:"danger" };
+// Qualifica complessiva: la calcola dai documenti, non e' un campo digitato.
+function qualifica(sid){
+  const s = supplier(sid); if(!s) return { stato:"non_qualificato", bloccanti:[], avvisi:[], righe:[] };
+  const righe = DOC_KEYS.map(t => ({ tipo:t, doc:docOf(s,t), stato:docStato(docOf(s,t)) }));
+  const bloccanti = righe.filter(r => DOC_TIPI[r.tipo].obbl && DOC_BLOCCANTI.includes(r.stato));
+  const avvisi = righe.filter(r => !bloccanti.includes(r) && ["in_scadenza","in_verifica"].includes(r.stato));
+  const stato = bloccanti.length ? "non_qualificato" : (avvisi.length ? "in_scadenza" : "qualificato");
+  return { stato, bloccanti, avvisi, righe };
+}
+const QUAL_LABEL = { qualificato:"Qualificato", in_scadenza:"Documenti in scadenza", non_qualificato:"Non qualificato" };
+const QUAL_PILL  = { qualificato:"ok", in_scadenza:"warn", non_qualificato:"danger" };
+// Assegnabile = accreditato, attivo e senza documenti obbligatori bloccanti.
+function isAssegnabile(sid){ const s = supplier(sid);
+  return !!(s && s.accredited && s.attivo && qualifica(sid).stato !== "non_qualificato"); }
+// Motivo leggibile del blocco: usato nei messaggi, mai un rifiuto muto.
+function motivoBlocco(sid){ const s = supplier(sid); if(!s) return "fornitore inesistente";
+  if(!s.attivo) return "fornitore non attivo";
+  if(!s.accredited) return "fornitore non accreditato";
+  const q = qualifica(sid);
+  if(q.stato === "non_qualificato")
+    return "documenti non in regola: " + q.bloccanti.map(r => DOC_TIPI[r.tipo].label + " " + DOC_LABEL[r.stato]).join(", ");
+  return ""; }
+// Elenchi per il cruscotto Righi
+const fornitoriNonQualificati = () => STATE.suppliers.filter(s => s.attivo && qualifica(s.id).stato === "non_qualificato");
+const fornitoriInScadenza     = () => STATE.suppliers.filter(s => s.attivo && qualifica(s.id).stato === "in_scadenza");
+
 function fitsSpazio(sup, ingombro){ if(!ingombro||!sup||!sup.dimensioneMax) return true;
   return (DIMENSIONI[sup.dimensioneMax]||{ord:9}).ord >= (DIMENSIONI[ingombro]||{ord:0}).ord; }
 // Risposte rapide del caposquadra (un tocco, zero testo)
@@ -682,6 +745,23 @@ function seed(){
   const capi=SEED_CAPI.map(c=>({...c}));
   capi.forEach(c=>{ const p=c.name.split(/\s+/); c.email=(slug(p[0])[0]||"x")+"."+slug(p[p.length-1])+"@righinet.com"; });
   const suppliers=SEED_SUPPLIERS.map(s=>({...s, specialties:[...s.specialties], settori:[...s.settori], attrezzature:[...s.attrezzature], certificazioni:[...s.certificazioni], preferenze:{...s.preferenze}}));
+  // Documenti di qualifica: la maggior parte in regola, alcuni in scadenza o
+  // scaduti, cosi' il blocco dell'assegnazione e' visibile fin dalla demo.
+  suppliers.forEach((sup, k)=>{
+    sup.docs = DOC_KEYS.map(t=>{
+      const meta = DOC_TIPI[t];
+      if(!meta.obbl && rng() < 0.45) return null;                 // le certificazioni non le hanno tutti
+      const r = rng();
+      let giorni;
+      if(r < 0.08)      giorni = -(5 + Math.floor(rng()*90));      // scaduto
+      else if(r < 0.20) giorni = 3 + Math.floor(rng()*DOC_PREAVVISO); // in scadenza
+      else              giorni = DOC_PREAVVISO + 15 + Math.floor(rng()*300);
+      const inVerifica = giorni > 0 && rng() < 0.07;
+      return { tipo:t, scadenza:dISO(giorni), stato: inVerifica ? "in_verifica" : "valido",
+               caricatoIl: dISO(-(10 + Math.floor(rng()*200))), nota:"" };
+    }).filter(Boolean);
+    if(k % 11 === 3) sup.docs = sup.docs.filter(d => d.tipo !== "durc");   // qualche DURC mancante
+  });
   const activeSup=suppliers.filter(s=>s.attivo);
   const users=[{id:"u_resp", name:"Responsabile Produzione", role:"righi", righiRole:"responsabile", ruolo:"Responsabile Produzione", email:"produzione@righinet.com"}];
   capi.forEach(c=> users.push({id:"u_"+c.id, name:c.name, role:"righi", righiRole:"caposquadra", capoId:c.id, ruolo:"OTL / Caposquadra", email:c.email}));
@@ -994,6 +1074,45 @@ function supplierMetrics(sid){
 // Metriche fornitore: tutte OGGETTIVE e calcolate dai lavori (identiche lato Righi e
 // lato fornitore, quindi condivisibili). L'unica differenza: il carico è espresso in
 // ORE per Righi (che governa la saturazione) e in IMPORTO per il fornitore.
+/* Riquadro documenti di qualifica. Stesso elenco per Righi e per il fornitore,
+   con azioni diverse: il fornitore comunica il rinnovo, Righi lo verifica.
+   Il fornitore vede SOLO i propri documenti; mai quelli di altri fornitori. */
+function docBlock(sid, isRighi){
+  const s=supplier(sid); if(!s) return "";
+  const q=qualifica(sid); const u=currentUser(); const puoAgire=isRighi && !isCapo(u);
+  const riga=r=>{
+    const meta=DOC_TIPI[r.tipo], st=r.stato, d=r.doc;
+    const azioni = puoAgire
+      ? `${st==="in_verifica"?`<button class="btn sm accent" data-act="docVerify" data-sup="${sid}" data-t="${r.tipo}">${icon("check","sm")} Verifica</button>
+           <button class="btn sm danger" data-act="docReject" data-sup="${sid}" data-t="${r.tipo}">Respingi</button>`:""}
+         <button class="btn sm ghost" data-act="docRenew" data-sup="${sid}" data-t="${r.tipo}">${st==="mancante"?"Registra":"Rinnova"}</button>`
+      : (!isRighi ? `<button class="btn sm ${DOC_BLOCCANTI.includes(st)?"accent":"ghost"}" data-act="docDeclare" data-t="${r.tipo}">${st==="mancante"?"Invia":"Rinnova"}</button>` : "");
+    return `<div class="lrow" style="align-items:flex-start">
+      <span class="ic ${DOC_PILL[st]==="ok"?"ok":DOC_PILL[st]==="warn"?"accent":DOC_PILL[st]==="info"?"info":"danger"}">${icon(st==="valido"?"check":st==="in_verifica"?"clock":"bolt","sm")}</span>
+      <span class="gr"><b>${esc(meta.label)}${meta.obbl?"":' <span class="pill plain">facoltativo</span>'}</b>
+        <span class="s">${esc(meta.sub)}${d&&d.scadenza?" · scadenza "+fmtDate(d.scadenza):""}</span></span>
+      <span style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+        <span class="pill ${DOC_PILL[st]}">${DOC_LABEL[st]}</span>${azioni}</span></div>`;
+  };
+  const attive=STATE.jobs.filter(j=>j.assegnatoA===sid&&["assegnato","in_corso"].includes(j.stato)).length;
+  const allarme = q.stato==="non_qualificato"
+    ? `<div class="card leftbar" style="border-left:4px solid var(--danger);margin:2px 0 10px;padding:9px 12px">
+        <b style="color:var(--danger)">${icon("bolt","sm")} Non assegnabile</b>
+        <div style="font-size:12.5px;color:var(--ink-soft);margin-top:2px">${esc(motivoBlocco(sid))}.
+        ${isRighi?`Non compare tra i fornitori suggeriti e l'assegnazione e' bloccata${attive?`. Attenzione: ha gia' <b>${attive}</b> commesse in corso`:""}.`
+                :`Finché i documenti non sono in regola non puoi ricevere nuove commesse${attive?`; quelle in corso proseguono`:""}.`}</div></div>`
+    : q.stato==="in_scadenza"
+    ? `<div class="card leftbar" style="border-left:4px solid var(--warn);margin:2px 0 10px;padding:9px 12px">
+        <span style="font-size:12.5px;color:var(--ink-soft)">${icon("clock","sm")} <b>${q.avvisi.length} document${q.avvisi.length>1?"i":"o"} da rinnovare a breve</b> — ${isRighi?"il fornitore resta assegnabile":"resti assegnabile"}, ma conviene provvedere.</span></div>`
+    : "";
+  return `<div class="divide"></div>
+    <div class="sect-t">${icon("doc","sm")} Documenti e qualifica <span class="pill ${QUAL_PILL[q.stato]}">${QUAL_LABEL[q.stato]}</span></div>
+    ${allarme}
+    <div class="rowlist">${q.righe.map(riga).join("")}</div>
+    <p class="muted" style="font-size:12px;margin:8px 0 0">${isRighi
+      ? "La qualifica è calcolata dai documenti: un obbligatorio mancante o scaduto rende il fornitore non assegnabile."
+      : "Comunicando un rinnovo il documento passa <i>in verifica</i>: Righi lo controlla e lo conferma."}</p>`;
+}
 function metricsCardHtml(sid, isRighi=true){ const m=supplierMetrics(sid);
   const pu=m.puntualita==null?"—":m.puntualita+"%"; const puCls=m.puntualita==null?"":m.puntualita>=90?"ok":m.puntualita>=75?"warn":"danger";
   const maxM=Math.max(1,...Object.values(m.perMonth));
@@ -1080,10 +1199,17 @@ function jobHealth(j){
 function healthDot(j){ const h=jobHealth(j); if(["done","draft"].includes(h.level)) return ""; return `<span class="hdot ${h.level}" title="${h.label}"></span>`; }
 // Assegnazione intelligente: punteggio fornitori per una commessa
 function prefFor(sup, capoId){ return (sup && sup.preferenze && capoId && sup.preferenze[capoId]) || 0; }
+// Fornitori esclusi dai suggerimenti perche' non in regola, con il motivo.
+function suggestEsclusi(){
+  return STATE.suppliers.filter(s=>s.accredited&&s.attivo&&!isAssegnabile(s.id))
+    .map(s=>({sid:s.id, name:s.name, motivo:motivoBlocco(s.id)}));
+}
 function suggestSuppliers(job){ const mk=monthKey(keyDate(job)); const need=job.oreStimate||0;
   const needHv=job.tipologia==="potenza"; const needFood=/food|farmaceutico/i.test(job.settore);
-  // solo fornitori accreditati e ATTIVI concorrono all'assegnazione
-  return STATE.suppliers.filter(s=>s.accredited&&s.attivo).map(s=>{ const m=supplierMetrics(s.id); let score=0; const reasons=[];
+  // Concorrono solo i fornitori ASSEGNABILI: accreditati, attivi e con i
+  // documenti obbligatori in regola. Chi e' escluso viene contato a parte
+  // (vedi suggestEsclusi) e mostrato con il motivo: mai una sparizione muta.
+  return STATE.suppliers.filter(s=>isAssegnabile(s.id)).map(s=>{ const m=supplierMetrics(s.id); let score=0; const reasons=[];
     // % di utilizzo preferenziale dell'OTL (caposquadra) della commessa — dal file Mappatura
     const pref=prefFor(s, job.capoId);
     if(pref>0){ score+=pref*0.5; if(pref>=50) reasons.push("preferito OTL"); else if(pref>=20) reasons.push("preferenza OTL"); }
@@ -1254,6 +1380,7 @@ function viewRighiDashboard(){
     <div class="card kpi ok click" data-act="goFilter" data-stato="attivi"><span class="v">${ass}</span><span class="l">Assegnati / in corso</span></div>
     <div class="card kpi danger click" data-act="goFilter" data-stato="late"><span class="v">${late.length}</span><span class="l">In ritardo</span><span class="foot">inizio o rientro superati</span></div>
     <div class="card kpi accent click" data-act="goTab" data-tab="richieste"><span class="v">${openReq.length}</span><span class="l">Richieste aperte</span><span class="foot">dai fornitori</span></div>
+    <div class="card kpi ${fornitoriNonQualificati().length?"danger":""} click" data-act="goQualifica"><span class="v">${fornitoriNonQualificati().length}</span><span class="l">Fornitori non in regola</span><span class="foot">${fornitoriInScadenza().length} con documenti in scadenza</span></div>
   </div>
   ${daApprovare.length?`<div class="card leftbar" style="margin-bottom:14px;border-left:4px solid var(--warn)">
     <div class="sect-t" style="color:var(--warn)">${icon("bolt","sm")} ${capo_?"Le tue commesse in attesa di approvazione":"Da approvare — inviate dai capisquadra"} (${daApprovare.length})</div>
@@ -1422,7 +1549,8 @@ function draftSuggeriti(d){ if(!d||!d.tipologia) return [];
   const pseudo={ tipologia:d.tipologia, settore:d.settore, dataConsegna:d.dataConsegna, dataRientro:d.dataRientro, oreStimate:Number(d.ore)||0 };
   return suggestSuppliers(pseudo).filter(x=>x.score>0).slice(0,4);
 }
-function suggeritiHtml(d){ const sugg=draftSuggeriti(d); if(!sugg.length) return "";
+function suggeritiHtml(d){ const sugg=draftSuggeriti(d); const escl=suggestEsclusi();
+  if(!sugg.length && !escl.length) return "";
   const inv=d.invitati||[];
   return `<div class="sug-box">
     <div class="sug-head"><b>${icon("bolt","sm")} Fornitori suggeriti</b><span class="hint">idoneità per tipologia, settore, capacità e puntualità</span>
@@ -1434,6 +1562,9 @@ function suggeritiHtml(d){ const sugg=draftSuggeriti(d); if(!sugg.length) return
         <span class="gr"><b>${esc(s.name)}${x.spazioOk===false?' <span class="pill danger">spazio insufficiente</span>':''}</b><span class="s">${tags}${tags?' · ':''}${x.free>=x.need?`<span style="color:var(--ok)">capacità ${x.free}h</span>`:`<span style="color:var(--danger)">carico pieno</span>`}${x.puntualita!=null?" · punt "+x.puntualita+"%":""}</span></span>
         <button type="button" class="btn sm ${on?"":"accent"}" data-act="invSug" data-v="${x.sid}">${on?icon("check","sm")+" Invitato":"Invita"}</button>
       </div>`; }).join("")}</div>
+    ${escl.length?`<div class="card leftbar" style="border-left:4px solid var(--danger);margin:8px 0 2px;padding:8px 11px">
+      <span style="font-size:12.5px;color:var(--ink-soft)">${icon("bolt","sm")} <b>${escl.length} fornitor${escl.length>1?"i esclusi":"e escluso"}</b> perché non in regola con i documenti: ${escl.slice(0,3).map(e=>esc(e.name)).join(", ")}${escl.length>3?" e altri":""}.
+      <span class="lnk" data-act="goQualifica">Vedi la qualifica</span></span></div>`:""}
     <div class="sug-sep">Oppure scegli manualmente</div></div>`;
 }
 function viewNuovoLavoro(){
@@ -1696,13 +1827,14 @@ function viewFornitori(){
     </div>
     ${cview==='grafico'?`<div class="filt-row" style="margin-bottom:6px">${mesi.map(m=>`<button class="chip sm ${cmk===m?'on':''}" data-act="caricoMonth" data-mk="${m}">${monthLabel(m)}</button>`).join("")}</div>${caricoChartHtml(cmk)}`:caricoMatrixHtml()}
   </div>
-  <div class="filt-row" style="margin-bottom:10px"><button class="chip sm ${filt==='attivi'?'on':''}" data-act="fornAttivi" data-v="attivi">Attivi (${nAtt})</button><button class="chip sm ${filt==='tutti'?'on':''}" data-act="fornAttivi" data-v="tutti">Tutti (${STATE.suppliers.length})</button></div>
-  <div class="grid auto">${STATE.suppliers.filter(s=> filt==='tutti'?true:s.attivo).slice().sort((a,b)=>(b.attivo?1:0)-(a.attivo?1:0)).map(s=>{
+  <div class="filt-row" style="margin-bottom:10px"><button class="chip sm ${filt==='attivi'?'on':''}" data-act="fornAttivi" data-v="attivi">Attivi (${nAtt})</button><button class="chip sm ${filt==='nonqual'?'on':''}" data-act="fornAttivi" data-v="nonqual">Non in regola (${fornitoriNonQualificati().length})</button><button class="chip sm ${filt==='scadenza'?'on':''}" data-act="fornAttivi" data-v="scadenza">In scadenza (${fornitoriInScadenza().length})</button><button class="chip sm ${filt==='tutti'?'on':''}" data-act="fornAttivi" data-v="tutti">Tutti (${STATE.suppliers.length})</button></div>
+  <div class="grid auto">${STATE.suppliers.filter(s=> filt==='tutti'?true: filt==='nonqual'?(s.attivo&&qualifica(s.id).stato==='non_qualificato') : filt==='scadenza'?(s.attivo&&qualifica(s.id).stato==='in_scadenza') : s.attivo).slice().sort((a,b)=>(b.attivo?1:0)-(a.attivo?1:0)).map(s=>{
     const active=STATE.jobs.filter(j=>j.assegnatoA===s.id&&!["consegnato","chiuso"].includes(j.stato)).length; const ore=activeHours(s.id);
     return `<div class="card ${s.attivo?'':'is-off'}"><div style="display:flex;gap:11px;align-items:center;margin-bottom:10px">
       <span class="avatar" data-act="supDetail" data-sup="${s.id}" style="background:${colorFor(s.id)};cursor:pointer">${initials(s.name)}</span>
       <div style="flex:1;min-width:0"><b class="sup-name" data-act="supDetail" data-sup="${s.id}" style="font-size:15px">${esc(s.name)}</b><div class="muted" style="font-size:12.5px">${esc(s.citta||"sede n.d.")}</div></div>
-      ${!s.attivo?`<span class="pill plain">non attivo</span>`:active?`<span class="pill ok">${active} attivi · ${ore} h</span>`:`<span class="pill plain">libero</span>`}</div>
+      ${!s.attivo?`<span class="pill plain">non attivo</span>`:active?`<span class="pill ok">${active} attivi · ${ore} h</span>`:`<span class="pill plain">libero</span>`}
+      ${s.attivo&&qualifica(s.id).stato!=='qualificato'?`<span class="pill ${QUAL_PILL[qualifica(s.id).stato]}" title="${esc(motivoBlocco(s.id)||'documenti in scadenza')}">${qualifica(s.id).stato==='non_qualificato'?'non in regola':'doc. in scadenza'}</span>`:''}</div>
       <div class="tags" style="margin-bottom:6px">${s.specialties.map(sp=>`<span class="pill brand"><span class="dot ${TIPOLOGIE[sp].dot}"></span>${TIPOLOGIE[sp].short}</span>`).join("")||'<span class="pill plain">tipologie n.d.</span>'}${(s.certificazioni||[]).map(c=>`<span class="pill accent">${CERT[c]||c}</span>`).join("")}</div>
       <div style="margin-top:2px;font-size:12px;color:var(--ink-soft)">Capacità ${s.capacitaMese||0}h/mese · libere ora <b>${freeCapacity(s.id)}h</b>${s.cablatori?` · ${s.cablatori} cablatori`:''}${s.costoOrario?` · ${s.costoOrario} €/h`:''}${s.zona?` · ${esc(s.zona)}`:''}</div>
       <div style="margin-top:4px;font-size:12px;color:var(--ink-soft)">${icon("building","sm")} ${s.dimensioneMax?esc(DIMENSIONI[s.dimensioneMax].short):'—'}${(s.attrezzature&&s.attrezzature.length)?' · '+attrLabels(s.attrezzature).slice(0,3).map(esc).join(', ')+(s.attrezzature.length>3?' +'+(s.attrezzature.length-3):''):''}</div>
@@ -1800,7 +1932,7 @@ function viewProfilo(u){
   <div class="card">
     <div style="display:flex;gap:14px;align-items:center;margin-bottom:14px">
       <span class="avatar" style="width:52px;height:52px;font-size:18px;background:${colorFor(s.id)}">${initials(s.name)}</span>
-      <div><h3 style="font-size:19px">${esc(s.name)}</h3><div class="muted">${esc(s.citta)} · accreditato</div></div></div>
+      <div><h3 style="font-size:19px">${esc(s.name)}</h3><div class="muted">${esc(s.citta)} · <span class="pill ${QUAL_PILL[qualifica(s.id).stato]}">${QUAL_LABEL[qualifica(s.id).stato]}</span></div></div></div>
     <div class="grid k3" style="margin-bottom:14px">
       <div class="card kpi"><span class="v">${active}</span><span class="l">Commesse attive</span></div>
       <div class="card kpi ok"><span class="v">${done}</span><span class="l">Consegnate</span></div>
@@ -1810,6 +1942,7 @@ function viewProfilo(u){
     <div class="row2"><div class="field"><label>Settori</label><div class="tags">${s.settori.map(se=>`<span class="pill plain">${esc(se)}</span>`).join("")||'<span class="muted">—</span>'}</div></div>
       <div class="field"><label>Valore commesse attive</label><div class="soft"><b>${fmtMoney(m.valoreAttivo)}</b> su ${m.commesseAttive} commesse${m.valoreConsegnato?` · consegnato ${fmtMoney(m.valoreConsegnato)}`:''}</div></div></div>
     <div class="field"><label>Contatti</label><div class="soft">${esc(s.referente)} · ${esc(s.email)} · ${esc(s.citta)} (${esc(s.zona)})</div></div>
+    ${docBlock(s.id, false)}
   </div>
   ${metricsCardHtml(s.id, false)}`;
 }
@@ -2331,6 +2464,7 @@ function openSupplierModal(sid){ const s=supplier(sid); if(!s) return;
     <div class="dl" style="margin-top:2px"><span class="k">${icon("building","sm")} Attrezzature di officina</span><span class="v">${(s.attrezzature&&s.attrezzature.length)?attrLabels(s.attrezzature).map(a=>`<span class="pill plain">${esc(a)}</span>`).join(" "):'<span class="muted">non indicate</span>'}</span></div>
     <div class="dl"><span class="k">${icon("star","sm")} Preferenza di utilizzo per OTL</span><span class="v">${prefRows.length?`<div class="pref-grid">${prefRows.map(x=>`<span class="pf">${esc(x.c.name)} <b>${x.p}%</b></span>`).join("")}</div>`:'<span class="muted">nessuna preferenza indicata</span>'}</span></div>
     ${s.note?`<div class="dl"><span class="k">Note</span><span class="v" style="font-weight:400;line-height:1.45">${esc(s.note)}</span></div>`:""}
+    ${docBlock(sid, true)}
     ${metricsCardHtml(sid)}
     <div class="divide"></div>
     <div class="btn-row">${!isCapo(currentUser())?`<button class="btn accent" data-act="editSup" data-sup="${sid}">${icon("doc","sm")} Modifica scheda</button>`:""}<button class="btn ghost" data-act="emailSup" data-sup="${sid}">${icon("mail","sm")} Email</button><button class="btn ghost" data-act="supJobs" data-sup="${sid}">Commesse del fornitore</button></div>`);
@@ -2622,7 +2756,10 @@ function doNotify(jid){ const j=byId(STATE.jobs,jid); const ids=[...App.notifySe
   toast("Notifica inviata a "+ids.length+" fornitor"+(ids.length>1?"i":"e"),"ok"); render();
   if(wantEmail) emailJobToSuppliers(j, ids);
 }
-function doAssign(jid,sid){ const j=byId(STATE.jobs,jid); const s=supplier(sid); j.assegnatoA=sid; j.stato="assegnato"; j.assegnatoAt=todayISO();
+function doAssign(jid,sid){ const j=byId(STATE.jobs,jid); const s=supplier(sid);
+  // La qualifica vale anche qui, non solo nascondendo il pulsante
+  if(!isAssegnabile(sid)){ toast("Non assegnabile — "+motivoBlocco(sid),"warn"); return; }
+  j.assegnatoA=sid; j.stato="assegnato"; j.assegnatoAt=todayISO();
   notifySupplier(sid,{ic:"check",txt:"Commessa assegnata: "+j.title,sub:j.code,jobId:j.id});
   STATE.responses.filter(r=>r.jobId===jid).forEach(r=>r.read=true);
   persist(); closeModal(); toast("Assegnato a "+s.name,"ok"); render();
@@ -2679,6 +2816,54 @@ function doOptimalAssign(){
     STATE.responses.filter(rr=>rr.jobId===e.jid).forEach(rr=>rr.read=true);
   });
   const n=r.proposal.length; App._optimal=null; persist(); closeModal(); toast(n+" commesse assegnate in modo ottimo","ok"); render();
+}
+/* ---- Azioni sui documenti di qualifica --------------------------------------
+   Righi registra/rinnova e verifica; il fornitore comunica il rinnovo, che entra
+   "in verifica". Ogni passaggio cambia lo stato di qualifica e quindi
+   l'assegnabilita': nessuna di queste azioni e' puramente informativa. */
+function setDoc(sid, tipo, patch){ const s=supplier(sid); if(!s||!DOC_TIPI[tipo]) return null;
+  s.docs=s.docs||[]; let d=s.docs.find(x=>x.tipo===tipo);
+  if(!d){ d={tipo, scadenza:null, stato:"valido", caricatoIl:todayISO(), nota:""}; s.docs.push(d); }
+  Object.assign(d, patch); return d; }
+// Modulo unico per registrare o rinnovare un documento (Righi) o comunicarlo (fornitore)
+function openDocForm(sid, tipo, daFornitore){
+  const s=supplier(sid), meta=DOC_TIPI[tipo]; if(!s||!meta) return;
+  const d=docOf(s,tipo), st=docStato(d);
+  const proposta=dISO(Math.round(meta.mesi*30.4));
+  openModal(`${modalHead((daFornitore?"Comunica ":"Registra ")+meta.label)}
+    <div class="dl"><span class="k">Fornitore</span><span class="v">${esc(s.name)}</span></div>
+    <div class="dl"><span class="k">Documento</span><span class="v">${esc(meta.label)} — ${esc(meta.sub)}</span></div>
+    <div class="dl"><span class="k">Stato attuale</span><span class="v"><span class="pill ${DOC_PILL[st]}">${DOC_LABEL[st]}</span>${d&&d.scadenza?" · scadenza "+fmtDate(d.scadenza):""}</span></div>
+    <div class="field"><label>Nuova scadenza</label><input class="inp" id="doc-scad" type="date" value="${proposta}">
+      <span class="hint">Validità tipica: ${meta.mesi} mesi.</span></div>
+    <div class="field"><label>Nota (facoltativa)</label><input class="inp" id="doc-nota" placeholder="es. numero polizza, protocollo"></div>
+    <div class="btn-row">${daFornitore
+      ? `<button class="btn ghost" data-act="goTab" data-tab="profilo">Annulla</button>
+         <button class="btn accent" data-act="doDocDeclare" data-t="${tipo}">${icon("check")} Invia a Righi</button>`
+      : `<button class="btn ghost" data-act="supDetail" data-sup="${sid}">Annulla</button>
+         <button class="btn accent" data-act="doDocRenew" data-sup="${sid}" data-t="${tipo}">${icon("check")} Conferma</button>`}
+    </div>`);
+}
+function doDocRenew(sid, tipo){ const u=currentUser(); if(!u||u.role!=="righi"||isCapo(u)){ toast("Solo il responsabile di produzione","warn"); return; }
+  const scad=($("#doc-scad")||{}).value||""; if(!scad){ toast("Indica la scadenza","warn"); return; }
+  setDoc(sid, tipo, {scadenza:scad, stato:"valido", caricatoIl:todayISO(), nota:($("#doc-nota")||{}).value||"", esitoDa:u.id});
+  persist(); toast(DOC_TIPI[tipo].label+" aggiornato — "+QUAL_LABEL[qualifica(sid).stato].toLowerCase(),"ok"); render(); openSupplierModal(sid);
+}
+function doDocDeclare(tipo){ const u=currentUser(); const sid=u&&u.supplierId; if(!sid){ toast("Azione riservata ai fornitori","warn"); return; }
+  const scad=($("#doc-scad")||{}).value||""; if(!scad){ toast("Indica la scadenza","warn"); return; }
+  setDoc(sid, tipo, {scadenza:scad, stato:"in_verifica", caricatoIl:todayISO(), nota:($("#doc-nota")||{}).value||""});
+  // il responsabile deve sapere che c'e' un documento da verificare
+  STATE.users.filter(x=>x.righiRole==="responsabile").forEach(x=>STATE.notifications.push({id:uid("n"),toUser:x.id,ic:"doc",
+    txt:"Documento da verificare: "+DOC_TIPI[tipo].label, sub:(supplier(sid)||{}).name, at:new Date().toISOString().slice(0,16), read:false}));
+  persist(); closeModal(); toast(DOC_TIPI[tipo].label+" inviato: in verifica da Righi","ok"); render();
+}
+function doDocVerify(sid, tipo, ok){ const u=currentUser(); if(!u||u.role!=="righi"||isCapo(u)){ toast("Solo il responsabile di produzione","warn"); return; }
+  setDoc(sid, tipo, {stato: ok?"valido":"respinto", esitoDa:u.id, esitoAt:todayISO()});
+  const q=qualifica(sid);
+  notifySupplier(sid,{ic:ok?"check":"x", txt:(ok?"Documento verificato: ":"Documento respinto: ")+DOC_TIPI[tipo].label,
+    sub: ok?"":motivoBlocco(sid)});
+  persist(); toast(ok?("Verificato — "+QUAL_LABEL[q.stato].toLowerCase()):"Documento respinto: il fornitore e' stato avvisato", ok?"ok":"warn");
+  render(); openSupplierModal(sid);
 }
 // Chiude la pratica: stato finale, dalla consegna all'archivio.
 function closeJob(jid){ const j=byId(STATE.jobs,jid); const u=currentUser();
@@ -2744,6 +2929,8 @@ document.addEventListener("click",e=>{
     case "lavoriMode": App.lavoriMode=el.dataset.m; App.page=1; render(); break;
     case "fornMode": App.fornMode=el.dataset.m; render(); break;
     case "fornAttivi": App.fornAttivi=el.dataset.v; render(); break;
+    case "goQualifica": App.tab="fornitori"; App.fornMode="lista";
+      App.fornAttivi = fornitoriNonQualificati().length ? "nonqual" : "scadenza"; render(); break;
     case "caricoView": App.caricoView=el.dataset.m; render(); break;
     case "caricoMonth": App.caricoMonth=el.dataset.mk; render(); break;
     case "chartFilter": App.tab="lavori"; App.lavoriMode="table"; App.page=1;
@@ -2811,6 +2998,17 @@ document.addEventListener("click",e=>{
         body:`La commessa <b>${esc(j.code)}</b> passa in archivio: esce dalle commesse attive e dal conteggio in alto. Resta consultabile con il filtro <i>Chiuse</i>.`,
         confirmLabel:`${icon("check","sm")} Sì, chiudi`, confirmAct:"doCloseJob", data:{job:j.id}}); break; }
     case "doCloseJob": closeJob(el.dataset.job); break;
+    case "docRenew": openDocForm(el.dataset.sup, el.dataset.t, false); break;
+    case "doDocRenew": doDocRenew(el.dataset.sup, el.dataset.t); break;
+    case "docDeclare": { const u=currentUser(); if(u&&u.supplierId) openDocForm(u.supplierId, el.dataset.t, true); break; }
+    case "doDocDeclare": doDocDeclare(el.dataset.t); break;
+    case "docVerify": doDocVerify(el.dataset.sup, el.dataset.t, true); break;
+    case "docReject": { const meta=DOC_TIPI[el.dataset.t]||{};
+      openConfirm({title:"Respingere il documento?", kind:"danger",
+        body:`<b>${esc(meta.label||"")}</b> risulterà non valido e il fornitore potrebbe diventare non assegnabile. Riceve una notifica con il motivo.`,
+        confirmLabel:"S&igrave;, respingi", confirmAct:"doDocReject", data:{sup:el.dataset.sup, t:el.dataset.t},
+        backAct:"supDetail", backData:{sup:el.dataset.sup}}); break; }
+    case "doDocReject": doDocVerify(el.dataset.sup, el.dataset.t, false); break;
     case "resetDemo": openConfirm({title:"Ripristinare i dati dimostrativi?", kind:"accent",
       body:"Le commesse, le richieste e gli accessi tornano a quelli iniziali di questa versione. Le prove fatte finora su questo dispositivo vengono perse.",
       confirmLabel:"S&igrave;, ripristina", confirmAct:"doResetDemo"}); break;

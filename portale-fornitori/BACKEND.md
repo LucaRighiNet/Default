@@ -169,6 +169,52 @@ requests( ... , importo numeric null,          -- extra richiesto dal fornitore
               extra_tipo text null check in ('materiale','lavorazione','layout','rilavorazione') )
 ```
 
+### 1-quinquies. Qualifica del fornitore: documenti che abilitano il lavoro
+
+Il portale non replica un sistema completo di gestione della conformita': ne
+prende **la parte che decide se un fornitore e' assegnabile**. Se in azienda
+esiste gia' una piattaforma di compliance (documenti, scadenzari, verifiche), la
+fonte di verita' resta quella e il portale ne **consuma l'esito**.
+
+```
+supplier_docs(
+  id uuid pk,
+  supplier_id uuid fk suppliers,
+  tipo text check in ('durc','rct','idoneita','visura','iso9001','iso45001'),
+  scadenza date not null,
+  stato text check in ('valido','in_verifica','respinto'),
+  file_url text null,            -- nel prototipo si dichiara solo la scadenza
+  caricato_il date, nota text,
+  esito_da uuid null fk users, esito_at timestamptz null,
+  unique(supplier_id, tipo)
+)
+```
+
+**Stato calcolato, non memorizzato.** `valido | in_scadenza | in_verifica |
+respinto | scaduto | mancante` si derivano da `scadenza` + `stato` + la data di
+oggi. Non va salvato: si sfaserebbe da solo al passare del tempo.
+
+**Regola da imporre lato server** (il client la applica per l'esperienza, il
+server per la sostanza):
+
+- un documento **obbligatorio** mancante, scaduto o respinto rende il fornitore
+  **non assegnabile**;
+- l'endpoint di **assegnazione deve rifiutare** un fornitore non assegnabile,
+  esattamente come rifiuta un extra oltre soglia deciso dal caposquadra;
+- solo un utente **responsabile** puo' verificare o respingere; il **fornitore**
+  puo' solo comunicare un rinnovo sul **proprio** `supplier_id` (RLS).
+
+**Automazioni naturali una volta sul server**: promemoria automatico al fornitore
+a 30/15/7 giorni dalla scadenza (riusando la coda di notifica gia' descritta) e
+disattivazione automatica alla scadenza, con avviso a Righi se il fornitore ha
+commesse in corso.
+
+**Integrazione con un sistema di compliance esterno.** Se i documenti sono gia'
+gestiti altrove, non vanno reinseriti: basta che il sistema esterno alimenti
+`supplier_docs` (o direttamente `suppliers.accredited` / `suppliers.attivo`).
+La direzione e' una sola: **la conformita' decide chi e' idoneo, il portale
+decide a chi affidare**.
+
 ## 2. Modello dati (Postgres)
 
 Il portale è **per-entità** (non whole-document): i lavori sono oggetti condivisi

@@ -10,7 +10,8 @@ const START = "/* ============================ Utility";
 const END   = "/* ============================ Render";
 const EXPORTS = ["STATE","App","isLate","isLateStart","isLateReturn","keyDate","lateDays","jobsForSupplier","filteredJobs","daysTo","relDays","fmtMoney","fmtDate",
                  "dISO","addDays","supplier","capo","byId","mailto","isCapo","activeHours","supplierMonthlyLoad","monthKey",
-                 "toCSV","parseCSV","supplierMetrics","freeCapacity","monthLoad","daysBetween","jobHealth","suggestSuppliers",
+                 "toCSV","parseCSV","isAssegnabile","qualifica","docStato","motivoBlocco","DOC_TIPI","DOC_KEYS","DOC_OBBL","suggestEsclusi",
+                 "supplierMetrics","freeCapacity","monthLoad","daysBetween","jobHealth","suggestSuppliers",
                  "TIPOLOGIE","STATI","SETTORI","LAVORAZIONI","LAV_KEYS","parseLavorazioni","REQ_TYPES","AVANZAMENTO","CERT","QUICK_REPLIES","esc","uid",
                  "DIMENSIONI","ATTREZZATURE","fitsSpazio","supplier","jobResponses","jobRequests","graphIndex","maxflowMinCut","capacityBottleneck"];
 const S = sandbox(START, END, EXPORTS, {});
@@ -310,9 +311,64 @@ r.ok("jobHealth: consegnato=done, in ritardo=rosso, livelli validi", () => {
 r.ok("suggestSuppliers: ordinato per punteggio, overload = libere < ore", () => {
   const job = S.STATE.jobs.find(j => j.stato === "pubblicato");
   const sg = S.suggestSuppliers(job);
-  assert.strictEqual(sg.length, S.STATE.suppliers.filter(s => s.accredited && s.attivo).length, "solo terzisti attivi");
+  // concorrono solo i fornitori ASSEGNABILI: accreditati, attivi e con documenti in regola
+  assert.strictEqual(sg.length, S.STATE.suppliers.filter(s => S.isAssegnabile(s.id)).length, "solo fornitori assegnabili");
+  for (const x of sg) assert(S.isAssegnabile(x.sid), "suggerito un fornitore non assegnabile: " + x.sid);
   for (let i = 1; i < sg.length; i++) assert(sg[i-1].score >= sg[i].score, "non ordinato");
   for (const x of sg) assert.strictEqual(x.overload, x.free < (job.oreStimate||0));
+});
+/* ---- Qualifica del fornitore (documenti) ---- */
+r.ok("docStato: valido / in scadenza / scaduto / mancante", () => {
+  assert.strictEqual(S.docStato(null), "mancante");
+  assert.strictEqual(S.docStato({ tipo:"durc", scadenza:S.dISO(200), stato:"valido" }), "valido");
+  assert.strictEqual(S.docStato({ tipo:"durc", scadenza:S.dISO(5),   stato:"valido" }), "in_scadenza");
+  assert.strictEqual(S.docStato({ tipo:"durc", scadenza:S.dISO(-1),  stato:"valido" }), "scaduto");
+  assert.strictEqual(S.docStato({ tipo:"durc", scadenza:S.dISO(90),  stato:"in_verifica" }), "in_verifica");
+  assert.strictEqual(S.docStato({ tipo:"durc", scadenza:S.dISO(90),  stato:"respinto" }), "respinto");
+  // un documento in verifica ma gia' scaduto resta scaduto: la scadenza vince
+  assert.strictEqual(S.docStato({ tipo:"durc", scadenza:S.dISO(-2), stato:"in_verifica" }), "scaduto");
+});
+r.ok("qualifica: un obbligatorio bloccante toglie l'assegnabilità, un facoltativo no", () => {
+  const s = S.STATE.suppliers.find(x => x.attivo && S.qualifica(x.id).stato === "qualificato");
+  assert(s, "serve un fornitore qualificato nel seed");
+  const obbl = s.docs.find(d => S.DOC_TIPI[d.tipo].obbl);
+  const orig = obbl.scadenza;
+  obbl.scadenza = S.dISO(-1);
+  assert.strictEqual(S.qualifica(s.id).stato, "non_qualificato", "obbligatorio scaduto deve bloccare");
+  assert.strictEqual(S.isAssegnabile(s.id), false, "non deve essere assegnabile");
+  assert(/scaduto/.test(S.motivoBlocco(s.id)), "il motivo deve essere esplicito");
+  obbl.scadenza = orig;
+  assert.strictEqual(S.isAssegnabile(s.id), true, "ripristinando torna assegnabile");
+  // un facoltativo scaduto non blocca
+  const fac = s.docs.find(d => !S.DOC_TIPI[d.tipo].obbl);
+  if (fac) { const o2 = fac.scadenza; fac.scadenza = S.dISO(-1);
+    assert.strictEqual(S.isAssegnabile(s.id), true, "un facoltativo scaduto non deve bloccare");
+    fac.scadenza = o2; }
+});
+r.ok("i documenti in scadenza avvisano ma non bloccano", () => {
+  const s = S.STATE.suppliers.find(x => x.attivo && S.qualifica(x.id).stato === "qualificato");
+  const obbl = s.docs.find(d => S.DOC_TIPI[d.tipo].obbl); const orig = obbl.scadenza;
+  obbl.scadenza = S.dISO(5);
+  const q = S.qualifica(s.id);
+  assert.strictEqual(q.stato, "in_scadenza");
+  assert.strictEqual(S.isAssegnabile(s.id), true, "in scadenza deve restare assegnabile");
+  assert(q.avvisi.length >= 1, "deve segnalare l'avviso");
+  obbl.scadenza = orig;
+});
+r.ok("suggestEsclusi elenca i non assegnabili con il motivo", () => {
+  const escl = S.suggestEsclusi();
+  for (const e of escl) {
+    assert.strictEqual(S.isAssegnabile(e.sid), false, "escluso ma assegnabile");
+    assert(e.motivo && e.motivo.length > 5, "motivo mancante per " + e.sid);
+  }
+  // nessun assegnabile deve finire fra gli esclusi
+  const ids = new Set(escl.map(e => e.sid));
+  for (const s of S.STATE.suppliers) if (S.isAssegnabile(s.id)) assert(!ids.has(s.id));
+});
+r.ok("ogni documento obbligatorio è previsto dal modello", () => {
+  assert(S.DOC_OBBL.length >= 3, "attesi piu' documenti obbligatori");
+  for (const k of S.DOC_KEYS) { const m = S.DOC_TIPI[k];
+    assert(m.label && m.sub && m.mesi > 0, "metadati incompleti per " + k); }
 });
 r.ok("suggestSuppliers: chi è specializzato+settore batte chi non lo è", () => {
   const job = S.STATE.jobs.find(j => j.stato === "pubblicato");

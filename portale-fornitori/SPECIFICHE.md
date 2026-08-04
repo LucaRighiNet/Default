@@ -62,6 +62,8 @@ email; ogni rifiuto è motivato; ogni stato ha qualcuno che lo fa scattare.
 | Segnare consegnato | ❌ | ❌ | ✅ |
 | Chiudere la pratica | ✅ | ✅ | ❌ |
 | Creare/modificare anagrafica fornitori | ✅ | ❌ | ❌ |
+| Registrare/verificare documenti di qualifica | ✅ | ❌ | ❌ |
+| Comunicare il rinnovo di un proprio documento | ❌ | ❌ | ✅ |
 
 ### 2.3 Riservatezza: cosa non attraversa il confine
 
@@ -77,6 +79,8 @@ fornitore, perché riguardano la marginalità e la pianificazione interna di Rig
 | Date **inizio stimato** e **rientro** | ✅ | ✅ | Sono i suoi impegni |
 | **Metriche** di prestazione | ✅ | ✅ | Identiche per entrambi, per costruzione |
 | Commesse **di altri fornitori** | ✅ | ❌ | Riservatezza commerciale |
+| **Documenti di qualifica propri** | ✅ | ✅ | Sono i suoi documenti |
+| Documenti **di altri fornitori** | ✅ | ❌ | Riservatezza |
 
 Al fornitore, dove Righi vede *ore*, il portale mostra *importo*: stessa realtà,
 grandezza appropriata a chi guarda.
@@ -265,7 +269,81 @@ sequenceDiagram
 - **Effetti a valle**: importo finale = concordato + extra approvati; l'export per
   l'ERP distingue `importo_base`, `extra_approvati`, `importo_finale`.
 
-### 3.7 Consegna con autorizzazione
+### 3.7 Qualifica del fornitore: chi può lavorare per noi
+
+Accanto alla domanda operativa *«a chi conviene affidare questo lavoro?»* il
+portale presidia quella preliminare: *«questo fornitore **può** lavorare per
+noi?»*. È il perimetro tipico dei sistemi di gestione della conformità, ripreso
+qui **solo per la parte che incide sull'assegnazione**.
+
+| Documento | Obbligatorio | Validità tipica |
+|---|:---:|---|
+| DURC — regolarità contributiva | ✅ | 4 mesi |
+| Polizza RCT/RCO | ✅ | 12 mesi |
+| Idoneità tecnico-professionale (art. 26 D.Lgs. 81/08) | ✅ | 12 mesi |
+| Visura camerale | ✅ | 12 mesi |
+| ISO 9001 · ISO 45001 | ❌ | 36 mesi |
+
+**La qualifica non è un campo digitato**: è calcolata dai documenti.
+
+```mermaid
+flowchart TD
+    D[Documenti del fornitore] --> S{Un obbligatorio<br/>mancante, scaduto<br/>o respinto?}
+    S -->|sì| NQ[Non qualificato]
+    S -->|no| E{Qualcuno in scadenza<br/>entro 30 giorni<br/>o in verifica?}
+    E -->|sì| IS[Documenti in scadenza]
+    E -->|no| QU[Qualificato]
+    NQ --> B[NON assegnabile:<br/>fuori dai suggeriti,<br/>saltato dall'assegnazione ottima,<br/>assegnazione manuale bloccata]
+    IS --> A[Assegnabile, con avviso]
+    QU --> A
+
+    style NQ fill:#F7E4E1,stroke:#C0392B
+    style IS fill:#F7EEDA,stroke:#B4791A
+    style QU fill:#E4F1EA,stroke:#2E7D53
+    style B fill:#F7E4E1,stroke:#C0392B
+```
+
+**Dove agisce** — è ciò che distingue una funzione reale da una scheda
+informativa:
+
+1. **Suggerimento fornitori**: i non qualificati non compaiono, e il modulo di
+   invito dichiara **quanti** sono esclusi e **perché** (mai una sparizione muta).
+2. **Assegnazione manuale**: bloccata, con il motivo esplicito. Il controllo è
+   nella funzione, non solo nel nascondere il pulsante.
+3. **Assegnazione ottima**: li salta.
+4. **Cruscotto**: un indicatore conta i *fornitori non in regola* e porta
+   all'elenco già filtrato.
+5. **Profilo del fornitore**: vede il proprio stato e cosa gli manca.
+
+**Il ciclo del documento**
+
+```mermaid
+sequenceDiagram
+    participant F as Fornitore
+    participant P as Portale
+    participant R as Responsabile
+    F->>P: Comunica il rinnovo (nuova scadenza)
+    P->>R: Notifica "documento da verificare"
+    Note over P: stato = in verifica<br/>(copre il requisito se non scaduto)
+    alt verifica positiva
+        R->>P: Verifica
+        P->>F: Notifica "documento verificato"
+        Note over P: stato = valido
+    else respinto
+        R->>P: Respingi (con conferma)
+        P->>F: Notifica con il motivo
+        Note over P: stato = respinto -> blocca
+    end
+```
+
+Un documento **in verifica** con scadenza futura **copre** il requisito: è stato
+consegnato, manca solo il controllo. Se invece è già scaduto, la scadenza vince.
+
+**Chi fa cosa**: il fornitore vede **solo i propri** documenti e può comunicare
+un rinnovo; il **responsabile** registra, verifica o respinge; il **caposquadra
+consulta** ma non modifica, coerentemente con la regola dell'anagrafica.
+
+### 3.8 Consegna con autorizzazione
 
 Il fornitore **non chiude da solo**. Quando è pronto chiede l'autorizzazione; solo
 dopo l'ok compare *Segna consegnato*.
@@ -285,7 +363,7 @@ flowchart TD
 Il **rientro effettivo** registrato alla consegna alimenta la puntualità: è un
 dato di fatto, non una valutazione.
 
-### 3.8 Metriche del fornitore
+### 3.9 Metriche del fornitore
 
 Calcolate dai lavori, **mai inserite a mano**, e **identiche** nelle due viste —
 è ciò che le rende condivisibili in una discussione.
@@ -301,7 +379,7 @@ Calcolate dai lavori, **mai inserite a mano**, e **identiche** nelle due viste �
 | **Extra** | % di commesse con extra e scostamento % sul concordato |
 | **Carico ore / saturazione** | *Solo Righi* |
 
-### 3.9 Comunicazione verso l'esterno: il magic link
+### 3.10 Comunicazione verso l'esterno: il magic link
 
 Un fornitore poco pratico del portale non scopre da solo che è arrivata una
 risposta. Il portale quindi **spinge**, non aspetta.
