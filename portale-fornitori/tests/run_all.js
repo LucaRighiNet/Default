@@ -17,7 +17,7 @@ fs.writeFileSync(path.join(dir, "app_check.js"), html.slice(s, e));
 try { execFileSync("node", ["--check", path.join(dir, "app_check.js")], { stdio: "pipe" }); console.log("node --check: OK"); }
 catch (err) { console.error("node --check: FAIL\n" + err.stderr); process.exit(1); }
 
-const suites = ["model_test.js", "sync_test.js"];
+const suites = ["model_test.js", "sync_test.js", "sfx_test.js"];
 let failed = 0;
 console.log("");
 for (const f of suites) {

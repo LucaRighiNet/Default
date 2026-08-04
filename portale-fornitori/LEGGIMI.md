@@ -151,6 +151,21 @@ Assegnata a te → Consegnata*).
 diversa per Responsabile, Caposquadra e Fornitore. Quella del **fornitore** è
 esaustiva (bacheca, quotazione, accettazione con firma, avanzamento, richieste
 guidate con foto, profilo e metriche) e include una sezione **domande frequenti**.
+Chiude, per tutti i ruoli, la legenda dei **suoni**.
+
+**Suoni**: ogni evento ha il suo suono, così si capisce cosa è successo **senza
+guardare lo schermo** — mentre si è al telefono o si cammina in reparto. Sono
+tutti **sintetizzati** dal portale (nessun file audio da scaricare) e seguono
+una grammatica semplice: **chi sale è andato avanti** (accettazione,
+approvazione, avanzamento, richiesta inviata), **chi scende è stato fermato**
+(diniego, azione bloccata). L'**assegnazione** è l'unico suono con la coda
+lunga — tre note che salgono e si chiudono in alto: è il momento per cui il
+portale esiste. Sono brevi per scelta (90 ms per un tocco, 250–350 ms per una
+conferma) e a volume basso: confermano, non annunciano. L'**altoparlante** nella
+barra in alto li spegne e li riaccende, e la scelta resta memorizzata sul
+dispositivo. Nulla suona al caricamento o navigando tra le schede: il suono
+segue solo un'azione. Il repertorio completo, con la forma di ogni suono, è in
+[`SPECIFICHE.md` §3.11](SPECIFICHE.md).
 
 **Notifiche ed email**: ogni evento (pubblicazione, notifica mirata, richiesta
 guidata, risposta) genera una **notifica in app**; dove serve comunicare fuori
@@ -342,9 +357,11 @@ OTL/caposquadra o fornitore collegato a un fornitore).
 cd portale-fornitori && node tests/run_all.js
 ```
 
-Verifica la sintassi dell'app (`node --check`) e la logica pura di dominio
-(regole di **visibilità** dei lavori, **ritardi**, integrità del seed, helper) e
-il contratto di **sync**. Nessuna dipendenza esterna.
+Verifica la sintassi dell'app (`node --check`), la logica pura di dominio
+(regole di **visibilità** dei lavori, **ritardi**, **qualifica**, integrità del
+seed, helper), il contratto di **sync** e i **suoni** — questi ultimi registrando
+la sintesi voce per voce (scala, timbro, durate, volumi, direzione melodica e
+firma distinta per ogni funzionalità). Nessuna dipendenza esterna.
 
 ## Dati e privacy
 

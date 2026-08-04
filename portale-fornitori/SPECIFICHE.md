@@ -403,6 +403,73 @@ flowchart LR
   Prima di aprire, il portale verifica sempre il diritto di vedere quel contenuto.
 - L'identità viene **ripulita dall'URL** subito dopo l'accesso.
 
+### 3.11 Il linguaggio sonoro
+
+Chi usa il portale tutto il giorno non guarda lo schermo a ogni clic: lo tiene
+aperto mentre parla al telefono, mentre cammina in reparto, mentre compila
+altro. Il suono è il canale che conferma **senza chiedere attenzione**. Per
+questo non è un abbellimento aggiunto alla fine, ma un linguaggio con una
+grammatica: chi lo ha sentito tre volte lo capisce senza che nessuno glielo
+spieghi.
+
+**Le regole della famiglia**
+
+| Regola | Perché |
+|---|---|
+| **Una sola voce** — sinusoide con la sua ottava di rinforzo, attacco di 6 ms, coda esponenziale | Cambia la melodia, non il timbro: tutti i suoni si riconoscono come "del portale" |
+| **Una sola scala** — pentatonica di DO (DO RE MI SOL LA) | Due note qualsiasi di questa scala non stonano: anche due suoni sovrapposti restano gradevoli |
+| **La direzione è il significato** — sale / scende | Si impara senza manuale: sale = è andato avanti, scende = è stato negato |
+| **La durata è il peso** — 90 ms per un tocco, 250-350 ms per una conferma | Un suono lungo su un'azione minore stanca già al terzo ascolto |
+| **Un solo eroe** — solo l'assegnazione ha la coda lunga (~0,7 s) | Se tutto è importante, niente è importante |
+| **Volumi bassi** — nessuna voce oltre 0,20 sul bus | Si lavora in ufficio e in officina: il suono conferma, non annuncia |
+
+```mermaid
+flowchart TD
+    EV[Evento nel portale] --> DIR{Direzione}
+    DIR -->|sale| SU[Qualcosa e' andato avanti]
+    DIR -->|scende| GIU[Qualcosa e' stato negato]
+    DIR -->|resta| PARI[Passaggio neutro]
+    SU --> A["<b>Assegnazione</b><br/>DO MI SOL - DO acuto<br/>l'eroe, coda lunga"]
+    SU --> B["Accettazione · Approvazione<br/>Richiesta · Avanzamento<br/>Notifica"]
+    SU --> C["Completato<br/>accordo che risolve in alto"]
+    GIU --> D["Diniego<br/>Avviso di blocco"]
+    PARI --> E["Messaggio · Email<br/>Pubblicazione · Tocco"]
+```
+
+**Il repertorio**
+
+| Suono | Quando si sente | Forma |
+|---|---|---|
+| **Assegnazione** | Una commessa viene affidata a un fornitore (singola o in blocco) | DO MI SOL che risolve sul DO acuto, con un velo d'aria sotto |
+| **Accettazione** | Il fornitore accetta e firma la proposta | Due note aperte, ascendenti |
+| **Approvazione** | Commessa approvata, slittamento o extra approvato, consegna autorizzata, documento verificato | Quinta breve che sale all'ottava |
+| **Diniego** | Commessa rimandata al caposquadra, slittamento o extra rifiutato, documento respinto | La stessa quinta, discendente e più opaca |
+| **Pubblicazione** | Una commessa esce verso i fornitori (pubblicazione o notifica) | Soffio d'aria in salita e una nota che si stacca |
+| **Richiesta** | Il fornitore chiede qualcosa a Righi (richiesta guidata, approvazione consegna, documento) | Salita ampia, tono interrogativo |
+| **Avanzamento** | Il fornitore aggiorna la lavorazione | Due note vicine, come un passo |
+| **Messaggio** | Risposta rapida o domanda inviata | Una sola nota alta e corta |
+| **Notifica** | Si apre la campanella con avvisi non letti | Campanello acuto in salita |
+| **Email** | L'avviso viene consegnato al programma di posta | Soffio breve e nota alta |
+| **Completato** | Commessa consegnata, pratica chiusa | Accordo grave che risolve in alto |
+| **Tocco** | Cambi di stato leggeri (date, documenti, presa in carico) | Nota singola brevissima, volume minimo |
+| **Avviso** | Qualsiasi azione bloccata | Discesa morbida, mai allarmante |
+
+**Come sono fatti e come si governano**
+
+- **Sintetizzati con Web Audio, nessun file audio**: il portale resta un unico
+  file autosufficiente e non scarica nulla. Un suono costa zero byte.
+- **L'avviso lo suona il messaggio in basso**: ogni azione bloccata avvisa allo
+  stesso modo, senza dover ricordare una chiamata in ogni punto del codice. Se
+  l'azione ha già suonato il proprio esito (per esempio un diniego), non si
+  raddoppia.
+- **Anti-raffica**: lo stesso suono non si somma a sé stesso entro 90 ms, così un
+  doppio clic non produce un rimbombo.
+- **Interruttore in barra**: l'altoparlante in alto spegne e riaccende tutto; la
+  scelta è memorizzata sul dispositivo. Il contesto audio nasce al primo clic —
+  prima non esiste, e nulla suona al caricamento o navigando fra le schede.
+- **Ambienti senza audio** (browser vecchi, test in Node): il portale funziona
+  identico, i suoni semplicemente non partono.
+
 ---
 
 ## 4. Specifiche tecniche
@@ -438,6 +505,8 @@ flowchart TB
 - **Render integrale per ruolo**: `render()` ricostruisce la vista dallo stato;
   non esiste stato dell'interfaccia separato da quello dei dati.
 - **Nessuna emoji**: icone SVG in linea (mappa `IC`), per resa uniforme e stampa.
+- **Suoni sintetizzati, non registrati**: il modulo `Sfx` genera le note con Web
+  Audio (vedi §3.11); nessun file audio da scaricare, il file resta uno solo.
 - **Offline-first**: PWA con service worker; i dati restano sul dispositivo.
 
 ### 4.2 Modello dati
@@ -573,10 +642,11 @@ vecchia". È disponibile anche un **ripristino manuale** dei dati dimostrativi.
 
 | Livello | Copertura |
 |---|---|
-| **Test di modello** (73) | Date e alert, metriche, capacità, matching ottimo, flusso massimo e taglio minimo, invarianti del grafo |
+| **Test di modello** (78) | Date e alert, metriche, capacità, qualifica, matching ottimo, flusso massimo e taglio minimo, invarianti del grafo |
 | **Test di sincronizzazione** (6) | Contratto del seam remoto (pull/push, versioni) |
+| **Test dei suoni** (26) | La sintesi viene registrata voce per voce: scala, timbro, durate, volumi, direzione melodica, firma distinta per ogni funzionalità, interruttore e anti-raffica |
 | **Audit automatici** (3 passate) | Percorso completo di tutti i ruoli su ogni schermata (desktop e mobile), riservatezza, invarianti, persistenza, coerenza dei numeri, casi limite dei link |
-| **Prove end-to-end** (18 scenari) | Ciclo di vita, extra, magic link, richieste con foto, approvazioni, carico, analisi |
+| **Prove end-to-end** (24 scenari) | Ciclo di vita, extra, magic link, richieste con foto, approvazioni, carico, analisi, suoni sulle azioni reali |
 | **Controlli strutturali** | Nessuna funzione vuota, nessun pulsante privo di effetto, nessun gestore orfano, nessuna emoji |
 
 Gli audit hanno individuato e fatto correggere difetti reali — tra cui una **fuga
@@ -599,7 +669,8 @@ corretti, per non lasciare falsi allarmi.
 
 **Già realizzato**: richieste con foto, risposte rapide, avviso automatico via
 email con link diretto, auto-matching, duplicazione come modello, firma leggera,
-assegnazione ottima, lettura del collo di bottiglia, gestione degli extra.
+assegnazione ottima, lettura del collo di bottiglia, gestione degli extra,
+qualifica dei fornitori dai documenti, linguaggio sonoro degli eventi.
 
 **Prossimi passi** (richiedono il server, dettagliati in `BACKEND.md`):
 
@@ -624,3 +695,5 @@ assegnazione ottima, lettura del collo di bottiglia, gestione degli extra.
 | **Ingombro** | Dimensione massima del quadro che il fornitore può lavorare e movimentare |
 | **Saturazione** | Rapporto tra ore assegnate e capacità mensile del fornitore |
 | **Gate di consegna** | Vincolo per cui il fornitore non può consegnare senza autorizzazione |
+| **Qualifica** | Stato calcolato dai documenti obbligatori, che abilita o blocca l'assegnazione |
+| **Firma sonora** | Sequenza di note che identifica un evento: distinta per ogni funzionalità |

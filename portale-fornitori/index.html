@@ -445,6 +445,18 @@ table.tbl tr.late td{background:linear-gradient(90deg,var(--danger-tint),transpa
   .role-chip{display:none}
   .brand .bt b{font-size:13px;letter-spacing:.03em}
 }
+/* Con l'altoparlante la barra ha quattro comandi: sui telefoni si stringono
+   spaziature e marchio, così "righi solutions" resta intero invece di essere
+   tagliato a metà parola. */
+@media(max-width:430px){
+  .topbar{gap:7px;padding-left:calc(var(--sal) + 11px);padding-right:calc(var(--sar) + 11px)}
+  .tb-btn{padding:0 9px}
+  .brand{gap:8px}
+  .brand .bt b{font-size:11.5px}
+}
+/* Sotto i 375px non c'è spazio per entrambi: meglio il solo logo che una
+   scritta tagliata a metà. */
+@media(max-width:374px){ .brand .bt{display:none} }
 </style>
 </head>
 <body>
@@ -504,6 +516,8 @@ const IC = {
   download:'<path d="M12 4v11m0 0 4-4m-4 4-4-4M5 20h14"/>',
   copy:'<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/>',
   link:'<path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/>',
+  audio:'<path d="M4 9.5h3.6L12 5.6v12.8L7.6 14.5H4Z"/><path d="M15.8 9.4a3.8 3.8 0 0 1 0 5.2"/><path d="M18.4 6.8a7.4 7.4 0 0 1 0 10.4"/>',
+  audioOff:'<path d="M4 9.5h3.6L12 5.6v12.8L7.6 14.5H4Z"/><path d="m16.2 10 4.4 4M20.6 10l-4.4 4"/>',
 };
 function icon(n,cls){ return '<svg class="svg-ic '+(cls||'')+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(IC[n]||'')+'</svg>'; }
 const LOGO = '<svg class="logomark" viewBox="0 0 48 48" fill="none" aria-hidden="true"><path d="M39 11.5 A19 19 0 1 0 39 36.5" stroke="currentColor" stroke-width="4.6" stroke-linecap="round"/></svg>';
@@ -544,6 +558,146 @@ const Store={
     return o; }catch(e){ return null; } },
   save(state){ try{ if(state) state.__v=DATA_VERSION; Storage.set(KEY, JSON.stringify(state)); }catch(e){} Sync.notify&&Sync.notify(); },
 };
+
+/* ============================== Suoni ==============================
+   I suoni sono sintetizzati con Web Audio: nessun file audio, il portale resta
+   un unico file autonomo e non scarica nulla.
+
+   Le regole che tengono insieme la famiglia (sono quelle che rendono
+   riconoscibile un suono di sistema, iPhone o Teams che sia):
+
+   1. UNA SOLA VOCE. Ogni nota e' fondamentale sinusoidale + ottava piu' debole,
+      attacco di 6 ms e coda esponenziale. Cambia la melodia, non il timbro:
+      cosi' tutti i suoni si riconoscono come "del portale".
+   2. UNA SOLA SCALA. Pentatonica di DO (DO RE MI SOL LA): due note qualsiasi di
+      questa scala non stonano fra loro, quindi anche due suoni sovrapposti
+      (una notifica mentre parte una conferma) restano gradevoli.
+   3. LA DIREZIONE E' IL SIGNIFICATO. Ascendente = qualcosa e' andato avanti;
+      discendente = qualcosa e' stato negato o bloccato. Si impara senza manuale.
+   4. LA DURATA E' IL PESO. 90 ms per un tocco, 250-350 ms per una conferma;
+      solo l'assegnazione ha una coda lunga (~0,7 s).
+   5. L'ASSEGNAZIONE E' L'EROE. E' il momento per cui esiste il portale: terzina
+      ascendente che risolve sull'ottava, con un velo d'aria sotto. Deve dare
+      soddisfazione, ed e' l'unico suono che si prende quello spazio.
+   6. VOLUMI BASSI. Si lavora in ufficio e in officina: il suono conferma, non
+      annuncia. Nessuna voce supera 0,20 di guadagno sul bus.                 */
+const SFXKEY="righi_portale_sfx_v1";
+const Sfx=(function(){
+  const N={C5:523.25, D5:587.33, E5:659.25, G5:783.99, A5:880.00, C6:1046.50, D6:1174.66, E6:1318.51};
+  let ctx=null;            // null = non ancora creato, false = non disponibile
+  let bus=null, on=null, last={nome:"", t:-9};
+
+  // Preferenza: si legge alla prima richiesta, non al caricamento (in ambienti
+  // senza Storage il try/catch tiene comunque il default "acceso").
+  function pref(){ if(on===null){ try{ const v=Storage.get(SFXKEY); on=(v==null)?true:v==="1"; }catch(e){ on=true; } } return on; }
+
+  // Il contesto audio nasce al primo clic dell'utente: i browser non lasciano
+  // suonare nulla prima di un gesto, e crearlo qui evita il contesto "sospeso".
+  function ac(){
+    if(ctx===false) return null;
+    if(ctx){ try{ if(ctx.state==="suspended" && ctx.resume) ctx.resume(); }catch(e){} return ctx; }
+    try{
+      const AC=(typeof window!=="undefined") && (window.AudioContext||window.webkitAudioContext);
+      if(!AC){ ctx=false; return null; }
+      ctx=new AC();
+      bus=ctx.createGain(); bus.gain.value=0.55; bus.connect(ctx.destination);
+      return ctx;
+    }catch(e){ ctx=false; return null; }
+  }
+
+  // Una nota della famiglia: fondamentale + ottava a un quarto del volume.
+  // La rampa di 6 ms evita il clic d'attacco, la coda esponenziale evita la coda
+  // "tagliata" che fa suonare sintetico un suono altrimenti pulito.
+  function nota(t, f, dur, vol, tipo){
+    const c=ctx;
+    [[1, 1, tipo||"sine"], [2, 0.26, "sine"]].forEach(function(v){
+      const o=c.createOscillator(), g=c.createGain();
+      o.type=v[2]; o.frequency.setValueAtTime(f*v[0], t);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(Math.max(0.0002, vol*v[1]), t+0.006);
+      g.gain.exponentialRampToValueAtTime(0.0001, t+dur);
+      o.connect(g); g.connect(bus); o.start(t); o.stop(t+dur+0.02);
+    });
+  }
+  // Un soffio d'aria: rumore che sale dentro un passa-banda. Da' corpo agli
+  // eventi di "partenza" (pubblicazione, invio) senza aggiungere una nota.
+  function soffio(t, dur, f0, f1, vol){
+    const c=ctx, n=Math.max(1, Math.floor(c.sampleRate*dur));
+    const buf=c.createBuffer(1, n, c.sampleRate), d=buf.getChannelData(0);
+    for(let i=0;i<n;i++) d[i]=(Math.random()*2-1)*(1-i/n);   // rumore che si spegne da solo
+    const src=c.createBufferSource(); src.buffer=buf;
+    const bp=c.createBiquadFilter(); bp.type="bandpass"; bp.Q.value=1.1;
+    bp.frequency.setValueAtTime(f0, t); bp.frequency.exponentialRampToValueAtTime(f1, t+dur);
+    const g=c.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t+dur*0.25);
+    g.gain.exponentialRampToValueAtTime(0.0001, t+dur);
+    src.connect(bp); bp.connect(g); g.connect(bus); src.start(t); src.stop(t+dur);
+  }
+
+  /* Il repertorio. Ogni voce e' un evento del portale, non un "suono generico":
+     chi lavora tutto il giorno sul portale deve capire cosa e' successo senza
+     guardare lo schermo. */
+  const SUONI={
+    // EROE — commessa assegnata. DO MI SOL che risolve sul DO alto, coda lunga.
+    assegnazione(t){ soffio(t, 0.30, 700, 2600, 0.05);
+      nota(t,       N.C5, 0.16, 0.16); nota(t+0.075, N.E5, 0.16, 0.17);
+      nota(t+0.150, N.G5, 0.20, 0.18); nota(t+0.235, N.C6, 0.70, 0.20); },
+    // il fornitore accetta la proposta: due note aperte, ascendenti
+    accettazione(t){ nota(t, N.E5, 0.13, 0.16); nota(t+0.085, N.A5, 0.34, 0.17); },
+    // approvazione di Righi: quinta breve che sale all'ottava, netta
+    approvazione(t){ nota(t, N.G5, 0.11, 0.15); nota(t+0.075, N.C6, 0.32, 0.16); },
+    // diniego: stessa quinta ma discendente e con timbro piu' opaco
+    rifiuto(t){ nota(t, N.G5, 0.12, 0.13, "triangle"); nota(t+0.090, N.D5, 0.30, 0.13, "triangle"); },
+    // qualcosa parte verso i fornitori: soffio in salita e una nota che si stacca
+    pubblicazione(t){ soffio(t, 0.22, 500, 3000, 0.055); nota(t+0.06, N.G5, 0.26, 0.14); },
+    // fine corsa (consegnato, chiuso): bicordo grave che risolve in alto.
+    // Chiude in mezzo secondo: la coda lunga resta un privilegio dell'assegnazione.
+    completato(t){ nota(t, N.C5, 0.18, 0.13); nota(t+0.02, N.G5, 0.20, 0.11);
+      nota(t+0.120, N.C6, 0.14, 0.15); nota(t+0.190, N.E6, 0.30, 0.16); },
+    // passo di lavorazione: due note vicine, come un passo avanti
+    avanzamento(t){ nota(t, N.D5, 0.10, 0.13); nota(t+0.070, N.G5, 0.22, 0.14); },
+    // c'e' posta per te: campanello acuto in salita
+    notifica(t){ nota(t, N.A5, 0.10, 0.14); nota(t+0.100, N.D6, 0.30, 0.15); },
+    // messaggio inviato: una sola nota alta, corta
+    messaggio(t){ nota(t, N.E6, 0.16, 0.13); },
+    // il fornitore chiede qualcosa a Righi: salita ampia, tono interrogativo
+    richiesta(t){ nota(t, N.D5, 0.10, 0.13); nota(t+0.075, N.A5, 0.26, 0.14); },
+    // email consegnata al client di posta: soffio breve e nota alta
+    email(t){ soffio(t, 0.18, 900, 3600, 0.05); nota(t+0.05, N.C6, 0.22, 0.13); },
+    // conferma minima per i cambi di stato leggeri
+    tocco(t){ nota(t, N.A5, 0.09, 0.09); },
+    // azione bloccata: discesa breve e morbida, mai allarmante
+    avviso(t){ nota(t, N.D5, 0.10, 0.12, "triangle"); nota(t+0.080, N.C5, 0.26, 0.12, "triangle"); },
+  };
+
+  const api={
+    get enabled(){ return pref(); },
+    nomi(){ return Object.keys(SUONI); },
+    set(v){ on=!!v; try{ Storage.set(SFXKEY, on?"1":"0"); }catch(e){} return on; },
+    toggle(){ return api.set(!pref()); },
+    play(nome){
+      if(!pref()) return false;
+      const f=SUONI[nome]; if(!f) return false;
+      const c=ac(); if(!c) return false;
+      const now=c.currentTime;
+      if(last.nome===nome && now-last.t<0.09) return false;   // doppio clic: non si somma
+      last={nome, t:now};
+      try{ f(now+0.012); }catch(e){ return false; }
+      return true;
+    },
+    // L'esito negativo lo suona il toast: ogni azione bloccata avvisa allo stesso
+    // modo, senza dover ricordare una chiamata in ogni punto del codice. Se
+    // l'azione ha gia' suonato il suo esito (es. "rifiuto"), non si raddoppia.
+    esito(kind){
+      if(kind!=="warn" || !pref()) return false;
+      const c=ac(); if(!c) return false;
+      if(c.currentTime-last.t < 0.2) return false;
+      return api.play("avviso");
+    },
+  };
+  return api;
+})();
 
 /* ===================== Sync seam (RemoteAdapter) =====================
    Contratto dormiente finché non si chiama Sync.enable(remote).
@@ -1293,6 +1447,7 @@ function render(){
     <div class="brand">${LOGO}<div class="bt"><b>${WM}</b><span>Portale Fornitori · Subappalti</span></div></div>
     <div class="tb-spacer"></div>
     <span class="role-chip ${u.role}">${u.role==="righi"?(isCapo(u)?"Caposquadra":"Responsabile"):"Fornitore"}</span>
+    <button class="tb-btn" data-act="sfx" aria-label="${Sfx.enabled?"Disattiva i suoni":"Attiva i suoni"}" aria-pressed="${Sfx.enabled?"true":"false"}">${icon(Sfx.enabled?"audio":"audioOff")}</button>
     <button class="tb-btn" data-act="guide" aria-label="Guida">${icon("help")}</button>
     <button class="tb-btn" data-act="notif" aria-label="Notifiche">${icon("bell")}${notif?`<span class="badge">${notif}</span>`:""}</button>
     <button class="tb-btn" data-act="switch" aria-label="Cambia utente"><span class="avatar sm" style="background:${u.role==='righi'?'var(--accent)':colorFor(u.id)}">${initials(u.name)}</span><span class="lbl">${esc(u.name.split(" ")[0])}</span></button>
@@ -2190,7 +2345,7 @@ function sendQuickReply(rid, testo){ const r=byId(STATE.requests,rid); if(!r||!t
   const esito = sent ? " · email di avviso al fornitore"
     : !volevaEmail ? " · avviso email disattivato"
     : (!s0||!s0.email) ? " · nessuna email in anagrafica: solo notifica nel portale" : "";
-  persist(); toast("Risposta inviata"+esito, sent||!volevaEmail?"ok":"warn"); openReqDetail(rid);
+  persist(); Sfx.play("messaggio"); toast("Risposta inviata"+esito, sent||!volevaEmail?"ok":"warn"); openReqDetail(rid);
 }
 function openReqFoto(rid){ const r=byId(STATE.requests,rid); if(!r||!r.foto) return;
   openModal(`${modalHead("Foto allegata")}<img src="${r.foto}" style="width:100%;border-radius:10px;border:1px solid var(--line)" alt="foto della richiesta"><div class="btn-row" style="margin-top:12px"><button class="btn ghost block" data-act="reqDetail" data-id="${rid}">Torna alla richiesta</button></div>`);
@@ -2215,6 +2370,7 @@ function openNotifCenter(){ const u=currentUser();
     items=STATE.notifications.filter(n=>n.toUser===u.id).map(n=>({at:n.at,read:n.read,ic:n.ic||"bell",txt:n.txt,sub:n.sub,job:n.jobId}));
   }
   items.sort((a,b)=>String(b.at).localeCompare(String(a.at)));
+  if(items.some(i=>!i.read)) Sfx.play("notifica");   // suona solo se c'e' davvero qualcosa da leggere
   openModal(`${modalHead("Notifiche")}
     ${items.length?`<div class="rowlist">${items.slice(0,40).map(n=>`<button class="lrow ${!n.read?'unread':''}" ${n.job?`data-job="${n.job}"`:n.req?`data-req="${n.req}"`:""} style="width:100%">
       <span class="ic ${!n.read?'accent':''}">${icon(n.ic)}</span><span class="gr"><b>${esc(n.txt)}</b><span class="s">${esc(n.sub||'')} · ${esc((n.at||'').replace('T',' '))}</span></span></button>`).join("")}</div>`
@@ -2441,9 +2597,26 @@ function openGuide(){ const u=currentUser(); const isR=u.role==="righi"; const c
       ["Perché non vedo un lavoro che un collega ha citato?","Perché non era rivolto a te, oppure è già stato assegnato. Vedi solo le proposte a te destinate."],
       ["Devo per forza firmare per accettare?","Sì: la firma leggera conferma l'ordine. È solo una spunta con il tuo nome, richiede un secondo."],
       ["Posso usare il portale dal cantiere?","Sì, è pensato per il telefono: bacheca, avanzamento a un tocco e foto nelle richieste funzionano da mobile."] ]); }
+  // Sezione comune a tutti i ruoli: i suoni sono un linguaggio, va spiegato una volta.
+  const sndRow=(n,d)=>`<div style="display:flex;gap:10px;align-items:baseline;padding:7px 0;border-top:1px solid var(--line)"><span style="flex:0 0 116px;font-weight:600;font-size:13px">${n}</span><span style="white-space:normal;font-size:13px;line-height:1.5;color:var(--ink-soft)">${d}</span></div>`;
+  const suoniSec=`<div class="guide-sec"><div class="guide-sec-t">I suoni del portale</div>
+    <p class="muted" style="font-size:12px;margin:0 0 4px">Ogni evento ha il suo suono, così si capisce cosa è successo senza guardare lo schermo. Chi sale ha fatto un passo avanti, chi scende è stato fermato.</p><div>`
+    + sndRow("Assegnazione","Tre note che salgono e si chiudono in alto: è il suono più pieno del portale e si sente solo quando una commessa viene affidata a un fornitore.")
+    + sndRow("Accettazione","Due note aperte: un fornitore ha accettato una proposta.")
+    + sndRow("Approvazione","Salita breve e netta: un'approvazione è andata a buon fine (commessa, slittamento, extra, consegna, documento).")
+    + sndRow("Diniego","Le stesse due note ma in discesa: qualcosa è stato rifiutato o rimandato indietro.")
+    + sndRow("Pubblicazione","Un soffio e una nota che si stacca: qualcosa è partito verso i fornitori.")
+    + sndRow("Richiesta","Salita ampia, come una domanda: è partita una richiesta verso Righi.")
+    + sndRow("Avanzamento","Due note vicine, come un passo: il fornitore ha aggiornato la lavorazione.")
+    + sndRow("Messaggio","Una nota alta e corta: un messaggio o una risposta rapida sono stati inviati.")
+    + sndRow("Notifica","Campanello acuto: ci sono avvisi non ancora letti.")
+    + sndRow("Completato","Un accordo che risolve verso l'alto: la commessa è consegnata o la pratica è chiusa.")
+    + sndRow("Avviso","Discesa morbida: l'azione è stata bloccata, il messaggio in basso spiega il perché.")
+    + `</div><p class="muted" style="font-size:12px;margin:8px 0 0">L'altoparlante nella barra in alto spegne e riaccende tutti i suoni; la scelta resta memorizzata su questo dispositivo.</p></div>`;
   openModal(`${modalHead("Guida — "+title)}
     <p class="muted" style="font-size:13px;margin-top:0">${intro}</p>
     ${body}
+    ${suoniSec}
     <div class="divide"></div><button class="btn accent block" data-act="closeModal">Ho capito</button>`);
 }
 function openSupplierModal(sid){ const s=supplier(sid); if(!s) return;
@@ -2471,11 +2644,11 @@ function openSupplierModal(sid){ const s=supplier(sid); if(!s) return;
 }
 
 /* ============================ AZIONI ============================ */
-function toast(msg,kind){ const t=$("#toast"); t.className="toast show "+(kind||""); t.textContent=msg; clearTimeout(toast._t); toast._t=setTimeout(()=>t.className="toast "+(kind||""),2400); }
+function toast(msg,kind){ Sfx.esito(kind); const t=$("#toast"); t.className="toast show "+(kind||""); t.textContent=msg; clearTimeout(toast._t); toast._t=setTimeout(()=>t.className="toast "+(kind||""),2400); }
 
 function doPublish(jid){ const j=byId(STATE.jobs,jid); if(!j) return; j.stato="pubblicato"; j.publishedAt=todayISO();
   notifyJob(j, j.visibility==="selezionati"?(j.invitati||[]):STATE.suppliers.map(s=>s.id));
-  persist(); closeModal(); toast("Lavoro pubblicato","ok"); render(); }
+  persist(); closeModal(); Sfx.play("pubblicazione"); toast("Lavoro pubblicato","ok"); render(); }
 function notifyJob(j, supplierIds){
   supplierIds.forEach(sid=>{ notifySupplier(sid,{ic:"bolt",txt:"Nuovo lavoro: "+j.title,sub:j.code+" · "+fmtMoney(j.budget),jobId:j.id}); });
 }
@@ -2571,18 +2744,18 @@ function approveJob(jid){ const j=byId(STATE.jobs,jid); if(!j||j.stato!=="da_app
   j.stato="pubblicato"; j.publishedAt=todayISO(); j.approvazione={esito:"approvata",da:currentUser().id,at:new Date().toISOString().slice(0,16)};
   const targets=j.visibility==="selezionati"?(j.invitati||[]):STATE.suppliers.map(s=>s.id);
   notifyJob(j, targets); notifyCapo(j, "Commessa approvata e pubblicata", "check");
-  persist(); closeModal();
+  persist(); closeModal(); Sfx.play("approvazione");
   if(j.emailNotify) emailJobToSuppliers(j, targets); else toast("Approvata e pubblicata ai fornitori","ok");
   render();
 }
 function submitApproval(jid){ const j=byId(STATE.jobs,jid); if(!j||j.stato!=="bozza") return;
   j.stato="da_approvare"; if(!j.richiedente) j.richiedente=currentUser().id; j.approvazione=null;
-  notifyResponsabili(j); persist(); closeModal(); toast("Inviato al responsabile per approvazione","ok"); render();
+  notifyResponsabili(j); persist(); closeModal(); Sfx.play("richiesta"); toast("Inviato al responsabile per approvazione","ok"); render();
 }
 function rejectJob(jid){ const motivo=($("#rej-note")?$("#rej-note").value.trim():"")||""; const j=byId(STATE.jobs,jid); if(!j||j.stato!=="da_approvare") return;
   j.stato="bozza"; j.approvazione={esito:"rifiutata",da:currentUser().id,at:new Date().toISOString().slice(0,16),motivo};
   notifyCapo(j, "Commessa da rivedere"+(motivo?": "+motivo:""), "x");
-  persist(); closeModal(); toast("Rimandata al caposquadra","warn"); render();
+  persist(); closeModal(); Sfx.play("rifiuto"); toast("Rimandata al caposquadra","warn"); render();
 }
 function openRejectModal(jid){ const j=byId(STATE.jobs,jid); if(!j) return;
   openModal(`${modalHead("Rimanda al caposquadra")}
@@ -2628,11 +2801,11 @@ function exportOrders(){
 function doAccept(jid){ const u=currentUser(); const s=supplier(u.supplierId); const imp=$("#acc-imp").value; const note=$("#acc-note").value.trim();
   if(!$("#acc-firma") || !$("#acc-firma").checked){ toast("Spunta la firma per confermare l'accettazione","warn"); return; }
   STATE.responses.push({id:uid("r"),jobId:jid,supplierId:u.supplierId,tipo:"accettazione",testo:note||"Proposta accettata.",importo:imp?Number(imp):null,at:new Date().toISOString().slice(0,16),from:"fornitore",read:false,firma:{nome:s?s.name:"",ts:new Date().toISOString()}});
-  persist(); closeModal(); toast("Accettazione firmata e inviata a Righi","ok"); render();
+  persist(); closeModal(); Sfx.play("accettazione"); toast("Accettazione firmata e inviata a Righi","ok"); render();
 }
 function doAsk(jid){ const u=currentUser(); const t=$("#ask-t").value.trim(); if(!t){ toast("Scrivi la domanda","warn"); return; }
   STATE.responses.push({id:uid("r"),jobId:jid,supplierId:u.supplierId,tipo:"domanda",testo:t,at:new Date().toISOString().slice(0,16),from:"fornitore",read:false});
-  persist(); closeModal(); toast("Domanda inviata","ok"); render();
+  persist(); closeModal(); Sfx.play("messaggio"); toast("Domanda inviata","ok"); render();
 }
 function doQuickReq(jid){ const u=currentUser(); const j=byId(STATE.jobs,jid); if(!App.qr||!App.qr.tipo){ toast("Scegli il tipo di richiesta","warn"); return; }
   const note=$("#qr-note").value.trim(); const c=capo(j.capoId); const tp=REQ_TYPES[App.qr.tipo];
@@ -2644,7 +2817,8 @@ function doQuickReq(jid){ const u=currentUser(); const j=byId(STATE.jobs,jid); i
     req.importo=imp; req.extraTipo=App.qr.extraTipo||Object.keys(EXTRA_TIPI)[0]; req.esito=null; }
   if(App.qr.foto) req.foto=App.qr.foto;
   STATE.requests.push(req);
-  const wantEmail=App.qr.email; persist(); closeModal(); toast(App.qr.tipo==="slittamento"?"Richiesta di slittamento inviata":App.qr.tipo==="extra"?"Richiesta di extra inviata":"Richiesta inviata al caposquadra","ok"); render();
+  const wantEmail=App.qr.email; persist(); closeModal(); Sfx.play("richiesta");
+  toast(App.qr.tipo==="slittamento"?"Richiesta di slittamento inviata":App.qr.tipo==="extra"?"Richiesta di extra inviata":"Richiesta inviata al caposquadra","ok"); render();
   if(wantEmail && c && c.email){ const cu=STATE.users.find(x=>x.capoId===c.id);
     const link=portalLink(cu?{u:cu.id,q:req.id,c:j.code}:{q:req.id,c:j.code});
     const body="Buongiorno "+c.name+",\n\nsegnalazione dal Portale Fornitori:\n\nCommessa: "+j.code+" — "+j.title+"\nTipo: "+tp.label+(req.dataProposta?("\nNuova data proposta: "+fmtDate(req.dataProposta)):"")+(req.importo?("\nExtra richiesto: "+fmtMoney(req.importo)+" ("+EXTRA_TIPI[req.extraTipo]+")"):"")+(note?("\nDettaglio: "+note):"")+"\nFornitore: "+(supplier(u.supplierId)||{}).name
@@ -2667,7 +2841,7 @@ function doEditDate(jid){ const j=byId(STATE.jobs,jid); const d=$("#ed-date")?$(
   if(ini && ini!==j.dataInizioStimata){ j.dataInizioStimata=ini; changed=true; }
   if(cli && cli!==j.dataConsegna){ j.dataConsegna=cli; changed=true; }
   const ret=applyDateChange(j, d, m||"Modifica da Righi", isCapo(u)?"caposquadra":"responsabile", u.id);
-  if(ret||changed){ persist(); closeModal(); toast(ret?"Rientro aggiornato · fornitore notificato":"Date aggiornate","ok"); render(); }
+  if(ret||changed){ persist(); closeModal(); Sfx.play("tocco"); toast(ret?"Rientro aggiornato · fornitore notificato":"Date aggiornate","ok"); render(); }
   else { toast("Nessuna modifica","warn"); }
 }
 function resolveSlip(rid, approve){ const r=byId(STATE.requests,rid); if(!r) return; const j=byId(STATE.jobs,r.jobId); const u=currentUser();
@@ -2676,7 +2850,8 @@ function resolveSlip(rid, approve){ const r=byId(STATE.requests,rid); if(!r) ret
   else { notifySupplier(r.supplierId,{ic:"x",txt:"Slittamento non approvato",sub:(j?j.code+" — "+j.title:""),jobId:r.jobId}); }
   const esito=approve?("Slittamento APPROVATO: il nuovo rientro e' "+fmtDate(r.dataProposta)):"Slittamento NON approvato: il rientro resta "+fmtDate(j?j.dataRientro:null);
   const sent=wantReplyEmail()?sendEmailNow(reqReplyEmail(r,esito,"Abbiamo deciso sulla sua richiesta")):false;
-  persist(); closeModal(); toast((approve?"Slittamento approvato · consegna aggiornata":"Slittamento rifiutato")+(sent?" · fornitore avvisato via email":""),"ok"); render();
+  persist(); closeModal(); Sfx.play(approve?"approvazione":"rifiuto");
+  toast((approve?"Slittamento approvato · consegna aggiornata":"Slittamento rifiutato")+(sent?" · fornitore avvisato via email":""),"ok"); render();
 }
 /* ---- Extra: decisione di Righi -------------------------------------------
    L'approvazione puo' rinegoziare l'importo (caso reale piu' frequente), registra
@@ -2719,7 +2894,8 @@ function resolveExtra(rid, approve){ const r=byId(STATE.requests,rid); if(!r||r.
     : "Extra NON approvato: l'importo della commessa resta "+fmtMoney(jobImporto(j))+".";
   notifySupplier(r.supplierId,{ic:approve?"check":"x",txt:approve?"Extra approvato: "+fmtMoney(imp):"Extra non approvato",sub:(j?j.code+" — "+j.title:""),jobId:r.jobId});
   const sent=wantReplyEmail()?sendEmailNow(reqReplyEmail(r,esito,"Abbiamo deciso sulla sua richiesta di extra")):false;
-  persist(); closeModal(); toast((approve?"Extra approvato · "+fmtMoney(imp):"Extra rifiutato")+(sent?" · fornitore avvisato via email":""),"ok"); render();
+  persist(); closeModal(); Sfx.play(approve?"approvazione":"rifiuto");
+  toast((approve?"Extra approvato · "+fmtMoney(imp):"Extra rifiutato")+(sent?" · fornitore avvisato via email":""),"ok"); render();
 }
 // Caposquadra: approva/rifiuta la richiesta di consegna del fornitore
 function resolveConsegna(rid, approve){ const r=byId(STATE.requests,rid); if(!r) return; const j=byId(STATE.jobs,r.jobId); const u=currentUser();
@@ -2732,7 +2908,8 @@ function resolveConsegna(rid, approve){ const r=byId(STATE.requests,rid); if(!r)
   notifySupplier(r.supplierId,{ic:approve?"check":"x",txt:approve?"Consegna approvata: puoi consegnare":"Consegna non approvata",sub:(j?j.code+" — "+j.title:""),jobId:r.jobId});
   const esito=approve?"Consegna APPROVATA: puo' procedere con la riconsegna del quadro.":"Consegna NON approvata: attenda indicazioni dal caposquadra.";
   const sent=wantReplyEmail()?sendEmailNow(reqReplyEmail(r,esito,"Abbiamo deciso sulla sua richiesta")):false;
-  persist(); closeModal(); toast((approve?"Consegna approvata":"Consegna non approvata")+(sent?" · fornitore avvisato via email":""),"ok"); render();
+  persist(); closeModal(); Sfx.play(approve?"approvazione":"rifiuto");
+  toast((approve?"Consegna approvata":"Consegna non approvata")+(sent?" · fornitore avvisato via email":""),"ok"); render();
 }
 // Fornitore: richiede l'approvazione a consegnare (va al caposquadra della commessa)
 function reqConsegna(jid){ const u=currentUser(); const j=byId(STATE.jobs,jid); if(!j||j.assegnatoA!==u.supplierId) return;
@@ -2741,18 +2918,18 @@ function reqConsegna(jid){ const u=currentUser(); const j=byId(STATE.jobs,jid); 
   STATE.requests.push({id:uid("q"),jobId:jid,supplierId:u.supplierId,tipo:"collaudo",testo:"Lavoro pronto: richiedo l'approvazione a consegnare.",at,stato:"aperta",capoId:j.capoId,from:"fornitore",read:false,esito:null});
   const capoUser=STATE.users.find(x=>x.righiRole==="caposquadra"&&x.capoId===j.capoId);
   if(capoUser) STATE.notifications.push({id:uid("n"),toUser:capoUser.id,ic:"check",txt:"Richiesta approvazione consegna",sub:j.code+" — "+j.title,jobId:jid,at,read:false});
-  persist(); closeModal(); toast("Richiesta di approvazione consegna inviata","ok"); render();
+  persist(); closeModal(); Sfx.play("richiesta"); toast("Richiesta di approvazione consegna inviata","ok"); render();
 }
 // Fornitore: consegna (bloccata finché il caposquadra non approva)
 function deliverJob(jid){ const u=currentUser(); const j=byId(STATE.jobs,jid); if(!j||j.assegnatoA!==u.supplierId) return;
   if(!j.consegnaApprovata){ toast("Serve prima l'approvazione del caposquadra","warn"); return; }
   j.stato="consegnato"; j.avanzamento="pronto"; if(!j.dataRientroEff) j.dataRientroEff=todayISO();
   notifyCapoJob(j,"Commessa consegnata: "+j.title,"check");
-  persist(); closeModal(); toast("Commessa consegnata","ok"); render();
+  persist(); closeModal(); Sfx.play("completato"); toast("Commessa consegnata","ok"); render();
 }
 function doNotify(jid){ const j=byId(STATE.jobs,jid); const ids=[...App.notifySel];
   if(!ids.length){ toast("Scegli almeno un fornitore","warn"); return; }
-  notifyJob(j, ids); const wantEmail=App.notifyEmail; persist(); closeModal();
+  notifyJob(j, ids); const wantEmail=App.notifyEmail; persist(); closeModal(); Sfx.play("pubblicazione");
   toast("Notifica inviata a "+ids.length+" fornitor"+(ids.length>1?"i":"e"),"ok"); render();
   if(wantEmail) emailJobToSuppliers(j, ids);
 }
@@ -2762,7 +2939,7 @@ function doAssign(jid,sid){ const j=byId(STATE.jobs,jid); const s=supplier(sid);
   j.assegnatoA=sid; j.stato="assegnato"; j.assegnatoAt=todayISO();
   notifySupplier(sid,{ic:"check",txt:"Commessa assegnata: "+j.title,sub:j.code,jobId:j.id});
   STATE.responses.filter(r=>r.jobId===jid).forEach(r=>r.read=true);
-  persist(); closeModal(); toast("Assegnato a "+s.name,"ok"); render();
+  persist(); closeModal(); Sfx.play("assegnazione"); toast("Assegnato a "+s.name,"ok"); render();
 }
 /* ---- Assegnazione ottima (matching sul grafo bipartito con capacità) -------
    Commesse pubblicate con accettazioni = nodi sinistra; fornitori che hanno
@@ -2815,7 +2992,8 @@ function doOptimalAssign(){
     notifySupplier(e.sid,{ic:"check",txt:"Commessa assegnata: "+j.title,sub:j.code,jobId:j.id});
     STATE.responses.filter(rr=>rr.jobId===e.jid).forEach(rr=>rr.read=true);
   });
-  const n=r.proposal.length; App._optimal=null; persist(); closeModal(); toast(n+" commesse assegnate in modo ottimo","ok"); render();
+  const n=r.proposal.length; App._optimal=null; persist(); closeModal();
+  Sfx.play("assegnazione"); toast(n+" commesse assegnate in modo ottimo","ok"); render();
 }
 /* ---- Azioni sui documenti di qualifica --------------------------------------
    Righi registra/rinnova e verifica; il fornitore comunica il rinnovo, che entra
@@ -2847,7 +3025,7 @@ function openDocForm(sid, tipo, daFornitore){
 function doDocRenew(sid, tipo){ const u=currentUser(); if(!u||u.role!=="righi"||isCapo(u)){ toast("Solo il responsabile di produzione","warn"); return; }
   const scad=($("#doc-scad")||{}).value||""; if(!scad){ toast("Indica la scadenza","warn"); return; }
   setDoc(sid, tipo, {scadenza:scad, stato:"valido", caricatoIl:todayISO(), nota:($("#doc-nota")||{}).value||"", esitoDa:u.id});
-  persist(); toast(DOC_TIPI[tipo].label+" aggiornato — "+QUAL_LABEL[qualifica(sid).stato].toLowerCase(),"ok"); render(); openSupplierModal(sid);
+  persist(); Sfx.play("tocco"); toast(DOC_TIPI[tipo].label+" aggiornato — "+QUAL_LABEL[qualifica(sid).stato].toLowerCase(),"ok"); render(); openSupplierModal(sid);
 }
 function doDocDeclare(tipo){ const u=currentUser(); const sid=u&&u.supplierId; if(!sid){ toast("Azione riservata ai fornitori","warn"); return; }
   const scad=($("#doc-scad")||{}).value||""; if(!scad){ toast("Indica la scadenza","warn"); return; }
@@ -2855,32 +3033,35 @@ function doDocDeclare(tipo){ const u=currentUser(); const sid=u&&u.supplierId; i
   // il responsabile deve sapere che c'e' un documento da verificare
   STATE.users.filter(x=>x.righiRole==="responsabile").forEach(x=>STATE.notifications.push({id:uid("n"),toUser:x.id,ic:"doc",
     txt:"Documento da verificare: "+DOC_TIPI[tipo].label, sub:(supplier(sid)||{}).name, at:new Date().toISOString().slice(0,16), read:false}));
-  persist(); closeModal(); toast(DOC_TIPI[tipo].label+" inviato: in verifica da Righi","ok"); render();
+  persist(); closeModal(); Sfx.play("richiesta"); toast(DOC_TIPI[tipo].label+" inviato: in verifica da Righi","ok"); render();
 }
 function doDocVerify(sid, tipo, ok){ const u=currentUser(); if(!u||u.role!=="righi"||isCapo(u)){ toast("Solo il responsabile di produzione","warn"); return; }
   setDoc(sid, tipo, {stato: ok?"valido":"respinto", esitoDa:u.id, esitoAt:todayISO()});
   const q=qualifica(sid);
   notifySupplier(sid,{ic:ok?"check":"x", txt:(ok?"Documento verificato: ":"Documento respinto: ")+DOC_TIPI[tipo].label,
     sub: ok?"":motivoBlocco(sid)});
-  persist(); toast(ok?("Verificato — "+QUAL_LABEL[q.stato].toLowerCase()):"Documento respinto: il fornitore e' stato avvisato", ok?"ok":"warn");
+  persist(); Sfx.play(ok?"approvazione":"rifiuto");
+  toast(ok?("Verificato — "+QUAL_LABEL[q.stato].toLowerCase()):"Documento respinto: il fornitore e' stato avvisato", ok?"ok":"warn");
   render(); openSupplierModal(sid);
 }
 // Chiude la pratica: stato finale, dalla consegna all'archivio.
 function closeJob(jid){ const j=byId(STATE.jobs,jid); const u=currentUser();
   if(!j||j.stato!=="consegnato"||!u||u.role!=="righi") return;
   j.stato="chiuso"; j.chiusaAt=todayISO(); j.chiusaDa=u.id;
-  persist(); closeModal(); toast("Pratica chiusa e archiviata","ok"); render();
+  persist(); closeModal(); Sfx.play("completato"); toast("Pratica chiusa e archiviata","ok"); render();
 }
-function setStato(jid,st){ const j=byId(STATE.jobs,jid); j.stato=st; if(st==="consegnato"&&!j.dataRientroEff) j.dataRientroEff=todayISO(); persist(); closeModal(); toast("Stato aggiornato: "+STATI[st].label,"ok"); render(); }
+function setStato(jid,st){ const j=byId(STATE.jobs,jid); j.stato=st; if(st==="consegnato"&&!j.dataRientroEff) j.dataRientroEff=todayISO();
+  persist(); closeModal(); Sfx.play(st==="consegnato"||st==="chiuso"?"completato":"tocco"); toast("Stato aggiornato: "+STATI[st].label,"ok"); render(); }
 function setAvanzamento(jid, step){ const u=currentUser(); const j=byId(STATE.jobs,jid); if(!j||!u.supplierId||j.assegnatoA!==u.supplierId) return;
   j.avanzamento=step; j.avanzamentoAt=new Date().toISOString().slice(0,16); j.avanzamentoBy=u.id;
   // il primo avanzamento segna l'avvio della produzione: la commessa passa "in corso"
   // (cosi' decade anche l'alert di "inizio in ritardo", che vale solo per chi non ha ancora iniziato)
   if(j.stato==="assegnato"){ j.stato="in_corso"; notifyCapoJob(j,"Produzione avviata: "+j.title,"bolt"); }
   STATE.responses.push({id:uid("r"),jobId:jid,supplierId:u.supplierId,tipo:"avanzamento",testo:AVANZAMENTO[step].label,at:j.avanzamentoAt,from:"fornitore",read:false});
-  persist(); closeModal(); toast("Avanzamento: "+AVANZAMENTO[step].label,"ok"); render();
+  persist(); closeModal(); Sfx.play("avanzamento"); toast("Avanzamento: "+AVANZAMENTO[step].label,"ok"); render();
 }
-function reqStato(rid,st){ const r=byId(STATE.requests,rid); r.stato=st; r.read=true; persist(); closeModal(); toast(st==="chiusa"?"Richiesta risolta":"Presa in carico","ok"); render(); }
+function reqStato(rid,st){ const r=byId(STATE.requests,rid); r.stato=st; r.read=true; persist(); closeModal();
+  Sfx.play(st==="chiusa"?"approvazione":"tocco"); toast(st==="chiusa"?"Richiesta risolta":"Presa in carico","ok"); render(); }
 
 /* aggiorna solo il contenitore risultati (mantiene focus sulla ricerca) */
 function updateResults(){ const el=$("#lav-results"); if(!el) return; const u=currentUser();
@@ -2919,6 +3100,8 @@ document.addEventListener("click",e=>{
   const act=el.dataset.act;
   switch(act){
     case "closeModal": closeModal(); break;
+    case "sfx": { const acceso=Sfx.toggle(); if(acceso) Sfx.play("tocco");
+      toast(acceso?"Suoni attivi":"Suoni disattivati","ok"); render(); break; }
     case "notif": openNotifCenter(); break;
     case "switch": openSwitch(); break;
     case "logout": setSession(null); closeModal(); App.tab=null; render(); break;
@@ -3042,7 +3225,7 @@ document.addEventListener("click",e=>{
     case "emailSup": { const s=supplier(el.dataset.sup); if(s) openEmailModal(s.email,"Righi Solutions — Portale Fornitori · accedi e rispondi",portalEmailBody(s.referente,"",portalLink({f:s.id}))); break; }
     case "emailJobSup": { const j=byId(STATE.jobs,el.dataset.job); const s=j&&supplier(j.assegnatoA); if(s) openEmailModal(s.email,"["+j.code+"] "+j.title+" · rispondi nel portale",portalEmailBody(s.referente,"In merito alla commessa "+j.code+" — "+j.title+".",portalLink({f:s.id,c:j.code}))); break; }
     case "emailReq": { const rq=byId(STATE.requests,el.dataset.id); const j=rq&&byId(STATE.jobs,rq.jobId); const s=rq&&supplier(rq.supplierId); if(s) openEmailModal(s.email,"["+(j?j.code:"")+"] "+REQ_TYPES[rq.tipo].label+" · rispondi nel portale",portalEmailBody(s.referente,"In merito alla sua segnalazione ("+REQ_TYPES[rq.tipo].label+") sulla commessa "+(j?j.code:"")+".",portalLink({f:s.id,q:rq.id,c:(j?j.code:null)}))); break; }
-    case "openEmailClient": { const em=App._email||{}; const bd=($("#em-body")||{}).value||em.body||""; const a=document.createElement("a"); a.href=mailto(em.to,em.subject,bd); a.target="_blank"; a.rel="noopener"; a.style.display="none"; document.body.appendChild(a); a.click(); setTimeout(()=>a.remove(),0); break; }
+    case "openEmailClient": { const em=App._email||{}; const bd=($("#em-body")||{}).value||em.body||""; const a=document.createElement("a"); a.href=mailto(em.to,em.subject,bd); a.target="_blank"; a.rel="noopener"; a.style.display="none"; document.body.appendChild(a); a.click(); setTimeout(()=>a.remove(),0); Sfx.play("email"); break; }
     case "copyEmail": { const em=App._email||{}; const bd=($("#em-body")||{}).value||em.body||""; copyText("A: "+(em.to||"")+"\nOggetto: "+em.subject+"\n\n"+bd); break; }
     case "bulkOpenOne": { const bk=App._emailBulk||{}; const r=(bk.recips||[])[+el.dataset.idx]; if(!r) break; const intro=($("#em-body")||{}).value||""; const a=document.createElement("a"); a.href=mailto(r.email,bk.subject,bulkPersonalBody(intro,r.sid,bk.code)); a.target="_blank"; a.rel="noopener"; a.style.display="none"; document.body.appendChild(a); a.click(); setTimeout(()=>a.remove(),0); break; }
     case "bulkCopyOne": { const bk=App._emailBulk||{}; const r=(bk.recips||[])[+el.dataset.idx]; if(!r) break; const intro=($("#em-body")||{}).value||""; copyText("A: "+r.email+"\nOggetto: "+bk.subject+"\n\n"+bulkPersonalBody(intro,r.sid,bk.code)); break; }
