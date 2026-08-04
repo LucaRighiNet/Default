@@ -10,7 +10,7 @@ const START = "/* ============================ Utility";
 const END   = "/* ============================ Render";
 const EXPORTS = ["STATE","App","isLate","isLateStart","isLateReturn","keyDate","lateDays","jobsForSupplier","filteredJobs","daysTo","relDays","fmtMoney","fmtDate",
                  "dISO","addDays","supplier","capo","byId","mailto","isCapo","activeHours","supplierMonthlyLoad","monthKey",
-                 "toCSV","parseCSV","isAssegnabile","qualifica","docStato","motivoBlocco","DOC_TIPI","DOC_KEYS","DOC_OBBL","suggestEsclusi",
+                 "toCSV","parseCSV","isAssegnabile","qualifica","docStato","motivoBlocco","motivoRiserva","elencoDoc","docTipi","docTipiAttivi","docTipo","docKeys","docObbl","docBloccanti","docVisibileA","docPreavviso","docTipiSeed","DOC_STATI_KO","suggestEsclusi",
                  "supplierMetrics","freeCapacity","monthLoad","daysBetween","jobHealth","suggestSuppliers",
                  "TIPOLOGIE","STATI","SETTORI","LAVORAZIONI","LAV_KEYS","parseLavorazioni","REQ_TYPES","AVANZAMENTO","CERT","QUICK_REPLIES","esc","uid",
                  "DIMENSIONI","ATTREZZATURE","fitsSpazio","supplier","jobResponses","jobRequests","graphIndex","maxflowMinCut","capacityBottleneck"];
@@ -328,32 +328,131 @@ r.ok("docStato: valido / in scadenza / scaduto / mancante", () => {
   // un documento in verifica ma gia' scaduto resta scaduto: la scadenza vince
   assert.strictEqual(S.docStato({ tipo:"durc", scadenza:S.dISO(-2), stato:"in_verifica" }), "scaduto");
 });
+// Un fornitore "pulito" su cui provare una regola alla volta: tutti i documenti
+// dei tipi attivi presenti e lontani dalla scadenza.
+function fornitoreInRegola() {
+  const s = S.STATE.suppliers.find(x => x.attivo && x.accredited);
+  const backup = (s.docs || []).map(d => ({ ...d }));
+  s.docs = S.docTipiAttivi().map(t => ({ tipo: t.id, scadenza: S.dISO(500), stato: "valido", caricatoIl: S.dISO(-10), nota: "" }));
+  return { s, ripristina: () => { s.docs = backup; } };
+}
 r.ok("qualifica: un obbligatorio bloccante toglie l'assegnabilità, un facoltativo no", () => {
-  const s = S.STATE.suppliers.find(x => x.attivo && S.qualifica(x.id).stato === "qualificato");
-  assert(s, "serve un fornitore qualificato nel seed");
-  const obbl = s.docs.find(d => S.DOC_TIPI[d.tipo].obbl);
-  const orig = obbl.scadenza;
-  obbl.scadenza = S.dISO(-1);
-  assert.strictEqual(S.qualifica(s.id).stato, "non_qualificato", "obbligatorio scaduto deve bloccare");
-  assert.strictEqual(S.isAssegnabile(s.id), false, "non deve essere assegnabile");
-  assert(/scaduto/.test(S.motivoBlocco(s.id)), "il motivo deve essere esplicito");
-  obbl.scadenza = orig;
-  assert.strictEqual(S.isAssegnabile(s.id), true, "ripristinando torna assegnabile");
-  // un facoltativo scaduto non blocca
-  const fac = s.docs.find(d => !S.DOC_TIPI[d.tipo].obbl);
-  if (fac) { const o2 = fac.scadenza; fac.scadenza = S.dISO(-1);
-    assert.strictEqual(S.isAssegnabile(s.id), true, "un facoltativo scaduto non deve bloccare");
-    fac.scadenza = o2; }
+  const { s, ripristina } = fornitoreInRegola();
+  try {
+    assert.strictEqual(S.qualifica(s.id).stato, "qualificato", "il fornitore di prova deve partire in regola");
+    const blocc = S.docBloccanti()[0];
+    const d = s.docs.find(x => x.tipo === blocc); const orig = d.scadenza;
+    d.scadenza = S.dISO(-1);
+    assert.strictEqual(S.qualifica(s.id).stato, "non_qualificato", "un bloccante scaduto deve bloccare");
+    assert.strictEqual(S.isAssegnabile(s.id), false, "non deve essere assegnabile");
+    assert(/scaduto/.test(S.motivoBlocco(s.id)), "il motivo deve essere esplicito");
+    d.scadenza = orig;
+    assert.strictEqual(S.isAssegnabile(s.id), true, "ripristinando torna assegnabile");
+    // un facoltativo scaduto non blocca
+    const fk = S.docTipiAttivi().find(t => !t.obbl);
+    if (fk) { const f = s.docs.find(x => x.tipo === fk.id); const o2 = f.scadenza; f.scadenza = S.dISO(-1);
+      assert.strictEqual(S.isAssegnabile(s.id), true, "un facoltativo scaduto non deve bloccare");
+      f.scadenza = o2; }
+  } finally { ripristina(); }
+});
+r.ok("richiesto ma NON bloccante: manca, si segnala, il lavoro non si ferma", () => {
+  const { s, ripristina } = fornitoreInRegola();
+  try {
+    const nb = S.docTipiAttivi().find(t => t.obbl && !t.bloccante);
+    assert(nb, "il modello deve prevedere almeno un richiesto non bloccante");
+    s.docs = s.docs.filter(d => d.tipo !== nb.id);          // lo faccio mancare
+    const q = S.qualifica(s.id);
+    assert.strictEqual(q.stato, "con_riserva", "deve restare qualificato con riserva");
+    assert.strictEqual(S.isAssegnabile(s.id), true, "un non bloccante mancante non deve bloccare");
+    assert.strictEqual(S.motivoBlocco(s.id), "", "non c'è nessun blocco da spiegare");
+    assert(q.mancanti.some(r => r.tipo === nb.id), "deve comparire fra i mancanti");
+    assert(/non bloccante/.test(S.motivoRiserva(s.id)), "la riserva va spiegata: " + S.motivoRiserva(s.id));
+  } finally { ripristina(); }
+});
+r.ok("lo stesso tipo, reso bloccante, blocca davvero", () => {
+  const { s, ripristina } = fornitoreInRegola();
+  const nb = S.docTipiAttivi().find(t => t.obbl && !t.bloccante);
+  const era = nb.bloccante;
+  try {
+    s.docs = s.docs.filter(d => d.tipo !== nb.id);
+    assert.strictEqual(S.isAssegnabile(s.id), true, "prima della modifica non blocca");
+    nb.bloccante = true;                                     // è la stessa leva del menu
+    assert.strictEqual(S.qualifica(s.id).stato, "non_qualificato", "ora deve bloccare");
+    assert.strictEqual(S.isAssegnabile(s.id), false);
+    assert(S.motivoBlocco(s.id).includes(nb.label), "il motivo deve nominare il documento");
+  } finally { nb.bloccante = era; ripristina(); }
+});
+r.ok("disattivare un tipo lo toglie dalla qualifica senza perdere il documento", () => {
+  const { s, ripristina } = fornitoreInRegola();
+  const blocc = S.docTipo(S.docBloccanti()[0]);
+  try {
+    const d = s.docs.find(x => x.tipo === blocc.id); d.scadenza = S.dISO(-1);
+    assert.strictEqual(S.isAssegnabile(s.id), false, "scaduto: blocca");
+    blocc.attivo = false;
+    assert.strictEqual(S.isAssegnabile(s.id), true, "tipo non in uso: non deve più bloccare");
+    assert(!S.qualifica(s.id).righe.some(r => r.tipo === blocc.id), "non deve comparire fra le righe");
+    assert(s.docs.some(x => x.tipo === blocc.id), "il documento registrato non si perde");
+    blocc.attivo = true;
+    assert.strictEqual(S.isAssegnabile(s.id), false, "riattivandolo torna a bloccare");
+  } finally { blocc.attivo = true; ripristina(); }
 });
 r.ok("i documenti in scadenza avvisano ma non bloccano", () => {
-  const s = S.STATE.suppliers.find(x => x.attivo && S.qualifica(x.id).stato === "qualificato");
-  const obbl = s.docs.find(d => S.DOC_TIPI[d.tipo].obbl); const orig = obbl.scadenza;
-  obbl.scadenza = S.dISO(5);
-  const q = S.qualifica(s.id);
-  assert.strictEqual(q.stato, "in_scadenza");
-  assert.strictEqual(S.isAssegnabile(s.id), true, "in scadenza deve restare assegnabile");
-  assert(q.avvisi.length >= 1, "deve segnalare l'avviso");
-  obbl.scadenza = orig;
+  const { s, ripristina } = fornitoreInRegola();
+  try {
+    const t = S.docTipo(S.docBloccanti()[0]);
+    const d = s.docs.find(x => x.tipo === t.id); d.scadenza = S.dISO(Math.max(1, t.preavviso - 5));
+    const q = S.qualifica(s.id);
+    assert.strictEqual(q.stato, "con_riserva");
+    assert.strictEqual(S.isAssegnabile(s.id), true, "in scadenza deve restare assegnabile");
+    assert(q.scadenze.length >= 1, "deve segnalare l'avviso");
+  } finally { ripristina(); }
+});
+r.ok("il preavviso è per tipo, e si può spegnere", () => {
+  const { s, ripristina } = fornitoreInRegola();
+  const t = S.docTipo(S.docBloccanti()[0]);
+  const pre = t.preavviso, al = t.alert;
+  try {
+    const d = s.docs.find(x => x.tipo === t.id);
+    t.alert = true; t.preavviso = 10;
+    d.scadenza = S.dISO(20);
+    assert.strictEqual(S.docStato(d, t), "valido", "fuori dal preavviso deve risultare in regola");
+    d.scadenza = S.dISO(5);
+    assert.strictEqual(S.docStato(d, t), "in_scadenza", "dentro il preavviso deve avvisare");
+    t.preavviso = 60;
+    d.scadenza = S.dISO(20);
+    assert.strictEqual(S.docStato(d, t), "in_scadenza", "allargando il preavviso avvisa prima");
+    t.alert = false;
+    assert.strictEqual(S.docStato(d, t), "valido", "senza avviso resta in regola fino alla scadenza");
+    d.scadenza = S.dISO(-1);
+    assert.strictEqual(S.docStato(d, t), "scaduto", "l'avviso spento non impedisce di scadere");
+  } finally { t.preavviso = pre; t.alert = al; ripristina(); }
+});
+r.ok("i motivi non nominano mai un documento riservato al fornitore", () => {
+  const { s, ripristina } = fornitoreInRegola();
+  const ris = S.docTipiAttivi().find(t => t.visibile === "righi");
+  const eraB = ris.bloccante, eraO = ris.obbl;
+  try {
+    // caso 1: riservato NON bloccante mancante -> compare nella riserva
+    ris.obbl = true; ris.bloccante = false;
+    s.docs = s.docs.filter(d => d.tipo !== ris.id);
+    assert(S.motivoRiserva(s.id, true).includes(ris.label), "Righi deve vedere il nome del documento");
+    assert(!S.motivoRiserva(s.id, false).includes(ris.label), "il fornitore non deve leggere il nome: " + S.motivoRiserva(s.id, false));
+    assert(/gestit\w+ da Righi/.test(S.motivoRiserva(s.id, false)), "va detto che esiste ed è di Righi");
+    // caso 2: lo stesso tipo reso bloccante -> stessa regola sul motivo del blocco
+    ris.bloccante = true;
+    assert.strictEqual(S.isAssegnabile(s.id), false, "reso bloccante deve bloccare");
+    assert(S.motivoBlocco(s.id, true).includes(ris.label), "Righi deve sapere quale documento blocca");
+    assert(!S.motivoBlocco(s.id, false).includes(ris.label), "il fornitore non deve leggerne il nome");
+    assert(/gestit\w+ da Righi/.test(S.motivoBlocco(s.id, false)), "il blocco va comunque spiegato");
+  } finally { ris.bloccante = eraB; ris.obbl = eraO; ripristina(); }
+});
+r.ok("visibilità: i tipi riservati non sono visibili al fornitore", () => {
+  const ris = S.docTipiAttivi().find(t => t.visibile === "righi");
+  assert(ris, "il modello deve prevedere almeno un tipo riservato a Righi");
+  assert.strictEqual(S.docVisibileA(ris, true), true, "Righi lo vede");
+  assert.strictEqual(S.docVisibileA(ris, false), false, "il fornitore no");
+  const pub = S.docTipiAttivi().find(t => t.visibile !== "righi");
+  assert.strictEqual(S.docVisibileA(pub, false), true, "un tipo normale il fornitore lo vede");
 });
 r.ok("suggestEsclusi elenca i non assegnabili con il motivo", () => {
   const escl = S.suggestEsclusi();
@@ -365,10 +464,30 @@ r.ok("suggestEsclusi elenca i non assegnabili con il motivo", () => {
   const ids = new Set(escl.map(e => e.sid));
   for (const s of S.STATE.suppliers) if (S.isAssegnabile(s.id)) assert(!ids.has(s.id));
 });
-r.ok("ogni documento obbligatorio è previsto dal modello", () => {
-  assert(S.DOC_OBBL.length >= 3, "attesi piu' documenti obbligatori");
-  for (const k of S.DOC_KEYS) { const m = S.DOC_TIPI[k];
-    assert(m.label && m.sub && m.mesi > 0, "metadati incompleti per " + k); }
+r.ok("il registro dei tipi è coerente", () => {
+  assert(S.docObbl().length >= 3, "attesi piu' documenti richiesti");
+  assert(S.docBloccanti().length >= 3, "attesi piu' documenti bloccanti");
+  const ids = new Set();
+  for (const t of S.docTipi()) {
+    assert(t.id && !ids.has(t.id), "identificativo mancante o duplicato: " + t.id); ids.add(t.id);
+    assert(t.label && t.sub && t.mesi > 0, "metadati incompleti per " + t.id);
+    assert(["fornitore", "righi"].includes(t.visibile), "visibilità non valida per " + t.id);
+    assert(!(t.bloccante && !t.obbl), t.id + ": facoltativo ma bloccante, regola contraddittoria");
+    if (t.alert !== false) assert(Number(t.preavviso) > 0, t.id + ": avviso attivo senza giorni di preavviso");
+  }
+  // il seed è la base del registro: deve superare gli stessi controlli
+  assert.strictEqual(S.docTipiSeed().length, S.docTipi().length, "registro e seed disallineati");
+});
+r.ok("il registro è dato modificabile, non codice", () => {
+  assert(Array.isArray(S.STATE.docTipi), "STATE.docTipi deve esistere ed essere una lista");
+  const n = S.STATE.docTipi.length;
+  S.STATE.docTipi.push({id:"prova_tmp", label:"Prova", sub:"x", mesi:6, obbl:false, bloccante:false,
+                        visibile:"fornitore", alert:true, preavviso:15, attivo:true});
+  try {
+    assert(S.docTipo("prova_tmp"), "un tipo aggiunto deve essere leggibile");
+    assert(S.qualifica(S.STATE.suppliers[0].id).righe.some(r => r.tipo === "prova_tmp"),
+      "un tipo nuovo deve comparire subito nella qualifica");
+  } finally { S.STATE.docTipi.length = n; }
 });
 r.ok("suggestSuppliers: chi è specializzato+settore batte chi non lo è", () => {
   const job = S.STATE.jobs.find(j => j.stato === "pubblicato");
@@ -552,6 +671,11 @@ r.ok("preferenze OTL: la % del file entra nel punteggio di suggerimento", () => 
   const anyDate = S.STATE.jobs[0].dataConsegna;
   // AEG ha 60% per Smeraldi (cs4): con job del suo OTL, pref>0 e reason presente
   const aeg = S.STATE.suppliers.find(s => s.name === "AEG");
+  // il soggetto qui è il PUNTEGGIO, non la qualifica: fra i suggeriti entrano solo
+  // gli assegnabili, quindi i documenti di AEG si mettono in regola per la prova
+  const backupAeg = (aeg.docs || []).map(d => ({...d}));
+  aeg.docs = S.docTipiAttivi().map(t => ({tipo:t.id, scadenza:S.dISO(500), stato:"valido", caricatoIl:S.dISO(-10), nota:""}));
+  try {
   const job = {tipologia:"automazione", settore:"Packaging", dataConsegna:anyDate, oreStimate:100, ingombro:null, capoId:"cs4"};
   const r4 = S.suggestSuppliers(job).find(x => x.sid === aeg.id);
   assert(r4 && r4.pref === 60, "pref OTL cs4 attesa 60, ottenuto " + (r4&&r4.pref));
@@ -560,6 +684,7 @@ r.ok("preferenze OTL: la % del file entra nel punteggio di suggerimento", () => 
   const job2 = {...job, capoId:"cs2"};
   const r2 = S.suggestSuppliers(job2).find(x => x.sid === aeg.id);
   assert.strictEqual(r2.pref, 0);
+  } finally { aeg.docs = backupAeg; }
 });
 
 /* ---- Workflow di approvazione (caposquadra -> responsabile) ---- */

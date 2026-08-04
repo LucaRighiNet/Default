@@ -62,6 +62,7 @@ email; ogni rifiuto è motivato; ogni stato ha qualcuno che lo fa scattare.
 | Segnare consegnato | ❌ | ❌ | ✅ |
 | Chiudere la pratica | ✅ | ✅ | ❌ |
 | Creare/modificare anagrafica fornitori | ✅ | ❌ | ❌ |
+| Configurare i **tipi di documento** (bloccante, visibilità, avvisi) | ✅ | ❌ | ❌ |
 | Registrare/verificare documenti di qualifica | ✅ | ❌ | ❌ |
 | Comunicare il rinnovo di un proprio documento | ❌ | ❌ | ✅ |
 
@@ -79,7 +80,8 @@ fornitore, perché riguardano la marginalità e la pianificazione interna di Rig
 | Date **inizio stimato** e **rientro** | ✅ | ✅ | Sono i suoi impegni |
 | **Metriche** di prestazione | ✅ | ✅ | Identiche per entrambi, per costruzione |
 | Commesse **di altri fornitori** | ✅ | ❌ | Riservatezza commerciale |
-| **Documenti di qualifica propri** | ✅ | ✅ | Sono i suoi documenti |
+| **Documenti di qualifica propri** | ✅ | ✅ | Sono i suoi documenti, se il tipo è visibile |
+| Documenti **di tipo riservato** (es. valutazione interna) | ✅ | ❌ | Giudizio interno di Righi |
 | Documenti **di altri fornitori** | ✅ | ❌ | Riservatezza |
 
 Al fornitore, dove Righi vede *ore*, il portale mostra *importo*: stessa realtà,
@@ -276,22 +278,51 @@ portale presidia quella preliminare: *«questo fornitore **può** lavorare per
 noi?»*. È il perimetro tipico dei sistemi di gestione della conformità, ripreso
 qui **solo per la parte che incide sull'assegnazione**.
 
-| Documento | Obbligatorio | Validità tipica |
-|---|:---:|---|
-| DURC — regolarità contributiva | ✅ | 4 mesi |
-| Polizza RCT/RCO | ✅ | 12 mesi |
-| Idoneità tecnico-professionale (art. 26 D.Lgs. 81/08) | ✅ | 12 mesi |
-| Visura camerale | ✅ | 12 mesi |
-| ISO 9001 · ISO 45001 | ❌ | 36 mesi |
+**Non tutti i documenti sono bloccanti.** È la distinzione che regge tutta la
+sezione: un DURC scaduto ferma il lavoro, un'informativa privacy non firmata va
+sollecitata ma non ferma niente. Confondere le due cose porta o a bloccare
+troppo (e allora la regola viene aggirata) o a non bloccare mai (e allora la
+regola non esiste). Per questo il registro dei tipi è **configurabile** e la
+proprietà «bloccante» è **separata** da «richiesto».
 
-**La qualifica non è un campo digitato**: è calcolata dai documenti.
+**Il registro dei tipi** (menu *Fornitori · Tipi di documento*, riservato al
+responsabile di produzione). Ogni tipo dichiara sette proprietà, e ognuna ha un
+effetto osservabile:
+
+| Proprietà | Che cosa cambia davvero |
+|---|---|
+| **Tipo di documento** | Il nome mostrato a Righi e, se visibile, al fornitore |
+| **Caratteristiche** | Riga di dettaglio: norma, ente, contenuto |
+| **Richiesto** | Se no, la sua assenza non genera alcuna segnalazione |
+| **Bloccante** | Se manca, è scaduto o respinto rende il fornitore **non assegnabile**. Vale solo per i documenti richiesti: facoltativo e bloccante è una regola contraddittoria, e il portale la corregge dichiarandolo |
+| **Chi può vederlo** | *Righi e il fornitore*, oppure *solo Righi*: un tipo riservato sparisce dal profilo del fornitore, che non lo vede e non lo può inviare |
+| **Avviso di scadenza** | Se spento, il documento resta «in regola» fino al giorno della scadenza: nessun rumore per mesi su un documento che si rinnova da sé |
+| **Giorni di anticipo** | Per tipo, non globale: un DURC quadrimestrale e una polizza annuale non si preavvisano allo stesso modo |
+| **Validità (mesi)** | Propone la nuova scadenza quando si registra un rinnovo |
+
+Configurazione di partenza:
+
+| Documento | Richiesto | Bloccante | Visibile a | Avviso |
+|---|:---:|:---:|---|---|
+| DURC — regolarità contributiva | sì | **sì** | fornitore | 30 gg |
+| Polizza RCT/RCO | sì | **sì** | fornitore | 45 gg |
+| Idoneità tecnico-professionale (art. 26 D.Lgs. 81/08) | sì | **sì** | fornitore | 30 gg |
+| Visura camerale | sì | **sì** | fornitore | 30 gg |
+| Informativa privacy firmata | sì | no | fornitore | 60 gg |
+| Scheda di valutazione fornitore | sì | no | **solo Righi** | nessuno |
+| ISO 9001 · ISO 45001 | no | no | fornitore | 60 gg |
+
+**La qualifica non è un campo digitato**: è calcolata dai documenti e dal
+registro. Cambiare una riga del registro ricalcola tutti i fornitori nello
+stesso istante — per questo il modulo dichiara **quanti cambiano stato prima
+di salvare** («8 diventano non assegnabili»), invece di lasciarlo scoprire.
 
 ```mermaid
 flowchart TD
-    D[Documenti del fornitore] --> S{Un obbligatorio<br/>mancante, scaduto<br/>o respinto?}
-    S -->|sì| NQ[Non qualificato]
-    S -->|no| E{Qualcuno in scadenza<br/>entro 30 giorni<br/>o in verifica?}
-    E -->|sì| IS[Documenti in scadenza]
+    D[Documenti del fornitore] --> S{Manca, e' scaduto o respinto<br/>un tipo RICHIESTO e BLOCCANTE?}
+    S -->|si| NQ[Non qualificato]
+    S -->|no| E{Manca un richiesto NON bloccante,<br/>o qualcosa e' in scadenza o in verifica?}
+    E -->|si| IS[Qualificato con riserva]
     E -->|no| QU[Qualificato]
     NQ --> B[NON assegnabile:<br/>fuori dai suggeriti,<br/>saltato dall'assegnazione ottima,<br/>assegnazione manuale bloccata]
     IS --> A[Assegnabile, con avviso]
@@ -302,6 +333,12 @@ flowchart TD
     style QU fill:#E4F1EA,stroke:#2E7D53
     style B fill:#F7E4E1,stroke:#C0392B
 ```
+
+**Disattivare non è eliminare.** Un tipo che non serve più si disattiva: esce
+dalla qualifica di tutti, ma i documenti già registrati restano e tornano a
+contare se lo si riattiva. L'eliminazione è consentita solo se **nessun
+fornitore** ha mai consegnato quel documento — altrimenti si cancellerebbe uno
+storico, e il portale lo rifiuta dicendolo.
 
 **Dove agisce** — è ciò che distingue una funzione reale da una scheda
 informativa:
@@ -339,9 +376,16 @@ sequenceDiagram
 Un documento **in verifica** con scadenza futura **copre** il requisito: è stato
 consegnato, manca solo il controllo. Se invece è già scaduto, la scadenza vince.
 
-**Chi fa cosa**: il fornitore vede **solo i propri** documenti e può comunicare
-un rinnovo; il **responsabile** registra, verifica o respinge; il **caposquadra
+**Chi fa cosa**: il fornitore vede **solo i propri** documenti, e fra questi
+**solo i tipi non riservati**; può comunicare un rinnovo. Il **responsabile**
+configura il registro, registra, verifica o respinge; il **caposquadra
 consulta** ma non modifica, coerentemente con la regola dell'anagrafica.
+
+**I motivi sono filtrati per chi legge.** Se a bloccare (o a mettere in riserva)
+è un documento riservato, il fornitore viene avvisato che *esiste* un documento
+gestito da Righi non in regola, ma non ne legge il nome: la sua scheda di
+valutazione interna resta interna. Un blocco senza spiegazione sarebbe peggio
+del blocco; un blocco che rivela un giudizio interno sarebbe una fuga.
 
 ### 3.8 Consegna con autorizzazione
 
@@ -642,11 +686,11 @@ vecchia". È disponibile anche un **ripristino manuale** dei dati dimostrativi.
 
 | Livello | Copertura |
 |---|---|
-| **Test di modello** (78) | Date e alert, metriche, capacità, qualifica, matching ottimo, flusso massimo e taglio minimo, invarianti del grafo |
+| **Test di modello** (85) | Date e alert, metriche, capacità, qualifica, matching ottimo, flusso massimo e taglio minimo, invarianti del grafo |
 | **Test di sincronizzazione** (6) | Contratto del seam remoto (pull/push, versioni) |
 | **Test dei suoni** (26) | La sintesi viene registrata voce per voce: scala, timbro, durate, volumi, direzione melodica, firma distinta per ogni funzionalità, interruttore e anti-raffica |
 | **Audit automatici** (3 passate) | Percorso completo di tutti i ruoli su ogni schermata (desktop e mobile), riservatezza, invarianti, persistenza, coerenza dei numeri, casi limite dei link |
-| **Prove end-to-end** (24 scenari) | Ciclo di vita, extra, magic link, richieste con foto, approvazioni, carico, analisi, suoni sulle azioni reali |
+| **Prove end-to-end** (33 scenari) | Ciclo di vita, extra, magic link, richieste con foto, approvazioni, carico, analisi, suoni sulle azioni reali, registro dei tipi di documento |
 | **Controlli strutturali** | Nessuna funzione vuota, nessun pulsante privo di effetto, nessun gestore orfano, nessuna emoji |
 
 Gli audit hanno individuato e fatto correggere difetti reali — tra cui una **fuga
@@ -670,7 +714,8 @@ corretti, per non lasciare falsi allarmi.
 **Già realizzato**: richieste con foto, risposte rapide, avviso automatico via
 email con link diretto, auto-matching, duplicazione come modello, firma leggera,
 assegnazione ottima, lettura del collo di bottiglia, gestione degli extra,
-qualifica dei fornitori dai documenti, linguaggio sonoro degli eventi.
+qualifica dei fornitori dai documenti con registro dei tipi configurabile,
+linguaggio sonoro degli eventi.
 
 **Prossimi passi** (richiedono il server, dettagliati in `BACKEND.md`):
 
@@ -695,5 +740,7 @@ qualifica dei fornitori dai documenti, linguaggio sonoro degli eventi.
 | **Ingombro** | Dimensione massima del quadro che il fornitore può lavorare e movimentare |
 | **Saturazione** | Rapporto tra ore assegnate e capacità mensile del fornitore |
 | **Gate di consegna** | Vincolo per cui il fornitore non può consegnare senza autorizzazione |
-| **Qualifica** | Stato calcolato dai documenti obbligatori, che abilita o blocca l'assegnazione |
+| **Qualifica** | Stato calcolato dai documenti e dal registro dei tipi: abilita, mette in riserva o blocca l'assegnazione |
+| **Tipo bloccante** | Documento richiesto la cui assenza o scadenza rende il fornitore non assegnabile |
+| **Con riserva** | Qualificato ma con qualcosa da sistemare: non ferma il lavoro |
 | **Firma sonora** | Sequenza di note che identifica un evento: distinta per ogni funzionalità |

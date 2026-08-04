@@ -8,8 +8,10 @@ Non è un portale di approvvigionamento materiali: è un portale di **delega di
 lavori a progetto**, pensato per gare piccole e brevi (3–5 settimane), con due
 obiettivi di design — **ridurre il testo scritto** e **accelerare
 l'assegnazione**. Include la **qualifica dei fornitori** per la parte che incide
-sull'operatività (documenti obbligatori che abilitano o bloccano l'assegnazione),
-non come sistema completo di gestione della conformità aziendale.
+sull'operatività — con un **registro dei tipi di documento configurabile**, dove
+per ciascuno si decide se è richiesto, se è **bloccante**, chi può vederlo e come
+avvisa prima della scadenza — non come sistema completo di gestione della
+conformità aziendale.
 
 **Documento di riferimento**: [`SPECIFICHE.md`](SPECIFICHE.md) raccoglie in un
 unico posto le specifiche **funzionali, organizzative e tecniche**, con diagrammi
@@ -90,32 +92,70 @@ può servire una copia vecchia.
 
 **Qualifica dei fornitori (documenti)**: il portale presidia anche la domanda
 *«questo fornitore **può** lavorare per noi?»*, distinta da *«a chi conviene
-affidare questo lavoro?»*. Ogni fornitore ha i **documenti obbligatori** (DURC,
-polizza RCT/RCO, idoneità tecnico-professionale ex art. 26 D.Lgs. 81/08, visura
-camerale) e quelli **facoltativi** (ISO 9001, ISO 45001), ciascuno con la propria
-scadenza.
+affidare questo lavoro?»*.
 
-La qualifica **non è un campo che si digita**: è calcolata dai documenti, e
-**agisce sull'operatività**:
+**Non tutti i documenti sono bloccanti**, ed è la distinzione che regge tutto: un
+DURC scaduto ferma il lavoro, un'informativa privacy non firmata va sollecitata
+ma non ferma niente. Confonderle porta o a bloccare troppo (e la regola viene
+aggirata) o a non bloccare mai (e la regola non esiste). Per questo l'elenco dei
+tipi **non è scritto nel programma**: si configura.
 
-- un obbligatorio **mancante, scaduto o respinto** rende il fornitore **non
+**Menu Tipi di documento** — da *Fornitori · Tipi di documento* (o dalla scheda di
+un fornitore), riservato al **responsabile di produzione**. Per ogni tipo si
+definisce:
+
+| Campo | Effetto |
+|---|---|
+| **Tipo di documento** | Il nome mostrato a Righi e, se visibile, al fornitore |
+| **Caratteristiche** | Riga di dettaglio: norma di riferimento, ente, contenuto |
+| **Richiesto** a tutti / facoltativo | Se facoltativo, la sua assenza non segnala nulla |
+| **Bloccante** sì/no | Se manca, è scaduto o respinto rende il fornitore **non assegnabile**. Vale solo per i richiesti: *facoltativo e bloccante* è contraddittorio e il portale lo corregge dicendolo |
+| **Chi può vederlo** | *Righi e il fornitore* oppure *solo Righi*: un tipo riservato sparisce dal profilo del fornitore, che non lo vede e non lo può inviare |
+| **Avviso di scadenza** sì/no | Spento, il documento resta «in regola» fino al giorno della scadenza |
+| **Giorni di anticipo** | Per tipo, non globale: un DURC quadrimestrale e una polizza annuale non si preavvisano allo stesso modo |
+| **Validità (mesi)** | Propone la nuova scadenza quando si registra un rinnovo |
+
+Prima di salvare, il portale dice **quanti fornitori cambiano stato** (es. *«8
+diventano non assegnabili»*): una regola che cambia la qualifica di decine di
+fornitori non deve farlo di nascosto. Un tipo che non serve più si **disattiva**
+(esce dalla qualifica, ma i documenti già registrati restano e tornano a contare
+se lo si riattiva); si **elimina** solo se nessun fornitore l'ha mai consegnato.
+
+Di partenza: **bloccanti** DURC, polizza RCT/RCO, idoneità tecnico-professionale
+(art. 26 D.Lgs. 81/08) e visura camerale; **richiesti non bloccanti** informativa
+privacy firmata e — riservata a Righi — la scheda di valutazione fornitore;
+**facoltativi** ISO 9001 e ISO 45001.
+
+La qualifica **non è un campo che si digita**: è calcolata dai documenti e dal
+registro, e **agisce sull'operatività**:
+
+- un **bloccante** mancante, scaduto o respinto rende il fornitore **non
   assegnabile**: sparisce dai **fornitori suggeriti**, viene saltato
   dall'**assegnazione ottima** e l'**assegnazione manuale è bloccata** con il
   motivo esplicito (il controllo vale anche sulla chiamata diretta, non solo
   nascondendo il pulsante);
+- un **richiesto non bloccante** che manca lascia il fornitore *qualificato con
+  riserva*: si segnala, il lavoro non si ferma;
 - gli esclusi **non spariscono in silenzio**: nel modulo di invito compare quanti
   sono e perché;
-- un documento **in scadenza** (entro 30 giorni) **avvisa** ma non blocca;
+- un documento **in scadenza** (nei giorni di preavviso del suo tipo) **avvisa**
+  ma non blocca;
 - in **Dashboard** un indicatore conta i *fornitori non in regola* e porta
   all'elenco già filtrato; nell'elenco ogni scheda ha il proprio badge.
 
-**Chi fa cosa**: il **fornitore** vede **solo i propri** documenti, con scadenze e
-stato, e può **comunicare un rinnovo** — che entra *in verifica*. Il
-**responsabile di produzione** registra, **verifica o respinge** (il fornitore
-riceve la notifica con il motivo). Il **caposquadra consulta** ma non modifica,
-in linea con la regola dell'anagrafica. Se un fornitore non è in regola lo vede
-scritto dal suo profilo, con l'avviso che non riceverà nuove commesse finché non
-provvede — quelle in corso proseguono.
+**Chi fa cosa**: il **fornitore** vede **solo i propri** documenti — e fra questi
+solo i tipi non riservati — con scadenze, stato e l'etichetta che dice se quel
+documento è bloccante; può **comunicare un rinnovo**, che entra *in verifica*. Il
+**responsabile di produzione** configura il registro, registra, **verifica o
+respinge** (il fornitore riceve la notifica con il motivo). Il **caposquadra
+consulta** ma non modifica, in linea con la regola dell'anagrafica.
+
+I **motivi sono filtrati per chi legge**: se a bloccare o a mettere in riserva è
+un documento riservato, il fornitore è avvisato che *esiste* un documento gestito
+da Righi non in regola, ma **non ne legge il nome** — la valutazione interna resta
+interna. Se un fornitore non è in regola lo vede scritto dal suo profilo, con
+l'avviso che non riceverà nuove commesse finché non provvede: quelle in corso
+proseguono.
 
 **Ruoli e accessi (lato Righi)**
 - **Responsabile di produzione**: vede **tutte** le commesse, pubblica, assegna,
@@ -358,8 +398,9 @@ cd portale-fornitori && node tests/run_all.js
 ```
 
 Verifica la sintassi dell'app (`node --check`), la logica pura di dominio
-(regole di **visibilità** dei lavori, **ritardi**, **qualifica**, integrità del
-seed, helper), il contratto di **sync** e i **suoni** — questi ultimi registrando
+(regole di **visibilità** dei lavori, **ritardi**, **qualifica** e registro dei
+tipi di documento, integrità del seed, helper), il contratto di **sync** e i
+**suoni** — questi ultimi registrando
 la sintesi voce per voce (scala, timbro, durate, volumi, direzione melodica e
 firma distinta per ogni funzionalità). Nessuna dipendenza esterna.
 

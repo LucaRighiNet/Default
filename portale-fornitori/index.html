@@ -516,6 +516,7 @@ const IC = {
   download:'<path d="M12 4v11m0 0 4-4m-4 4-4-4M5 20h14"/>',
   copy:'<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/>',
   link:'<path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/>',
+  sliders:'<path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2.2"/><circle cx="9" cy="17" r="2.2"/>',
   audio:'<path d="M4 9.5h3.6L12 5.6v12.8L7.6 14.5H4Z"/><path d="M15.8 9.4a3.8 3.8 0 0 1 0 5.2"/><path d="M18.4 6.8a7.4 7.4 0 0 1 0 10.4"/>',
   audioOff:'<path d="M4 9.5h3.6L12 5.6v12.8L7.6 14.5H4Z"/><path d="m16.2 10 4.4 4M20.6 10l-4.4 4"/>',
 };
@@ -539,7 +540,7 @@ const KEY="righi_portale_v4", SESSKEY="righi_portale_sess_v4";
 // Versione del MODELLO dati. Va alzata quando cambia la forma dei dati: i dati
 // salvati con una versione precedente vengono rigenerati dal seed aggiornato,
 // altrimenti il browser continuerebbe a mostrare i dati vecchi con il codice nuovo.
-const DATA_VERSION = 5;
+const DATA_VERSION = 6;
 function makeLocalAdapter(){ return {
   get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } },
   set(k,v){ try{ localStorage.setItem(k,v); }catch(e){} },
@@ -780,20 +781,52 @@ const CERT = { hv:"Quadri >250A", food:"Igienico/food", atex:"ATEX" };
 /* ---- Qualifica del fornitore (documenti e conformita') ----------------------
    Presidia la domanda "questo fornitore PUO' lavorare per noi?", distinta da
    "a chi conviene affidare questo lavoro?". Non e' una scheda informativa: un
-   documento obbligatorio mancante o scaduto rende il fornitore NON ASSEGNABILE,
-   quindi sparisce dai suggerimenti, viene saltato dall'assegnazione ottima e
-   blocca l'assegnazione manuale. */
-const DOC_TIPI = {
-  durc:     {label:"DURC",                            sub:"Regolarità contributiva",     mesi:4,  obbl:true},
-  rct:      {label:"Polizza RCT/RCO",                 sub:"Responsabilità civile",       mesi:12, obbl:true},
-  idoneita: {label:"Idoneità tecnico-professionale",  sub:"art. 26 D.Lgs. 81/08",        mesi:12, obbl:true},
-  visura:   {label:"Visura camerale",                 sub:"Iscrizione CCIAA",            mesi:12, obbl:true},
-  iso9001:  {label:"ISO 9001",                        sub:"Sistema qualità",             mesi:36, obbl:false},
-  iso45001: {label:"ISO 45001",                       sub:"Sicurezza sul lavoro",        mesi:36, obbl:false},
-};
-const DOC_KEYS = Object.keys(DOC_TIPI);
-const DOC_OBBL = DOC_KEYS.filter(k=>DOC_TIPI[k].obbl);
-const DOC_PREAVVISO = 30;   // giorni entro i quali un documento risulta "in scadenza"
+   documento obbligatorio E BLOCCANTE mancante o scaduto rende il fornitore NON
+   ASSEGNABILE: sparisce dai suggerimenti, viene saltato dall'assegnazione ottima
+   e blocca l'assegnazione manuale.
+
+   NON tutti i documenti sono bloccanti: il registro dei tipi e' CONFIGURABILE
+   (vive in STATE.docTipi, non e' una costante) perche' le regole di conformita'
+   cambiano nel tempo e da azienda ad azienda. Ogni tipo dichiara sette cose, e
+   ognuna ha un effetto visibile — nessun campo puramente descrittivo:
+
+     obbl       richiesto a tutti i fornitori
+     bloccante  se manca o e' scaduto rende NON assegnabile (vale solo se obbl)
+     visibile   "fornitore" = lo vede e lo puo' inviare; "righi" = riservato
+     alert      avvisa prima della scadenza (spegnendolo il documento resta
+                "in regola" fino al giorno della scadenza)
+     preavviso  giorni di anticipo dell'avviso, per tipo
+     mesi       validita' tipica: propone la scadenza nel modulo di rinnovo
+     attivo     tipo in uso; disattivandolo esce dalla qualifica senza perdere
+                lo storico dei documenti gia' registrati
+
+   Le due combinazioni che contano:
+     obbl + bloccante     manca e il fornitore non puo' ricevere lavoro
+     obbl senza bloccante manca, va detto, ma il lavoro non si ferma           */
+const DOC_PREAVVISO_DEF = 30;   // giorni di preavviso proposti a un tipo nuovo
+function docTipiSeed(){ return [
+  {id:"durc",     label:"DURC",                           sub:"Regolarità contributiva", mesi:4,  obbl:true,  bloccante:true,  visibile:"fornitore", alert:true,  preavviso:30, attivo:true},
+  {id:"rct",      label:"Polizza RCT/RCO",                sub:"Responsabilità civile",   mesi:12, obbl:true,  bloccante:true,  visibile:"fornitore", alert:true,  preavviso:45, attivo:true},
+  {id:"idoneita", label:"Idoneità tecnico-professionale", sub:"art. 26 D.Lgs. 81/08",    mesi:12, obbl:true,  bloccante:true,  visibile:"fornitore", alert:true,  preavviso:30, attivo:true},
+  {id:"visura",   label:"Visura camerale",                sub:"Iscrizione CCIAA",        mesi:12, obbl:true,  bloccante:true,  visibile:"fornitore", alert:true,  preavviso:30, attivo:true},
+  // richiesto ma NON bloccante: la sua mancanza si segnala, non ferma il lavoro
+  {id:"privacy",  label:"Informativa privacy firmata",    sub:"Reg. UE 2016/679",        mesi:36, obbl:true,  bloccante:false, visibile:"fornitore", alert:true,  preavviso:60, attivo:true},
+  // riservato a Righi: valutazione interna, il fornitore non deve vederla
+  {id:"valutaz",  label:"Scheda di valutazione fornitore", sub:"Giudizio interno Righi", mesi:12, obbl:true,  bloccante:false, visibile:"righi",     alert:false, preavviso:30, attivo:true},
+  // facoltativi: premianti, mai bloccanti
+  {id:"iso9001",  label:"ISO 9001",                       sub:"Sistema qualità",         mesi:36, obbl:false, bloccante:false, visibile:"fornitore", alert:true,  preavviso:60, attivo:true},
+  {id:"iso45001", label:"ISO 45001",                      sub:"Sicurezza sul lavoro",    mesi:36, obbl:false, bloccante:false, visibile:"fornitore", alert:true,  preavviso:60, attivo:true},
+]; }
+const docTipi       = ()=> (typeof STATE!=="undefined" && STATE && STATE.docTipi) || [];
+const docTipiAttivi = ()=> docTipi().filter(t=>t.attivo!==false);
+const docTipo       = id => docTipi().find(t=>t.id===id) || null;
+const docKeys       = ()=> docTipiAttivi().map(t=>t.id);
+const docObbl       = ()=> docTipiAttivi().filter(t=>t.obbl).map(t=>t.id);
+// I soli tipi che possono togliere l'assegnabilita': la domanda "chi mi blocca?"
+const docBloccanti  = ()=> docTipiAttivi().filter(t=>t.obbl && t.bloccante).map(t=>t.id);
+// Il fornitore vede (e puo' inviare) solo i tipi non riservati a Righi.
+const docVisibileA  = (t, isRighi)=> !!t && (isRighi || t.visibile!=="righi");
+const docPreavviso  = t => (t && t.alert!==false && Number(t.preavviso)>0) ? Number(t.preavviso) : 0;
 // Limite di spazio/ingombro: quanto grande può essere il quadro/batteria che il
 // fornitore riesce a lavorare e movimentare (ord serve al confronto capacita/bisogno).
 const DIMENSIONI = {
@@ -815,45 +848,71 @@ function attrLabels(arr){ return (arr||[]).map(k=>ATTREZZATURE[k]||k); }
    e' stato consegnato, manca solo il controllo di Righi. */
 const supDocs = s => (s && s.docs) || [];
 const docOf = (s, tipo) => supDocs(s).find(d => d.tipo === tipo);
-function docStato(d){
+function docStato(d, meta){
   if(!d) return "mancante";
   if(d.stato === "respinto") return "respinto";
   const n = daysTo(d.scadenza);
   if(n == null) return "mancante";
   if(n < 0) return "scaduto";
   if(d.stato === "in_verifica") return "in_verifica";
-  return n <= DOC_PREAVVISO ? "in_scadenza" : "valido";
+  // il preavviso e' per tipo e si puo' spegnere: senza avviso il documento resta
+  // "in regola" fino al giorno della scadenza, invece di rumoreggiare per mesi
+  const p = docPreavviso(meta || docTipo(d.tipo));
+  return (p && n <= p) ? "in_scadenza" : "valido";
 }
-const DOC_BLOCCANTI = ["mancante", "scaduto", "respinto"];
+// Stati che significano "non in regola" (a prescindere da chi blocca).
+const DOC_STATI_KO = ["mancante", "scaduto", "respinto"];
 const DOC_LABEL = { valido:"in regola", in_scadenza:"in scadenza", in_verifica:"in verifica",
                     respinto:"respinto", scaduto:"scaduto", mancante:"mancante" };
 const DOC_PILL  = { valido:"ok", in_scadenza:"warn", in_verifica:"info",
                     respinto:"danger", scaduto:"danger", mancante:"danger" };
 // Qualifica complessiva: la calcola dai documenti, non e' un campo digitato.
 function qualifica(sid){
-  const s = supplier(sid); if(!s) return { stato:"non_qualificato", bloccanti:[], avvisi:[], righe:[] };
-  const righe = DOC_KEYS.map(t => ({ tipo:t, doc:docOf(s,t), stato:docStato(docOf(s,t)) }));
-  const bloccanti = righe.filter(r => DOC_TIPI[r.tipo].obbl && DOC_BLOCCANTI.includes(r.stato));
-  const avvisi = righe.filter(r => !bloccanti.includes(r) && ["in_scadenza","in_verifica"].includes(r.stato));
-  const stato = bloccanti.length ? "non_qualificato" : (avvisi.length ? "in_scadenza" : "qualificato");
-  return { stato, bloccanti, avvisi, righe };
+  const s = supplier(sid); if(!s) return { stato:"non_qualificato", bloccanti:[], mancanti:[], scadenze:[], avvisi:[], righe:[] };
+  const righe = docTipiAttivi().map(t => ({ tipo:t.id, meta:t, doc:docOf(s,t.id), stato:docStato(docOf(s,t.id), t) }));
+  // solo i tipi obbligatori E bloccanti tolgono l'assegnabilita'
+  const bloccanti = righe.filter(r => r.meta.obbl && r.meta.bloccante && DOC_STATI_KO.includes(r.stato));
+  // obbligatori non bloccanti che mancano: vanno detti, non fermano il lavoro
+  const mancanti  = righe.filter(r => r.meta.obbl && !r.meta.bloccante && DOC_STATI_KO.includes(r.stato));
+  // scadenze in arrivo e verifiche pendenti, su qualunque tipo (anche facoltativo)
+  const scadenze  = righe.filter(r => ["in_scadenza","in_verifica"].includes(r.stato));
+  const avvisi = mancanti.concat(scadenze);
+  const stato = bloccanti.length ? "non_qualificato" : (avvisi.length ? "con_riserva" : "qualificato");
+  return { stato, bloccanti, mancanti, scadenze, avvisi, righe };
 }
-const QUAL_LABEL = { qualificato:"Qualificato", in_scadenza:"Documenti in scadenza", non_qualificato:"Non qualificato" };
-const QUAL_PILL  = { qualificato:"ok", in_scadenza:"warn", non_qualificato:"danger" };
+const QUAL_LABEL = { qualificato:"Qualificato", con_riserva:"Qualificato con riserva", non_qualificato:"Non qualificato" };
+const QUAL_PILL  = { qualificato:"ok", con_riserva:"warn", non_qualificato:"danger" };
+/* Motivi leggibili, filtrati per chi legge. Un documento riservato non deve
+   comparire per NOME nei messaggi al fornitore: si dice che c'e' e che lo tiene
+   Righi. Un blocco senza spiegazione sarebbe peggio, un blocco che rivela una
+   valutazione interna sarebbe una fuga. */
+function elencoDoc(righe, isRighi){
+  const visibili = righe.filter(r => docVisibileA(r.meta, isRighi!==false));
+  const nascosti = righe.length - visibili.length;
+  const p = visibili.map(r => r.meta.label + " " + DOC_LABEL[r.stato]);
+  if(nascosti) p.push(nascosti + " document" + (nascosti>1?"i":"o") + " gestit" + (nascosti>1?"i":"o") + " da Righi");
+  return p.join(", ");
+}
+// Perche' e' "con riserva": distingue "manca un documento richiesto" da "sta per scadere".
+function motivoRiserva(sid, isRighi){ const q = qualifica(sid); const p = [];
+  if(q.mancanti.length) p.push(elencoDoc(q.mancanti, isRighi) + " (non bloccante)");
+  if(q.scadenze.length) p.push(q.scadenze.length + " document" + (q.scadenze.length>1?"i":"o") + " da rinnovare a breve");
+  return p.join(" · ");
+}
 // Assegnabile = accreditato, attivo e senza documenti obbligatori bloccanti.
 function isAssegnabile(sid){ const s = supplier(sid);
   return !!(s && s.accredited && s.attivo && qualifica(sid).stato !== "non_qualificato"); }
 // Motivo leggibile del blocco: usato nei messaggi, mai un rifiuto muto.
-function motivoBlocco(sid){ const s = supplier(sid); if(!s) return "fornitore inesistente";
+function motivoBlocco(sid, isRighi){ const s = supplier(sid); if(!s) return "fornitore inesistente";
   if(!s.attivo) return "fornitore non attivo";
   if(!s.accredited) return "fornitore non accreditato";
   const q = qualifica(sid);
   if(q.stato === "non_qualificato")
-    return "documenti non in regola: " + q.bloccanti.map(r => DOC_TIPI[r.tipo].label + " " + DOC_LABEL[r.stato]).join(", ");
+    return "documenti non in regola: " + elencoDoc(q.bloccanti, isRighi);
   return ""; }
 // Elenchi per il cruscotto Righi
 const fornitoriNonQualificati = () => STATE.suppliers.filter(s => s.attivo && qualifica(s.id).stato === "non_qualificato");
-const fornitoriInScadenza     = () => STATE.suppliers.filter(s => s.attivo && qualifica(s.id).stato === "in_scadenza");
+const fornitoriConRiserva     = () => STATE.suppliers.filter(s => s.attivo && qualifica(s.id).stato === "con_riserva");
 
 function fitsSpazio(sup, ingombro){ if(!ingombro||!sup||!sup.dimensioneMax) return true;
   return (DIMENSIONI[sup.dimensioneMax]||{ord:9}).ord >= (DIMENSIONI[ingombro]||{ord:0}).ord; }
@@ -899,17 +958,21 @@ function seed(){
   const capi=SEED_CAPI.map(c=>({...c}));
   capi.forEach(c=>{ const p=c.name.split(/\s+/); c.email=(slug(p[0])[0]||"x")+"."+slug(p[p.length-1])+"@righinet.com"; });
   const suppliers=SEED_SUPPLIERS.map(s=>({...s, specialties:[...s.specialties], settori:[...s.settori], attrezzature:[...s.attrezzature], certificazioni:[...s.certificazioni], preferenze:{...s.preferenze}}));
+  // Registro dei tipi di documento: da qui in poi e' dato modificabile, non codice.
+  const TIPI_DOC = docTipiSeed();
   // Documenti di qualifica: la maggior parte in regola, alcuni in scadenza o
   // scaduti, cosi' il blocco dell'assegnazione e' visibile fin dalla demo.
   suppliers.forEach((sup, k)=>{
-    sup.docs = DOC_KEYS.map(t=>{
-      const meta = DOC_TIPI[t];
+    sup.docs = TIPI_DOC.map(meta=>{
+      const t = meta.id;
       if(!meta.obbl && rng() < 0.45) return null;                 // le certificazioni non le hanno tutti
+      if(!meta.bloccante && meta.obbl && rng() < 0.22) return null; // richiesti non bloccanti: qualcuno manca
+      const pre = Number(meta.preavviso) || DOC_PREAVVISO_DEF;
       const r = rng();
       let giorni;
-      if(r < 0.08)      giorni = -(5 + Math.floor(rng()*90));      // scaduto
-      else if(r < 0.20) giorni = 3 + Math.floor(rng()*DOC_PREAVVISO); // in scadenza
-      else              giorni = DOC_PREAVVISO + 15 + Math.floor(rng()*300);
+      if(r < 0.07)      giorni = -(5 + Math.floor(rng()*90));      // scaduto
+      else if(r < 0.15) giorni = 3 + Math.floor(rng()*pre);        // in scadenza
+      else              giorni = pre + 15 + Math.floor(rng()*300);
       const inVerifica = giorni > 0 && rng() < 0.07;
       return { tipo:t, scadenza:dISO(giorni), stato: inVerifica ? "in_verifica" : "valido",
                caricatoIl: dISO(-(10 + Math.floor(rng()*200))), nota:"" };
@@ -992,7 +1055,7 @@ function seed(){
   const rMat=requests.find(x=>x.tipo==="materiale"); if(rMat){ rMat.foto=DEMO_FOTO; }
   const rPresa=requests.find(x=>x.stato==="presa"&&x.tipo!=="materiale"); if(rPresa){ rPresa.risposte=[{da:"righi",testo:"Ti richiamo a breve",at:dISO(-1)+"T16:30",byUser:"seed"}]; }
 
-  return {v:4, capi, suppliers, users, jobs, responses, requests, notifications};
+  return {v:4, capi, suppliers, users, jobs, responses, requests, notifications, docTipi:TIPI_DOC};
 }
 
 /* ============================ Stato ============================ */
@@ -1235,36 +1298,50 @@ function docBlock(sid, isRighi){
   const s=supplier(sid); if(!s) return "";
   const q=qualifica(sid); const u=currentUser(); const puoAgire=isRighi && !isCapo(u);
   const riga=r=>{
-    const meta=DOC_TIPI[r.tipo], st=r.stato, d=r.doc;
+    const meta=r.meta, st=r.stato, d=r.doc, ko=DOC_STATI_KO.includes(st);
     const azioni = puoAgire
       ? `${st==="in_verifica"?`<button class="btn sm accent" data-act="docVerify" data-sup="${sid}" data-t="${r.tipo}">${icon("check","sm")} Verifica</button>
            <button class="btn sm danger" data-act="docReject" data-sup="${sid}" data-t="${r.tipo}">Respingi</button>`:""}
          <button class="btn sm ghost" data-act="docRenew" data-sup="${sid}" data-t="${r.tipo}">${st==="mancante"?"Registra":"Rinnova"}</button>`
-      : (!isRighi ? `<button class="btn sm ${DOC_BLOCCANTI.includes(st)?"accent":"ghost"}" data-act="docDeclare" data-t="${r.tipo}">${st==="mancante"?"Invia":"Rinnova"}</button>` : "");
+      : (!isRighi ? `<button class="btn sm ${ko?"accent":"ghost"}" data-act="docDeclare" data-t="${r.tipo}">${st==="mancante"?"Invia":"Rinnova"}</button>` : "");
+    // il badge dice a colpo d'occhio se quel documento pesa o no sull'assegnabilita'
+    const natura = !meta.obbl ? '<span class="pill plain">facoltativo</span>'
+      : meta.bloccante ? '<span class="pill danger">bloccante</span>'
+      : '<span class="pill warn">richiesto, non bloccante</span>';
+    const riservato = isRighi && meta.visibile==="righi" ? ' <span class="pill info">solo Righi</span>' : "";
     return `<div class="lrow" style="align-items:flex-start">
       <span class="ic ${DOC_PILL[st]==="ok"?"ok":DOC_PILL[st]==="warn"?"accent":DOC_PILL[st]==="info"?"info":"danger"}">${icon(st==="valido"?"check":st==="in_verifica"?"clock":"bolt","sm")}</span>
-      <span class="gr"><b>${esc(meta.label)}${meta.obbl?"":' <span class="pill plain">facoltativo</span>'}</b>
-        <span class="s">${esc(meta.sub)}${d&&d.scadenza?" · scadenza "+fmtDate(d.scadenza):""}</span></span>
+      <span class="gr"><b>${esc(meta.label)} ${natura}${riservato}</b>
+        <span class="s">${esc(meta.sub||"")}${d&&d.scadenza?" · scadenza "+fmtDate(d.scadenza):""}${meta.alert===false?" · nessun avviso di scadenza":""}</span></span>
       <span style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
         <span class="pill ${DOC_PILL[st]}">${DOC_LABEL[st]}</span>${azioni}</span></div>`;
   };
+  // Il fornitore non vede (e non gestisce) i tipi riservati a Righi.
+  const righe = q.righe.filter(r => docVisibileA(r.meta, isRighi));
+  const nascostiKO = q.righe.filter(r => !docVisibileA(r.meta, isRighi) && DOC_STATI_KO.includes(r.stato)).length;
   const attive=STATE.jobs.filter(j=>j.assegnatoA===sid&&["assegnato","in_corso"].includes(j.stato)).length;
   const allarme = q.stato==="non_qualificato"
     ? `<div class="card leftbar" style="border-left:4px solid var(--danger);margin:2px 0 10px;padding:9px 12px">
         <b style="color:var(--danger)">${icon("bolt","sm")} Non assegnabile</b>
-        <div style="font-size:12.5px;color:var(--ink-soft);margin-top:2px">${esc(motivoBlocco(sid))}.
+        <div style="font-size:12.5px;color:var(--ink-soft);margin-top:2px">${esc(motivoBlocco(sid, isRighi))}.
         ${isRighi?`Non compare tra i fornitori suggeriti e l'assegnazione e' bloccata${attive?`. Attenzione: ha gia' <b>${attive}</b> commesse in corso`:""}.`
                 :`Finché i documenti non sono in regola non puoi ricevere nuove commesse${attive?`; quelle in corso proseguono`:""}.`}</div></div>`
-    : q.stato==="in_scadenza"
+    : q.stato==="con_riserva"
     ? `<div class="card leftbar" style="border-left:4px solid var(--warn);margin:2px 0 10px;padding:9px 12px">
-        <span style="font-size:12.5px;color:var(--ink-soft)">${icon("clock","sm")} <b>${q.avvisi.length} document${q.avvisi.length>1?"i":"o"} da rinnovare a breve</b> — ${isRighi?"il fornitore resta assegnabile":"resti assegnabile"}, ma conviene provvedere.</span></div>`
+        <span style="font-size:12.5px;color:var(--ink-soft)">${icon("clock","sm")} <b>Qualificato con riserva</b> — ${esc(motivoRiserva(sid, isRighi))}. ${isRighi?"Il fornitore resta assegnabile":"Resti assegnabile"}, ma conviene provvedere.</span></div>`
     : "";
+  // Se a bloccare è un documento riservato, il fornitore deve sapere che deve
+  // chiamare Righi: un blocco senza spiegazione è peggio del blocco.
+  const avvisoNascosti = (!isRighi && nascostiKO)
+    ? `<p class="muted" style="font-size:12px;margin:8px 0 0">${icon("bolt","sm")} ${nascostiKO} document${nascostiKO>1?"i":"o"} gestit${nascostiKO>1?"i":"o"} direttamente da Righi non ${nascostiKO>1?"risultano":"risulta"} in regola: contatta il tuo referente.</p>` : "";
   return `<div class="divide"></div>
-    <div class="sect-t">${icon("doc","sm")} Documenti e qualifica <span class="pill ${QUAL_PILL[q.stato]}">${QUAL_LABEL[q.stato]}</span></div>
+    <div class="sect-t">${icon("doc","sm")} Documenti e qualifica <span class="pill ${QUAL_PILL[q.stato]}">${QUAL_LABEL[q.stato]}</span>
+      ${puoAgire?`<button class="btn sm ghost" data-act="docTypes" style="margin-left:auto">${icon("sliders","sm")} Tipi di documento</button>`:""}</div>
     ${allarme}
-    <div class="rowlist">${q.righe.map(riga).join("")}</div>
+    <div class="rowlist">${righe.map(riga).join("")}</div>
+    ${avvisoNascosti}
     <p class="muted" style="font-size:12px;margin:8px 0 0">${isRighi
-      ? "La qualifica è calcolata dai documenti: un obbligatorio mancante o scaduto rende il fornitore non assegnabile."
+      ? "La qualifica è calcolata dai documenti. Solo i tipi <b>bloccanti</b> tolgono l'assegnabilità: gli altri, se mancano, restano un avviso."
       : "Comunicando un rinnovo il documento passa <i>in verifica</i>: Righi lo controlla e lo conferma."}</p>`;
 }
 function metricsCardHtml(sid, isRighi=true){ const m=supplierMetrics(sid);
@@ -1535,7 +1612,7 @@ function viewRighiDashboard(){
     <div class="card kpi ok click" data-act="goFilter" data-stato="attivi"><span class="v">${ass}</span><span class="l">Assegnati / in corso</span></div>
     <div class="card kpi danger click" data-act="goFilter" data-stato="late"><span class="v">${late.length}</span><span class="l">In ritardo</span><span class="foot">inizio o rientro superati</span></div>
     <div class="card kpi accent click" data-act="goTab" data-tab="richieste"><span class="v">${openReq.length}</span><span class="l">Richieste aperte</span><span class="foot">dai fornitori</span></div>
-    <div class="card kpi ${fornitoriNonQualificati().length?"danger":""} click" data-act="goQualifica"><span class="v">${fornitoriNonQualificati().length}</span><span class="l">Fornitori non in regola</span><span class="foot">${fornitoriInScadenza().length} con documenti in scadenza</span></div>
+    <div class="card kpi ${fornitoriNonQualificati().length?"danger":""} click" data-act="goQualifica"><span class="v">${fornitoriNonQualificati().length}</span><span class="l">Fornitori non in regola</span><span class="foot">${fornitoriConRiserva().length} con riserva (scadenze o non bloccanti)</span></div>
   </div>
   ${daApprovare.length?`<div class="card leftbar" style="margin-bottom:14px;border-left:4px solid var(--warn)">
     <div class="sect-t" style="color:var(--warn)">${icon("bolt","sm")} ${capo_?"Le tue commesse in attesa di approvazione":"Da approvare — inviate dai capisquadra"} (${daApprovare.length})</div>
@@ -1969,7 +2046,8 @@ function viewFornitori(){
   const nAtt=STATE.suppliers.filter(s=>s.attivo).length; const filt=App.fornAttivi||"attivi";
   const head=`<div class="view-head"><div><h2>Fornitori accreditati</h2><p><b>${nAtt}</b> attivi su ${STATE.suppliers.length} fornitori · carico, specializzazioni e mappa</p></div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-      ${canManage?`<button class="btn accent" data-act="newSup">${icon("plus")} Nuovo fornitore</button>`:""}
+      ${canManage?`<button class="btn ghost" data-act="docTypes">${icon("sliders","sm")} Tipi di documento</button>
+      <button class="btn accent" data-act="newSup">${icon("plus")} Nuovo fornitore</button>`:""}
       <div class="seg"><button class="${mode==='lista'?'on':''}" data-act="fornMode" data-m="lista">${icon("list","sm")} Elenco</button><button class="${mode==='mappa'?'on':''}" data-act="fornMode" data-m="mappa">${icon("building","sm")} Mappa</button></div>
     </div></div>`;
   if(mode==="mappa") return head+mapHtml();
@@ -1982,14 +2060,14 @@ function viewFornitori(){
     </div>
     ${cview==='grafico'?`<div class="filt-row" style="margin-bottom:6px">${mesi.map(m=>`<button class="chip sm ${cmk===m?'on':''}" data-act="caricoMonth" data-mk="${m}">${monthLabel(m)}</button>`).join("")}</div>${caricoChartHtml(cmk)}`:caricoMatrixHtml()}
   </div>
-  <div class="filt-row" style="margin-bottom:10px"><button class="chip sm ${filt==='attivi'?'on':''}" data-act="fornAttivi" data-v="attivi">Attivi (${nAtt})</button><button class="chip sm ${filt==='nonqual'?'on':''}" data-act="fornAttivi" data-v="nonqual">Non in regola (${fornitoriNonQualificati().length})</button><button class="chip sm ${filt==='scadenza'?'on':''}" data-act="fornAttivi" data-v="scadenza">In scadenza (${fornitoriInScadenza().length})</button><button class="chip sm ${filt==='tutti'?'on':''}" data-act="fornAttivi" data-v="tutti">Tutti (${STATE.suppliers.length})</button></div>
-  <div class="grid auto">${STATE.suppliers.filter(s=> filt==='tutti'?true: filt==='nonqual'?(s.attivo&&qualifica(s.id).stato==='non_qualificato') : filt==='scadenza'?(s.attivo&&qualifica(s.id).stato==='in_scadenza') : s.attivo).slice().sort((a,b)=>(b.attivo?1:0)-(a.attivo?1:0)).map(s=>{
+  <div class="filt-row" style="margin-bottom:10px"><button class="chip sm ${filt==='attivi'?'on':''}" data-act="fornAttivi" data-v="attivi">Attivi (${nAtt})</button><button class="chip sm ${filt==='nonqual'?'on':''}" data-act="fornAttivi" data-v="nonqual">Non in regola (${fornitoriNonQualificati().length})</button><button class="chip sm ${filt==='scadenza'?'on':''}" data-act="fornAttivi" data-v="scadenza">Con riserva (${fornitoriConRiserva().length})</button><button class="chip sm ${filt==='tutti'?'on':''}" data-act="fornAttivi" data-v="tutti">Tutti (${STATE.suppliers.length})</button></div>
+  <div class="grid auto">${STATE.suppliers.filter(s=> filt==='tutti'?true: filt==='nonqual'?(s.attivo&&qualifica(s.id).stato==='non_qualificato') : filt==='scadenza'?(s.attivo&&qualifica(s.id).stato==='con_riserva') : s.attivo).slice().sort((a,b)=>(b.attivo?1:0)-(a.attivo?1:0)).map(s=>{
     const active=STATE.jobs.filter(j=>j.assegnatoA===s.id&&!["consegnato","chiuso"].includes(j.stato)).length; const ore=activeHours(s.id);
     return `<div class="card ${s.attivo?'':'is-off'}"><div style="display:flex;gap:11px;align-items:center;margin-bottom:10px">
       <span class="avatar" data-act="supDetail" data-sup="${s.id}" style="background:${colorFor(s.id)};cursor:pointer">${initials(s.name)}</span>
       <div style="flex:1;min-width:0"><b class="sup-name" data-act="supDetail" data-sup="${s.id}" style="font-size:15px">${esc(s.name)}</b><div class="muted" style="font-size:12.5px">${esc(s.citta||"sede n.d.")}</div></div>
       ${!s.attivo?`<span class="pill plain">non attivo</span>`:active?`<span class="pill ok">${active} attivi · ${ore} h</span>`:`<span class="pill plain">libero</span>`}
-      ${s.attivo&&qualifica(s.id).stato!=='qualificato'?`<span class="pill ${QUAL_PILL[qualifica(s.id).stato]}" title="${esc(motivoBlocco(s.id)||'documenti in scadenza')}">${qualifica(s.id).stato==='non_qualificato'?'non in regola':'doc. in scadenza'}</span>`:''}</div>
+      ${s.attivo&&qualifica(s.id).stato!=='qualificato'?`<span class="pill ${QUAL_PILL[qualifica(s.id).stato]}" title="${esc(motivoBlocco(s.id)||motivoRiserva(s.id))}">${qualifica(s.id).stato==='non_qualificato'?'non in regola':'con riserva'}</span>`:''}</div>
       <div class="tags" style="margin-bottom:6px">${s.specialties.map(sp=>`<span class="pill brand"><span class="dot ${TIPOLOGIE[sp].dot}"></span>${TIPOLOGIE[sp].short}</span>`).join("")||'<span class="pill plain">tipologie n.d.</span>'}${(s.certificazioni||[]).map(c=>`<span class="pill accent">${CERT[c]||c}</span>`).join("")}</div>
       <div style="margin-top:2px;font-size:12px;color:var(--ink-soft)">Capacità ${s.capacitaMese||0}h/mese · libere ora <b>${freeCapacity(s.id)}h</b>${s.cablatori?` · ${s.cablatori} cablatori`:''}${s.costoOrario?` · ${s.costoOrario} €/h`:''}${s.zona?` · ${esc(s.zona)}`:''}</div>
       <div style="margin-top:4px;font-size:12px;color:var(--ink-soft)">${icon("building","sm")} ${s.dimensioneMax?esc(DIMENSIONI[s.dimensioneMax].short):'—'}${(s.attrezzature&&s.attrezzature.length)?' · '+attrLabels(s.attrezzature).slice(0,3).map(esc).join(', ')+(s.attrezzature.length>3?' +'+(s.attrezzature.length-3):''):''}</div>
@@ -2538,6 +2616,7 @@ function openGuide(){ const u=currentUser(); const isR=u.role==="righi"; const c
       ["Ciclo vita e ritardi","Aggiorni la data (con storico), segui l'avanzamento del fornitore e vedi i ritardi in rosso con il semaforo predittivo."],
       ["Extra (lavorazioni in più)","Il fornitore chiede un <b>extra</b> con importo e motivo. Entro il <b>${EXTRA_SOGLIA_PERC}%</b> dell'importo concordato lo approva il caposquadra; <b>oltre serve la tua approvazione</b>. Approvando puoi <b>cambiare l'importo</b>, indicare le <b>ore aggiuntive</b> (entrano nel carico) e spostare il rientro. L'extra approvato entra nell'importo della commessa e nell'export per l'ERP."],
       ["Anagrafica fornitori","In <b>Fornitori</b> premi <b>Nuovo fornitore</b> per accreditare un fornitore (specializzazioni, settori, zona, capacità, certificazioni): entra subito nei suggerimenti, nella mappa e nel carico. Tocca il nome di un fornitore per aprirne la scheda con le metriche."],
+      ["Documenti: non tutti bloccano","<b>Non tutti i documenti sono bloccanti.</b> Da <b>Fornitori · Tipi di documento</b> decidi, per ogni tipo: se è <b>richiesto</b> a tutti o facoltativo, se è <b>bloccante</b> (se manca o è scaduto il fornitore non riceve lavoro) oppure solo un <b>avviso</b>, <b>chi può vederlo</b> (anche il fornitore, o solo Righi), se <b>avvisare</b> prima della scadenza e con quanti <b>giorni di anticipo</b>, e la <b>validità</b> in mesi che propone la nuova scadenza al rinnovo. Prima di salvare il portale ti dice <b>quanti fornitori cambiano stato</b>. Un tipo che non serve più si <b>disattiva</b> (i documenti già registrati restano) e si elimina solo se nessuno l'ha mai consegnato."],
       ["Carico e Analisi","L'istogramma in Fornitori mostra il carico ore per fornitore e mese; in <b>Analisi</b> hai consegne per mese, pipeline, salute, puntualità e mix."],
       ["Esporta per l'ERP","Da Commesse esporti gli ordini accettati in CSV per l'emissione ordine in amministrazione."],
       ["Duplica","Da ogni commessa puoi crearne una nuova identica cambiando solo layout e date."] ]); }
@@ -2591,6 +2670,7 @@ function openGuide(){ const u=currentUser(); const isR=u.role==="righi"; const c
       ["Risposte rapide","Il caposquadra può risponderti con messaggi pronti (es. <i>Procedi</i>, <i>Ti richiamo</i>): li vedi nella conversazione della richiesta."] ])
     + sec("5 · Profilo, metriche e avvisi",[
       ["Il tuo profilo","In <b>Profilo</b> vedi come sei accreditato: specializzazioni, settori, certificazioni e zona. Sono i dati che Righi usa per proporti i lavori giusti."],
+      ["I tuoi documenti","Nel profilo trovi i documenti che ti riguardano, con lo stato e la scadenza. <b>Non tutti pesano allo stesso modo</b>: quelli marcati <b>bloccante</b>, se mancano o sono scaduti, ti impediscono di ricevere nuove commesse; quelli <b>richiesti ma non bloccanti</b> vanno sistemati ma non fermano il lavoro; i <b>facoltativi</b> sono premianti. Alcuni documenti li tiene direttamente Righi e non li vedi: se uno di quelli non è in regola te lo segnaliamo, e in quel caso basta sentire il tuo referente."],
       ["Le tue metriche","Vedi metriche <b>oggettive e calcolate dai lavori</b> (puntualità, lavori al mese, tasso di accettazione, tempo di risposta, valore attivo): sono <b>identiche a quelle che vede Righi</b> — trasparenti e condivisibili. Le ore e la saturazione restano a Righi; a te mostriamo l'<b>importo</b> dei progetti."],
       ["Notifiche","La campanella in alto raccoglie tutti gli avvisi (nuovi lavori, assegnazioni, risposte). In produzione arrivano anche via email/WhatsApp/notifica push."] ])
     + faq([
@@ -2999,13 +3079,13 @@ function doOptimalAssign(){
    Righi registra/rinnova e verifica; il fornitore comunica il rinnovo, che entra
    "in verifica". Ogni passaggio cambia lo stato di qualifica e quindi
    l'assegnabilita': nessuna di queste azioni e' puramente informativa. */
-function setDoc(sid, tipo, patch){ const s=supplier(sid); if(!s||!DOC_TIPI[tipo]) return null;
+function setDoc(sid, tipo, patch){ const s=supplier(sid); if(!s||!docTipo(tipo)) return null;
   s.docs=s.docs||[]; let d=s.docs.find(x=>x.tipo===tipo);
   if(!d){ d={tipo, scadenza:null, stato:"valido", caricatoIl:todayISO(), nota:""}; s.docs.push(d); }
   Object.assign(d, patch); return d; }
 // Modulo unico per registrare o rinnovare un documento (Righi) o comunicarlo (fornitore)
 function openDocForm(sid, tipo, daFornitore){
-  const s=supplier(sid), meta=DOC_TIPI[tipo]; if(!s||!meta) return;
+  const s=supplier(sid), meta=docTipo(tipo); if(!s||!meta) return;
   const d=docOf(s,tipo), st=docStato(d);
   const proposta=dISO(Math.round(meta.mesi*30.4));
   openModal(`${modalHead((daFornitore?"Comunica ":"Registra ")+meta.label)}
@@ -3025,24 +3105,192 @@ function openDocForm(sid, tipo, daFornitore){
 function doDocRenew(sid, tipo){ const u=currentUser(); if(!u||u.role!=="righi"||isCapo(u)){ toast("Solo il responsabile di produzione","warn"); return; }
   const scad=($("#doc-scad")||{}).value||""; if(!scad){ toast("Indica la scadenza","warn"); return; }
   setDoc(sid, tipo, {scadenza:scad, stato:"valido", caricatoIl:todayISO(), nota:($("#doc-nota")||{}).value||"", esitoDa:u.id});
-  persist(); Sfx.play("tocco"); toast(DOC_TIPI[tipo].label+" aggiornato — "+QUAL_LABEL[qualifica(sid).stato].toLowerCase(),"ok"); render(); openSupplierModal(sid);
+  persist(); Sfx.play("tocco"); toast(docTipo(tipo).label+" aggiornato — "+QUAL_LABEL[qualifica(sid).stato].toLowerCase(),"ok"); render(); openSupplierModal(sid);
 }
 function doDocDeclare(tipo){ const u=currentUser(); const sid=u&&u.supplierId; if(!sid){ toast("Azione riservata ai fornitori","warn"); return; }
+  const meta=docTipo(tipo);
+  // un tipo riservato non deve poter rientrare dalla finestra: il controllo sta
+  // qui, non solo nella schermata che nasconde la riga
+  if(!meta||meta.attivo===false){ toast("Tipo di documento non in uso","warn"); return; }
+  if(meta.visibile==="righi"){ toast("Questo documento lo gestisce direttamente Righi","warn"); return; }
   const scad=($("#doc-scad")||{}).value||""; if(!scad){ toast("Indica la scadenza","warn"); return; }
   setDoc(sid, tipo, {scadenza:scad, stato:"in_verifica", caricatoIl:todayISO(), nota:($("#doc-nota")||{}).value||""});
   // il responsabile deve sapere che c'e' un documento da verificare
   STATE.users.filter(x=>x.righiRole==="responsabile").forEach(x=>STATE.notifications.push({id:uid("n"),toUser:x.id,ic:"doc",
-    txt:"Documento da verificare: "+DOC_TIPI[tipo].label, sub:(supplier(sid)||{}).name, at:new Date().toISOString().slice(0,16), read:false}));
-  persist(); closeModal(); Sfx.play("richiesta"); toast(DOC_TIPI[tipo].label+" inviato: in verifica da Righi","ok"); render();
+    txt:"Documento da verificare: "+docTipo(tipo).label, sub:(supplier(sid)||{}).name, at:new Date().toISOString().slice(0,16), read:false}));
+  persist(); closeModal(); Sfx.play("richiesta"); toast(docTipo(tipo).label+" inviato: in verifica da Righi","ok"); render();
 }
 function doDocVerify(sid, tipo, ok){ const u=currentUser(); if(!u||u.role!=="righi"||isCapo(u)){ toast("Solo il responsabile di produzione","warn"); return; }
   setDoc(sid, tipo, {stato: ok?"valido":"respinto", esitoDa:u.id, esitoAt:todayISO()});
   const q=qualifica(sid);
-  notifySupplier(sid,{ic:ok?"check":"x", txt:(ok?"Documento verificato: ":"Documento respinto: ")+DOC_TIPI[tipo].label,
-    sub: ok?"":motivoBlocco(sid)});
+  notifySupplier(sid,{ic:ok?"check":"x", txt:(ok?"Documento verificato: ":"Documento respinto: ")+docTipo(tipo).label,
+    sub: ok?"":motivoBlocco(sid, false)});
   persist(); Sfx.play(ok?"approvazione":"rifiuto");
   toast(ok?("Verificato — "+QUAL_LABEL[q.stato].toLowerCase()):"Documento respinto: il fornitore e' stato avvisato", ok?"ok":"warn");
   render(); openSupplierModal(sid);
+}
+
+/* ---- Registro dei tipi di documento (menu di configurazione) ----------------
+   Qui si decide che cosa il portale chiede ai fornitori e con quale peso. E'
+   riservato al responsabile di produzione: cambiare "bloccante" su un tipo puo'
+   rendere assegnabili (o non assegnabili) decine di fornitori in un colpo, e
+   infatti il modulo mostra sempre quanti cambiano PRIMA di salvare.            */
+const DOC_VIS = { fornitore:"Righi e il fornitore", righi:"Solo Righi" };
+// Fotografia della qualifica: serve a raccontare l'effetto reale di una modifica.
+function fotoQualifica(){ const m={}; STATE.suppliers.forEach(s=>{ m[s.id]=qualifica(s.id).stato; }); return m; }
+function diffQualifica(prima){ const dopo=fotoQualifica(); let sbloccati=0, bloccati=0, altri=0;
+  Object.keys(dopo).forEach(id=>{ if(prima[id]===dopo[id]) return;
+    if(prima[id]==="non_qualificato" && dopo[id]!=="non_qualificato") sbloccati++;
+    else if(prima[id]!=="non_qualificato" && dopo[id]==="non_qualificato") bloccati++;
+    else altri++; });
+  return { sbloccati, bloccati, altri, totale:sbloccati+bloccati+altri }; }
+function frasiDiff(d){ const p=[];
+  if(d.sbloccati) p.push(d.sbloccati+" tornano assegnabili");
+  if(d.bloccati)  p.push(d.bloccati+" diventano non assegnabili");
+  if(d.altri)     p.push(d.altri+" cambiano riserva");
+  return p.join(" · "); }
+// Quanti fornitori hanno già un documento di questo tipo: decide se un tipo si
+// può eliminare o solo disattivare (lo storico non si butta via).
+const docTipoUsato = id => STATE.suppliers.filter(s=>supDocs(s).some(d=>d.tipo===id)).length;
+
+function openDocTypes(){ const u=currentUser();
+  if(!u||u.role!=="righi"||isCapo(u)){ toast("Solo il responsabile di produzione","warn"); return; }
+  const riga=t=>{
+    const usato=docTipoUsato(t.id); const spento=t.attivo===false;
+    const natura = !t.obbl ? '<span class="pill plain">facoltativo</span>'
+      : t.bloccante ? '<span class="pill danger">bloccante</span>'
+      : '<span class="pill warn">richiesto, non bloccante</span>';
+    return `<div class="lrow" style="align-items:flex-start;${spento?"opacity:.55":""}">
+      <span class="ic ${spento?"":t.bloccante?"danger":t.obbl?"accent":"info"}">${icon("doc","sm")}</span>
+      <span class="gr"><b>${esc(t.label)} ${natura}${spento?' <span class="pill plain">non in uso</span>':""}</b>
+        <span class="s">${esc(t.sub||"senza descrizione")} · validità ${t.mesi} mesi · ${esc(DOC_VIS[t.visibile]||DOC_VIS.fornitore)}
+          · ${t.alert===false?"nessun avviso":"avviso "+(Number(t.preavviso)||DOC_PREAVVISO_DEF)+" giorni prima"}
+          · ${usato?usato+" fornitor"+(usato>1?"i":"e"):"nessun fornitore"}</span></span>
+      <span style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+        <button class="btn sm ghost" data-act="docTypeForm" data-t="${t.id}">Modifica</button>
+        <button class="btn sm ghost" data-act="docTypeToggle" data-t="${t.id}">${spento?"Riattiva":"Disattiva"}</button>
+      </span></div>`;
+  };
+  const att=docTipiAttivi();
+  openModal(`${modalHead("Tipi di documento")}
+    <p class="muted" style="font-size:12.5px;margin-top:0">Definisci che cosa il portale chiede ai fornitori e con quale peso.
+      <b>Non tutti i documenti sono bloccanti</b>: solo quelli marcati come tali tolgono l'assegnabilità, gli altri restano un avviso.</p>
+    <div class="row2" style="margin-bottom:10px">
+      <div class="dl"><span class="k">Tipi in uso</span><span class="v">${att.length} su ${docTipi().length}</span></div>
+      <div class="dl"><span class="k">Di cui bloccanti</span><span class="v">${docBloccanti().length}</span></div>
+      <div class="dl"><span class="k">Fornitori non assegnabili</span><span class="v">${fornitoriNonQualificati().length}</span></div>
+      <div class="dl"><span class="k">Con riserva</span><span class="v">${fornitoriConRiserva().length}</span></div>
+    </div>
+    <div class="rowlist">${docTipi().map(riga).join("")}</div>
+    <div class="btn-row" style="margin-top:12px">
+      <button class="btn ghost" data-act="closeModal">Chiudi</button>
+      <button class="btn accent" data-act="docTypeForm" data-t="">${icon("plus","sm")} Nuovo tipo</button>
+    </div>`);
+}
+
+// Modulo di un tipo: ogni campo del menu chiesto, con l'effetto scritto accanto.
+function openDocTypeForm(id){ const u=currentUser();
+  if(!u||u.role!=="righi"||isCapo(u)){ toast("Solo il responsabile di produzione","warn"); return; }
+  const nuovo=!id; const t=nuovo
+    ? {id:"", label:"", sub:"", mesi:12, obbl:true, bloccante:false, visibile:"fornitore", alert:true, preavviso:DOC_PREAVVISO_DEF, attivo:true}
+    : docTipo(id);
+  if(!t){ toast("Tipo di documento non trovato","warn"); return; }
+  const usato=nuovo?0:docTipoUsato(t.id);
+  const si=(cond,v)=>`<option value="${v}"${cond?" selected":""}>`;
+  openModal(`${modalHead(nuovo?"Nuovo tipo di documento":"Modifica "+t.label)}
+    <div class="field"><label>Tipo di documento</label>
+      <input class="inp" id="dt-label" value="${esc(t.label)}" placeholder="es. Certificato antimafia" maxlength="60">
+      <span class="hint">Il nome che vedono Righi e (se visibile) il fornitore.</span></div>
+    <div class="field"><label>Caratteristiche</label>
+      <input class="inp" id="dt-sub" value="${esc(t.sub||"")}" placeholder="es. art. 26 D.Lgs. 81/08 — rilascio camerale" maxlength="90">
+      <span class="hint">Una riga di dettaglio: norma di riferimento, ente, contenuto.</span></div>
+    <div class="row2">
+      <div class="field"><label>Richiesto a tutti i fornitori</label>
+        <select class="inp" id="dt-obbl">${si(t.obbl,"1")}Sì</option>${si(!t.obbl,"0")}No, facoltativo</option></select>
+        <span class="hint">Facoltativo: se manca non si segnala nulla; se c'è ed è in scadenza, avvisa.</span></div>
+      <div class="field"><label>Bloccante</label>
+        <select class="inp" id="dt-blocc">${si(t.bloccante,"1")}Sì — blocca l'assegnazione</option>${si(!t.bloccante,"0")}No — solo avviso</option></select>
+        <span class="hint">Bloccante vale solo per i documenti richiesti: se manca o è scaduto il fornitore non riceve lavoro.</span></div>
+      <div class="field"><label>Chi può vederlo</label>
+        <select class="inp" id="dt-vis">${si(t.visibile!=="righi","fornitore")}${DOC_VIS.fornitore}</option>${si(t.visibile==="righi","righi")}${DOC_VIS.righi}</option></select>
+        <span class="hint">"Solo Righi" lo toglie dal profilo del fornitore, che non lo vede e non lo può inviare.</span></div>
+      <div class="field"><label>Avviso di scadenza</label>
+        <select class="inp" id="dt-alert">${si(t.alert!==false,"1")}Sì</option>${si(t.alert===false,"0")}No</option></select>
+        <span class="hint">Senza avviso il documento resta "in regola" fino al giorno della scadenza.</span></div>
+      <div class="field"><label>Giorni di anticipo dell'avviso</label>
+        <input class="inp" id="dt-pre" type="number" min="1" max="365" step="1" value="${Number(t.preavviso)||DOC_PREAVVISO_DEF}">
+        <span class="hint">Quanti giorni prima il documento passa "in scadenza".</span></div>
+      <div class="field"><label>Validità tipica (mesi)</label>
+        <input class="inp" id="dt-mesi" type="number" min="1" max="120" step="1" value="${Number(t.mesi)||12}">
+        <span class="hint">Propone la nuova scadenza quando si registra un rinnovo.</span></div>
+    </div>
+    ${usato?`<p class="muted" style="font-size:12px">${usato} fornitor${usato>1?"i hanno":"e ha"} già un documento di questo tipo: modificando le regole la loro qualifica viene ricalcolata subito.</p>`:""}
+    <div class="btn-row" style="margin-top:10px">
+      <button class="btn ghost" data-act="docTypes">Annulla</button>
+      ${(!nuovo && !usato)?`<button class="btn danger" data-act="docTypeDelete" data-t="${t.id}">Elimina</button>`:""}
+      <button class="btn accent" data-act="doDocTypeSave" data-t="${nuovo?"":t.id}">${icon("check","sm")} Salva</button>
+    </div>`);
+}
+
+// Chiave stabile ricavata dal nome, unica nel registro (anche fra i disattivati).
+function nuovoDocTipoId(label){ const base=(slug(label)||"doc").slice(0,16) || "doc";
+  let id=base, n=2; while(docTipo(id)){ id=base+"_"+n; n++; } return id; }
+
+function doDocTypeSave(id){ const u=currentUser();
+  if(!u||u.role!=="righi"||isCapo(u)){ toast("Solo il responsabile di produzione","warn"); return; }
+  const label=(($("#dt-label")||{}).value||"").trim();
+  if(!label){ toast("Indica il tipo di documento","warn"); const e=$("#dt-label"); if(e) e.focus(); return; }
+  const pre=Math.round(Number(($("#dt-pre")||{}).value||0));
+  const mesi=Math.round(Number(($("#dt-mesi")||{}).value||0));
+  if(!(mesi>=1&&mesi<=120)){ toast("La validità va da 1 a 120 mesi","warn"); return; }
+  const alert=(($("#dt-alert")||{}).value)==="1";
+  if(alert && !(pre>=1&&pre<=365)){ toast("I giorni di anticipo vanno da 1 a 365","warn"); return; }
+  const obbl=(($("#dt-obbl")||{}).value)==="1";
+  let bloccante=(($("#dt-blocc")||{}).value)==="1";
+  // un documento facoltativo non puo' bloccare: sarebbe una regola che si
+  // contraddice, e il blocco arriverebbe senza che nessuno l'abbia chiesto
+  let corretto=false;
+  if(bloccante && !obbl){ bloccante=false; corretto=true; }
+  const patch={ label, sub:(($("#dt-sub")||{}).value||"").trim(), mesi, obbl, bloccante,
+                visibile:(($("#dt-vis")||{}).value)==="righi"?"righi":"fornitore",
+                alert, preavviso: alert?pre:(Number(($("#dt-pre")||{}).value)||DOC_PREAVVISO_DEF) };
+  const prima=fotoQualifica();
+  let t;
+  if(id){ t=docTipo(id); if(!t){ toast("Tipo di documento non trovato","warn"); return; } Object.assign(t, patch); }
+  else { t=Object.assign({id:nuovoDocTipoId(label), attivo:true}, patch); STATE.docTipi.push(t); }
+  const d=diffQualifica(prima);
+  persist(); Sfx.play(d.bloccati?"avviso":"approvazione");
+  toast((id?"Tipo aggiornato":"Tipo creato")+": "+label
+    + (corretto?" · facoltativo, quindi non bloccante":"")
+    + (d.totale?" · "+frasiDiff(d):""), d.bloccati?"warn":"ok");
+  render(); openDocTypes();
+}
+
+// Disattivare non e' eliminare: il tipo esce dalla qualifica ma i documenti
+// gia' registrati restano, e riattivandolo tornano a contare.
+function doDocTypeToggle(id){ const u=currentUser();
+  if(!u||u.role!=="righi"||isCapo(u)){ toast("Solo il responsabile di produzione","warn"); return; }
+  const t=docTipo(id); if(!t){ toast("Tipo di documento non trovato","warn"); return; }
+  const prima=fotoQualifica();
+  t.attivo = t.attivo===false;
+  const d=diffQualifica(prima);
+  persist(); Sfx.play(d.bloccati?"avviso":"tocco");
+  toast(t.label+(t.attivo?" riattivato":" non più in uso")+(d.totale?" · "+frasiDiff(d):""), d.bloccati?"warn":"ok");
+  render(); openDocTypes();
+}
+
+function doDocTypeDelete(id){ const u=currentUser();
+  if(!u||u.role!=="righi"||isCapo(u)){ toast("Solo il responsabile di produzione","warn"); return; }
+  const t=docTipo(id); if(!t){ toast("Tipo di documento non trovato","warn"); return; }
+  // se qualcuno lo ha gia' consegnato, eliminarlo cancellerebbe uno storico:
+  // in quel caso si disattiva, non si elimina
+  if(docTipoUsato(id)){ toast("Ci sono documenti registrati di questo tipo: puoi solo disattivarlo","warn"); return; }
+  const prima=fotoQualifica();
+  STATE.docTipi = STATE.docTipi.filter(x=>x.id!==id);
+  const d=diffQualifica(prima);
+  persist(); Sfx.play("tocco");
+  toast("Tipo eliminato: "+t.label+(d.totale?" · "+frasiDiff(d):""),"ok");
+  render(); openDocTypes();
 }
 // Chiude la pratica: stato finale, dalla consegna all'archivio.
 function closeJob(jid){ const j=byId(STATE.jobs,jid); const u=currentUser();
@@ -3186,12 +3434,22 @@ document.addEventListener("click",e=>{
     case "docDeclare": { const u=currentUser(); if(u&&u.supplierId) openDocForm(u.supplierId, el.dataset.t, true); break; }
     case "doDocDeclare": doDocDeclare(el.dataset.t); break;
     case "docVerify": doDocVerify(el.dataset.sup, el.dataset.t, true); break;
-    case "docReject": { const meta=DOC_TIPI[el.dataset.t]||{};
+    case "docReject": { const meta=docTipo(el.dataset.t)||{};
       openConfirm({title:"Respingere il documento?", kind:"danger",
         body:`<b>${esc(meta.label||"")}</b> risulterà non valido e il fornitore potrebbe diventare non assegnabile. Riceve una notifica con il motivo.`,
         confirmLabel:"S&igrave;, respingi", confirmAct:"doDocReject", data:{sup:el.dataset.sup, t:el.dataset.t},
         backAct:"supDetail", backData:{sup:el.dataset.sup}}); break; }
     case "doDocReject": doDocVerify(el.dataset.sup, el.dataset.t, false); break;
+    case "docTypes": openDocTypes(); break;
+    case "docTypeForm": openDocTypeForm(el.dataset.t||""); break;
+    case "doDocTypeSave": doDocTypeSave(el.dataset.t||""); break;
+    case "docTypeToggle": doDocTypeToggle(el.dataset.t); break;
+    case "docTypeDelete": { const t=docTipo(el.dataset.t)||{};
+      openConfirm({title:"Eliminare il tipo di documento?",
+        body:"<b>"+esc(t.label||"")+"</b> sparisce dal registro e dalla qualifica di tutti i fornitori. Nessun documento è ancora stato registrato con questo tipo, quindi non si perde nulla.",
+        confirmLabel:"Elimina", confirmAct:"doDocTypeDelete", data:{t:el.dataset.t}, kind:"danger",
+        backAct:"docTypeForm", backData:{t:el.dataset.t}}); break; }
+    case "doDocTypeDelete": doDocTypeDelete(el.dataset.t); break;
     case "resetDemo": openConfirm({title:"Ripristinare i dati dimostrativi?", kind:"accent",
       body:"Le commesse, le richieste e gli accessi tornano a quelli iniziali di questa versione. Le prove fatte finora su questo dispositivo vengono perse.",
       confirmLabel:"S&igrave;, ripristina", confirmAct:"doResetDemo"}); break;
