@@ -13,6 +13,11 @@ per ciascuno si decide se è richiesto, se è **bloccante**, chi può vederlo e 
 avvisa prima della scadenza — non come sistema completo di gestione della
 conformità aziendale.
 
+Quattro **profili di accesso**: responsabile di produzione, OTL/caposquadra,
+**responsabile QHSE** (presidio documentale, senza accesso alle commesse) e
+fornitore. Ciascuno vede e può fare cose diverse, e il confine è applicato nelle
+funzioni, non solo nascondendo i pulsanti.
+
 **Documento di riferimento**: [`SPECIFICHE.md`](SPECIFICHE.md) raccoglie in un
 unico posto le specifiche **funzionali, organizzative e tecniche**, con diagrammi
 di stato, di flusso e del modello dati. Ne esiste anche la versione **Word**
@@ -48,7 +53,8 @@ un dispositivo che l'ha già usato può conservare i dati di una versione
 precedente. Ora il portale se ne accorge da solo (i dati hanno una **versione del
 modello**) e li **rigenera** quando l'app si aggiorna. In più, da *cambia utente*
 c'è **Ripristina dati dimostrativi** per tornare ai dati iniziali della versione
-corrente senza toccare le impostazioni del browser. Se apri il portale online da
+corrente senza toccare le impostazioni del browser — riservato al **responsabile
+di produzione**, perché azzera i dati di tutti gli accessi. Se apri il portale online da
 un link salvato nei preferiti, usa sempre l'indirizzo del portale e fai un
 **ricaricamento forzato** (`Ctrl+Shift+R`): un link "fotografato" in precedenza
 può servire una copia vecchia.
@@ -56,9 +62,10 @@ può servire una copia vecchia.
 ## Cosa puoi provare
 
 **Lato Righi**
-- **Dashboard** (per ruolo, vedi sotto): commesse pubblicate/assegnate,
-  **ritardi**, accettazioni da valutare, richieste dei fornitori (KPI cliccabili
-  che portano al filtro) e la lista **Assegnati / in corso** (la commessa appena
+- **Dashboard** (per profilo, vedi sotto): commesse pubblicate/assegnate,
+  **ritardi**, accettazioni da valutare, richieste dei fornitori (le celle del
+  **cartiglio** sono cliccabili e portano al filtro) e la lista
+  **Assegnati / in corso** (la commessa appena
   assegnata compare in cima, evidenziata: così dopo l'assegnazione la si vede
   subito senza cambiare scheda).
 - **Commesse — vista massiva**: pensata per **centinaia di commesse in parallelo**
@@ -260,8 +267,8 @@ esaustiva (bacheca, quotazione, accettazione con firma, avanzamento, richieste
 guidate con foto, profilo e metriche) e include una sezione **domande frequenti**.
 Chiude, per tutti i ruoli, la legenda dei **suoni**.
 
-**Suoni**: ogni evento ha il suo suono, così si capisce cosa è successo **senza
-guardare lo schermo** — mentre si è al telefono o si cammina in reparto. Sono
+**Suoni**: **tredici** suoni, uno per tipo di evento, così si capisce cosa è
+successo **senza guardare lo schermo** — mentre si è al telefono o si cammina in reparto. Sono
 tutti **sintetizzati** dal portale (nessun file audio da scaricare) e seguono
 una grammatica semplice: **chi sale è andato avanti** (accettazione,
 approvazione, avanzamento, richiesta inviata), **chi scende è stato fermato**
@@ -327,7 +334,8 @@ cambi data ed esiti arrivano **sempre**, e la schermata di accesso resta pulita.
 password. Aprendo un link, il portale verifica sempre che quell'utente abbia il
 diritto di vedere quella commessa (o quella richiesta): un fornitore **non** può
 aprire il lavoro di un altro nemmeno conoscendone il codice, e riceve un avviso
-esplicito invece del contenuto.
+esplicito invece del contenuto. Allo stesso modo un **accesso disattivato non
+rientra dal link**: il collegamento identifica, non riapre una porta chiusa.
 
 **Link diretto al portale (magic link)**: ogni email contiene, nel corpo, un
 **link che apre il portale già identificati e direttamente sulla pagina finale**
@@ -344,7 +352,9 @@ firmato e a scadenza** verificato dal server (vedi `BACKEND.md`).
 **Visibilità dei lavori**: un fornitore vede i lavori proposti secondo la
 visibilità (*tutti* o *selezionati*), ma **appena un lavoro viene assegnato
 resta visibile solo all'assegnatario** — gli altri fornitori non vedono le
-commesse affidate a terzi. **Righi vede sempre tutto.**
+commesse affidate a terzi. Lato Righi vedono le commesse il **responsabile di
+produzione** (tutte) e il **caposquadra** (le proprie); il **QHSE** non le vede
+affatto, perché il suo perimetro è documentale.
 
 **Mobile**: interfaccia mobile-first. Su smartphone la vista massiva dei lavori
 diventa una **lista di schede compatte tap-friendly** (niente tabelle da
@@ -445,18 +455,23 @@ lo segnala. Serve a decidere dove **aumentare capacità o accreditare** fornitor
   come tale), così una richiesta generica arriva sempre con una descrizione utile.
 
 **Nuovo utente / accesso**: dalla schermata di accesso o dal menu *cambia
-utente* si crea un nuovo accesso scegliendo il **ruolo** (responsabile,
-OTL/caposquadra o fornitore collegato a un fornitore).
+utente* si crea un nuovo accesso scegliendo il **profilo** — responsabile di
+produzione, OTL/caposquadra, **QHSE** o fornitore collegato a un fornitore. Il
+modulo spiega uno per uno cosa ciascun profilo può fare, e l'accesso nasce con
+l'etichetta presa dal registro dei profili, non scritta a mano.
 
 ## Struttura
 
 | Percorso | Contenuto |
 |---|---|
-| `index.html` | L'app (PWA) — CSS e JS inline, nessun asset esterno |
+| `index.html` | L'app (PWA) — CSS e JS inline, nessun asset esterno. **Sorgente unico di verità** |
 | `manifest.json`, `sw.js`, `logo.svg` | PWA: installazione, offline, icona |
+| `Portale_Fornitori_Righi.html` | Copia autosufficiente per la prova offline: è una **fotografia**, va rigenerata a ogni modifica |
+| `SPECIFICHE.md` | Specifiche funzionali, organizzative e tecniche, con i diagrammi |
+| `Specifiche_Portale_Fornitori_Righi.docx` | Le stesse specifiche in Word, con copertina, indice e diagrammi come immagini |
 | `PIANO_PRODOTTO.md` | Piano di prodotto, sintesi ricerca, roadmap avanzata |
 | `BACKEND.md` | Contratto backend: accessi (auth) + sync multi-utente |
-| `tests/` | Suite native Node (CI: `node tests/run_all.js`) |
+| `tests/` | Suite native Node (`node tests/run_all.js`) |
 
 ## Test
 
@@ -464,12 +479,25 @@ OTL/caposquadra o fornitore collegato a un fornitore).
 cd portale-fornitori && node tests/run_all.js
 ```
 
-Verifica la sintassi dell'app (`node --check`), la logica pura di dominio
-(regole di **visibilità** dei lavori, **ritardi**, **qualifica**, registro dei
-tipi di documento, **anagrafica dei profili** e permessi, scadenzario, integrità
-del seed, helper), il contratto di **sync** e i **suoni** — questi ultimi registrando
-la sintesi voce per voce (scala, timbro, durate, volumi, direzione melodica e
-firma distinta per ogni funzionalità). Nessuna dipendenza esterna.
+Nessuna dipendenza esterna: le suite estraggono i blocchi puri da `index.html` e
+li eseguono in un sandbox, senza DOM.
+
+| Suite | Copre |
+|---|---|
+| `node --check` | La sintassi dello script estratto da `index.html` |
+| **`model_test.js`** (96) | Visibilità dei lavori, ritardi e alert, metriche, capacità, **qualifica** e registro dei tipi di documento, **profili di accesso** e permessi, scadenzario, matching ottimo, flusso massimo e taglio minimo, integrità del seed |
+| **`sync_test.js`** (6) | Il contratto del seam remoto (pull/push, versioni) |
+| **`sfx_test.js`** (26) | I **suoni**, registrando la sintesi voce per voce: scala, timbro, durate, volumi, direzione melodica e firma distinta per ogni funzionalità |
+
+Oltre alle suite native, lo sviluppo usa prove **end-to-end** in browser vero
+(Playwright) e tre **passate di audit** che percorrono tutte le schermate di
+tutti i profili controllando riservatezza, invarianti, persistenza e coerenza dei
+numeri. Non stanno nel repository perché richiedono un browser; i loro esiti sono
+riassunti in [`SPECIFICHE.md` §4.6](SPECIFICHE.md).
+
+**Criteri fissi** applicati a ogni modifica: nessuna funzione vuota, nessun
+pulsante privo di effetto, nessun gestore orfano, nessuna emoji in `index.html`,
+nessun elemento fuori schermo da 320 a 1600 px.
 
 ## Dati e privacy
 
