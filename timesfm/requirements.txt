@@ -1,0 +1,3 @@
+# TimesFM 3.0 — inferenza PyTorch (verificato con Python 3.11 su CPU)
+timesfm[torch]==3.0.0
+pandas>=2.0
